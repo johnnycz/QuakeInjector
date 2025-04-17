@@ -35,6 +35,12 @@ public class Package extends SortableRequirement implements Requirement {
 	 */
 	private ChangeListenerList listeners = new ChangeListenerList();
 
+	private String sha256;
+
+	private String filename;
+
+	private List<String> downloadUrls;
+
 	private String author;
 
 	private String title;
@@ -64,18 +70,9 @@ public class Package extends SortableRequirement implements Requirement {
 	private PackageFileList supposedFileList;
 
 	public Package(String id,
-				   String author,
-				   String title,
-				   int size,
-				   Date date,
-	               boolean isInstalled,
-	               Rating rating,
-	               float normalizedUsersRating,
-	               String description) {
-		this(id, author, title, size, date, isInstalled, rating, normalizedUsersRating, description, null, null, null, null);
-	}
-
-	public Package(String id,
+				   String sha256,
+				   String filename,
+				   List<String> downloadUrls,
 				   String author,
 				   String title,
 				   int size,
@@ -89,6 +86,9 @@ public class Package extends SortableRequirement implements Requirement {
 				   List<String> startmaps,
 				   List<Requirement> requirements) {
 		super(id);
+		this.sha256 = sha256;
+		this.filename = filename;
+		this.downloadUrls = downloadUrls;
 		this.author = author;
 		this.title = title;
 		this.size = size;
@@ -113,7 +113,19 @@ public class Package extends SortableRequirement implements Requirement {
 	public void removeChangeListener(ChangeListener l) {
 		listeners.removeChangeListener(l);
 	}
-	
+
+	public String getSha256() {
+		return sha256;
+	}
+
+	public String getFilename() {
+		return filename;
+	}
+
+	public List<String> getDownloadUrls() {
+		return downloadUrls;
+	}
+
 	public String getAuthor() {
 		return author;
 	}

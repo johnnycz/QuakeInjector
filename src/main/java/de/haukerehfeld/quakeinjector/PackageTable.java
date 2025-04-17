@@ -50,7 +50,9 @@ public class PackageTable extends JTable {
 		
 		final TableRowSorter<PackageListModel> sorter = new TableRowSorter<PackageListModel>(maplist);
 		setRowSorter(sorter);
-		
+		sorter.toggleSortOrder(4);
+		sorter.toggleSortOrder(4);
+
 		setPreferredScrollableViewportSize(new Dimension(500, 500));
 		setFillsViewportHeight(true);
 		setColumnSelectionAllowed(false);

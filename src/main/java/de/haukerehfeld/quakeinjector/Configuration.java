@@ -34,7 +34,7 @@ import java.lang.reflect.Field;
  */
 public class Configuration {
 	private static final String CONFIGHEADER = "Quake Injector " + BuildCommit.getBuildCommit() + " config file";
-	public class EnginePath extends FileValue {
+	public static class EnginePath extends FileValue {
 		private EnginePath() { super("enginePath", null); }
 		
 		public File getUnzipDir(Package map) {
@@ -48,18 +48,18 @@ public class Configuration {
 	}
 	public final EnginePath EnginePath = new EnginePath();
 
-	public class EngineExecutable extends FileValue {
+	public static class EngineExecutable extends FileValue {
 		private EngineExecutable() { super("engineExecutable", new File("")); }
 	}
 	public final EngineExecutable EngineExecutable = new EngineExecutable();
 
-	public class WorkingDirAtExecutable extends BooleanValue {
+	public static class WorkingDirAtExecutable extends BooleanValue {
 		private WorkingDirAtExecutable() { super("workingDirAtExecutable", false); }
 	}
 	public final WorkingDirAtExecutable WorkingDirAtExecutable = new WorkingDirAtExecutable();
 
-	public class LocalDatabaseFile extends FileValue {
-		private LocalDatabaseFile() { super("localDatabaseFile", new File("database.xml")); }
+	public static class LocalDatabaseFile extends FileValue {
+		private LocalDatabaseFile() { super("localDatabaseFile", new File("database.json")); }
 	}
 	public final LocalDatabaseFile LocalDatabaseFile = new LocalDatabaseFile();
 	
@@ -93,36 +93,38 @@ public class Configuration {
 	}
 	public final DownloadPath DownloadPath = new DownloadPath();
 
-	public class EngineCommandLine extends StringValue {
+	public static class EngineCommandLine extends StringValue {
 		private EngineCommandLine() { super("engineCommandline", ""); }
 	}
 	public final EngineCommandLine EngineCommandLine = new EngineCommandLine();
 
-	public class RepositoryDatabasePath extends StringValue {
+	public static class RepositoryDatabasePath extends StringValue {
 		private RepositoryDatabasePath() { super("repositoryDatabase",
-				"https://www.quaddicted.com/reviews/quaddicted_database.xml"); }
+				"https://api.quaddicted.com/jsons"); }
+				//"https://www.quaddicted.com/reviews/quaddicted_database.xml"); }
 	}
 	public final RepositoryDatabasePath RepositoryDatabasePath = new RepositoryDatabasePath();
 	
-	public class ScreenshotRepositoryPath extends StringValue {
+	public static class ScreenshotRepositoryPath extends StringValue {
 		private ScreenshotRepositoryPath() { super("screenshotRepositoryPath",
-				"https://www.quaddicted.com/reviews/screenshots/"); }
+				// https://www.quaddicted.com/files/quaddicted-images/by-sha256/a2/a25043c2b6c1c73b24e4a00c63d95a8a9e08943d8b8e39d7c4571ae3a1899d99/colony3.jpg
+				"https://www.quaddicted.com/files/quaddicted-images/by-sha256/"); }
 	}
 	public final ScreenshotRepositoryPath ScreenshotRepositoryPath = new ScreenshotRepositoryPath();
 
-	public class ZipContentsDatabaseUrl extends StringValue {
+	public static class ZipContentsDatabaseUrl extends StringValue {
 		private ZipContentsDatabaseUrl() { super("ZipContentsDatabaseUrl",
 				"http://haukerehfeld.de/projects/quakeinjector/temp/zipContents.xml"); }
 	}
 	public final ZipContentsDatabaseUrl ZipContentsDatabaseUrl = new ZipContentsDatabaseUrl();
 	
 
-	public class RogueInstalled extends BooleanValue {
+	public static class RogueInstalled extends BooleanValue {
 		private RogueInstalled() { super("rogueInstalled", false); }
 	}
 	public final RogueInstalled RogueInstalled = new RogueInstalled();
 
-	public class OfflineMode extends BooleanValue {
+	public static class OfflineMode extends BooleanValue {
 		private ChangeListenerList listeners = new ChangeListenerList();
 		
 		private OfflineMode() { super("offlineMode", false); }
@@ -139,22 +141,22 @@ public class Configuration {
 	}
 	public final OfflineMode OfflineMode = new OfflineMode();
 
-	public class HipnoticInstalled extends BooleanValue {
+	public static class HipnoticInstalled extends BooleanValue {
 		private HipnoticInstalled() { super("hipnoticInstalled", false); }
 	}
 	public final HipnoticInstalled HipnoticInstalled = new HipnoticInstalled();
 
-	public class MainWindowPositionX extends IntegerValue {
+	public static class MainWindowPositionX extends IntegerValue {
 		private MainWindowPositionX() { super("mainWindowPositionX", null); }
 	}
 	public final MainWindowPositionX MainWindowPositionX = new MainWindowPositionX();
 
-	public class MainWindowPositionY extends IntegerValue {
+	public static class MainWindowPositionY extends IntegerValue {
 		private MainWindowPositionY() { super("mainWindowPositionY", null); }
 	}
 	public final MainWindowPositionY MainWindowPositionY = new MainWindowPositionY();
 
-	public class MainWindowWidth extends IntegerValue {
+	public static class MainWindowWidth extends IntegerValue {
 		private MainWindowWidth() { super("mainWindowWidth", null); }
 	}
 	public final MainWindowWidth MainWindowWidth = new MainWindowWidth();
@@ -164,19 +166,24 @@ public class Configuration {
 	}
 	public final MainWindowHeight MainWindowHeight = new MainWindowHeight();
 
-	public class RepositoryBasePath extends StringValue {
+	public static class RepositoryBasePath extends StringValue {
 		private final static String onlineRepositoryExtension = ".zip";
 		
-		private RepositoryBasePath() { super("repositoryBase", "https://www.quaddicted.com/filebase/"); }
+		private RepositoryBasePath() { super("repositoryBase", "https://www.quaddicted.com/files/by-sha256/"); }
 
 		/**
 		 * Get a complete Url to a map archive file in the repo
 		 */
-		public String getRepositoryUrl(String mapid) {
-			return get() + mapid + onlineRepositoryExtension;
+		public String getRepositoryUrl(String filename, String sha256) {
+			return get() + sha256.substring(0, 2) + "/" + sha256 + "/" + filename;
 		}
 	}
 	public final RepositoryBasePath RepositoryBasePath = new RepositoryBasePath();
+
+	public static class MapWebpageBaseUrl extends StringValue {
+		private MapWebpageBaseUrl() { super("mapWebpageBaseUrl", "https://www.quaddicted.com/db/v1/maps/"); }
+	}
+	public final MapWebpageBaseUrl mapWebpageBaseUrl = new MapWebpageBaseUrl();
 
 	public final Map<String,Value<?>> All = new HashMap<String,Value<?>>();
 	
@@ -349,7 +356,7 @@ public class Configuration {
 		public boolean existsOrDefault();
 	}
 
-	public abstract class AbstractValue<T> implements Value<T> {
+	public abstract static class AbstractValue<T> implements Value<T> {
 		private String key;
 		private T defaultValue;
 		private T value;
@@ -398,7 +405,7 @@ public class Configuration {
 		}
 	}
 
-	public abstract class StringValue extends AbstractValue<String> {
+	public abstract static class StringValue extends AbstractValue<String> {
 		protected StringValue(String key, String defaultValue) { super(key, defaultValue); }
 		
 		public String stringToValue(String v) {
@@ -410,7 +417,7 @@ public class Configuration {
 		}
 	}
 
-	public abstract class FileValue extends AbstractValue<File> {
+	public abstract static class FileValue extends AbstractValue<File> {
 		protected FileValue(String key, File defaultValue) { super(key, defaultValue); }
 		
 		public File stringToValue(String v) {
@@ -419,7 +426,7 @@ public class Configuration {
 	}
 	
 
-	public abstract class BooleanValue extends AbstractValue<Boolean> {
+	public abstract static class BooleanValue extends AbstractValue<Boolean> {
 		protected BooleanValue(String key, boolean defaultValue) { super(key, defaultValue); }
 		
 		public Boolean stringToValue(String v) {
@@ -427,7 +434,7 @@ public class Configuration {
 		}
 	}
 
-	public abstract class IntegerValue extends AbstractValue<Integer> {
+	public abstract static class IntegerValue extends AbstractValue<Integer> {
 		protected IntegerValue(String key, Integer defaultValue) { super(key, defaultValue); }
 		
 		public Integer stringToValue(String v) {

@@ -19,11 +19,7 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
+import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.MalformedURLException;
@@ -62,7 +58,7 @@ import de.haukerehfeld.quakeinjector.gui.ScrollablePanel;
  */
 class PackageDetailPanel extends JPanel implements ChangeListener,
 										PackageListSelectionHandler.SelectionListener {
-	private static final Dimension DEFAULTIMAGESIZE = new Dimension(200, 150);
+	private static final Dimension DEFAULTIMAGESIZE = new Dimension(360, 270);
 	private static final Dimension NOIMAGESIZE = new Dimension(100, 500);
 
 	/**
@@ -103,10 +99,10 @@ class PackageDetailPanel extends JPanel implements ChangeListener,
 		}
 	
 
-	public PackageDetailPanel(String screenshotRepositoryPath) {
+	public PackageDetailPanel(Configuration configuration) {
 		super(new GridBagLayout());
 		
-		this.screenshotRepositoryPath = screenshotRepositoryPath;
+		this.screenshotRepositoryPath = configuration.ScreenshotRepositoryPath.get();
 
 		content = new ScrollablePanel(50, 50) {{
 			setLayout(new GridBagLayout());
@@ -121,10 +117,9 @@ class PackageDetailPanel extends JPanel implements ChangeListener,
 		title.addMouseListener(new MouseAdapter() {
 			public void mouseClicked(MouseEvent arg0) {
 				if (current != null) {
-					// TODO: Refactor; get the URL from Configuration
 					try {
 						// URLs with spaces in the path need escaping to %20, not +. We can't use built in URLEncoder
-						URL url = new URL("https://www.quaddicted.com/reviews/" + current.getId() + ".html");
+						URL url = new URL(configuration.mapWebpageBaseUrl.get() + current.getSha256());
 						URI uri = new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
 						BrowserLauncher.openURL(uri.toASCIIString());
 					}
@@ -164,7 +159,8 @@ class PackageDetailPanel extends JPanel implements ChangeListener,
  				// TODO: Refactor
 				try {
 					// URLs with spaces in the path need escaping to %20, not +. We can't use built in URLEncoder
-					URL url = new URL(PackageDetailPanel.this.screenshotRepositoryPath + current.getId() + ".jpg");
+					URL url = new URL(PackageDetailPanel.this.screenshotRepositoryPath
+							+ current.getSha256().substring(0, 2) + "/" + current.getSha256() + "/" + current.getId() + ".jpg");
 					URI uri = new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
 					BrowserLauncher.openURL(uri.toASCIIString());
 				}
@@ -278,7 +274,7 @@ class PackageDetailPanel extends JPanel implements ChangeListener,
 	private void refreshUi() {
 		title.setText(current.getTitle());
 		date.setText(toString(current.getDate()));
-		size.setText(current.getSize() / 1000f + "mb");
+		size.setText(current.getSize() / 1000f + " MB");
 
 		if (!imageDisplayed) {
 			addImage();
@@ -286,7 +282,7 @@ class PackageDetailPanel extends JPanel implements ChangeListener,
 
 		image.setIcon(null);
 		
-		supposedImageUrl = screenshotRepositoryPath + current.getId() + "_injector.jpg";
+		supposedImageUrl = screenshotRepositoryPath + current.getSha256().substring(0, 2) + "/" + current.getSha256() + "/" + current.getId() + ".jpg";
 		
 		//load image in bg thread
 		new SwingWorker<ImageIcon,Void>() {
@@ -300,7 +296,7 @@ class PackageDetailPanel extends JPanel implements ChangeListener,
 					URI uri = new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
 					URL cleanUrl = new URL(uri.toASCIIString());
 
-					return new ImageIcon(cleanUrl, current.getId());
+					return new ImageIcon(new ImageIcon(cleanUrl, current.getId()).getImage().getScaledInstance(360, 270, Image.SCALE_SMOOTH));
 				}
 				catch (MalformedURLException | URISyntaxException e) {
 				}

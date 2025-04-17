@@ -287,7 +287,7 @@ class PackageInteractionPanel extends JPanel implements ChangeListener,
 		
 
 		installer.install(selectedMap,
-		                  paths.getRepositoryUrl(selectedMap.getId()),
+		                  selectedMap.getDownloadUrls().get(0), // TODO give user the option to choose the URL
 		                  new Installer.InstallErrorHandler() {
 							  public void handle(OnlineFileNotFoundException error) {
 								  installQueue.finished(progressListener,
