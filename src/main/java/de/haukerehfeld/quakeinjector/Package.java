@@ -45,8 +45,6 @@ public class Package extends SortableRequirement implements Requirement {
 
 	private String title;
 
-	private Rating rating;
-
 	private float normalizedUsersRating;
 
 	private String description;
@@ -78,7 +76,6 @@ public class Package extends SortableRequirement implements Requirement {
 				   int size,
 				   Date date,
 				   boolean isInstalled,
-	               Rating rating,
 	               float normalizedUsersRating,
 	               String description,
 				   String relativeBaseDir,
@@ -94,7 +91,6 @@ public class Package extends SortableRequirement implements Requirement {
 		this.size = size;
 		this.date = date;
 		super.setInstalled(isInstalled);
-		this.rating = rating;
 		this.normalizedUsersRating = normalizedUsersRating;
 		this.description = description;
 		this.relativeBaseDir = relativeBaseDir;
@@ -138,11 +134,6 @@ public class Package extends SortableRequirement implements Requirement {
 	public Date getDate() {
 		return date;
 	}
-
-	/**
-	 * get rating
-	 */
-	public Rating getRating() { return rating; }
 
 	public float getNormalizedUsersRating() { return normalizedUsersRating; }
 
@@ -237,22 +228,6 @@ public class Package extends SortableRequirement implements Requirement {
  */
 	public void setSupposedFileList(PackageFileList supposedFileList) { this.supposedFileList = supposedFileList; }
 
-	public static enum Rating {
-		Unrated(0),
-		    Crap(1),
-		    Poor(2),
-		    Average(3),
-		    Nice(4),
-		    Excellent(5);
 
-		private int rating;
-		Rating(int rating) {
-			this.rating = rating;
-		}
-
-		public int getRating() {
-			return rating;
-		}
-	}
 }
 

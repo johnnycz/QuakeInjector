@@ -34,12 +34,12 @@ import java.util.*;
  *
  * <p>The main differences from the old API (besides being JSON instead of XML):</p>
  * <ul>
- *     <li>Rating is not present (will ask for it to be added)</li>
- *     <li>User rating is not present (will ask for it to be added)</li>
+ *     <li>Rating is not present</li>
+ *     <li>User rating is not present </li>
  *     <li>Old identifier is not present (might not be needed, but see below)</li>
  *     <li>Dependency references are identifiers like this: "ad_v1_80p1final", however this identifier is not present
  *     in the actual dependency. Closest we get is filename: "ad_v1_80p1final.zip" which works fine, just a bit sketchy</li>
- *     <li>Contains significantly more data (10x) and takes longer to download (10x). We don't need "files" or "tags_text" for example.</li>
+ *     <li>Contains significantly more data (10x) and takes longer to download (10x)</li>
  * </ul>
  */
 public class PackageDatabaseJsonParser implements PackageDatabaseParser {
@@ -135,8 +135,7 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
                 (int) (jsonPackage.metadata.bytes/1000L),
                 releaseDate,
                 false,
-                Package.Rating.Average, // TODO
-                4, // TODO
+                (float) Math.random()*5, // TODO
                 description.toString(),
                 zipbasedir,
                 processedTags.commandLine,

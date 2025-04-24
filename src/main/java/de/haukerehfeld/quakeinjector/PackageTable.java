@@ -31,6 +31,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableRowSorter;
 
+import de.haukerehfeld.quakeinjector.packagelist.model.Column;
 import de.haukerehfeld.quakeinjector.packagelist.model.PackageListModel;
 
 /**
@@ -50,8 +51,8 @@ public class PackageTable extends JTable {
 		
 		final TableRowSorter<PackageListModel> sorter = new TableRowSorter<PackageListModel>(maplist);
 		setRowSorter(sorter);
-		sorter.toggleSortOrder(4);
-		sorter.toggleSortOrder(4);
+		sorter.toggleSortOrder(Column.RELEASEDATE.ordinal());
+		sorter.toggleSortOrder(Column.RELEASEDATE.ordinal());
 
 		setPreferredScrollableViewportSize(new Dimension(500, 500));
 		setFillsViewportHeight(true);
@@ -62,7 +63,7 @@ public class PackageTable extends JTable {
 		setIntercellSpacing(new Dimension(0, 0));
 		setRowHeight(getFontMetrics(getFont()).getHeight());
 
-		setDefaultRenderer(Package.Rating.class, new PackageListModel.RatingRenderer());		
+		//getColumnModel().getColumn(Column.NORMALIZEDUSERSRATING.ordinal()).setCellRenderer(new PackageListModel.BarRenderer());
 	}
 	
     /**
@@ -70,24 +71,40 @@ public class PackageTable extends JTable {
      */
 	public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
 		Component c = super.prepareRenderer(renderer, row, column);
-        if (isCellSelected(row, column) == false) {
-            c.setBackground(colorForRow(row));
-            c.setForeground(UIManager.getColor("Table.foreground"));
-        } else {
-            c.setBackground(UIManager.getColor("Table.selectionBackground"));
-            c.setForeground(UIManager.getColor("Table.selectionForeground"));
-        }
-        //disable cell focus
-        if (c instanceof JComponent) {
-			if (!(c instanceof PackageListModel.RatingRenderer)) {
-				((JComponent) c).setBorder(border);
-			}
-			else {
-				((JComponent) c).setBorder(new EmptyBorder(0, 0, 0, 0));
-			}
+		if (!isRatingColumn(c)) {
+			prepareNonRatingColumnRenderer(row, column, c);
+		} else {
+			prepareRatingColumnRenderer(row, column, c);
 		}
         return c;
-    }	
+    }
+
+	private void prepareNonRatingColumnRenderer(int row, int column, Component c) {
+		if (!isCellSelected(row, column)) {
+			c.setBackground(colorForRow(row));
+			c.setForeground(UIManager.getColor("Table.foreground"));
+		} else {
+			c.setBackground(UIManager.getColor("Table.selectionBackground"));
+			c.setForeground(UIManager.getColor("Table.selectionForeground"));
+		}
+		//disable cell focus
+		if (c instanceof JComponent) {
+			((JComponent) c).setBorder(border);
+		}
+	}
+
+	private void prepareRatingColumnRenderer(int row, int column, Component c) {
+		if (isCellSelected(row, column)) {
+			c.setForeground(UIManager.getColor("Table.foreground"));
+		}
+		if (c instanceof JComponent) {
+			((JComponent) c).setBorder(new EmptyBorder(0, 0, 0, 0));
+		}
+	}
+
+	private static boolean isRatingColumn(Component c) {
+		return c instanceof PackageListModel.BarRenderer;
+	}
 
 	/**
      * Returns the appropriate background color for the given row.

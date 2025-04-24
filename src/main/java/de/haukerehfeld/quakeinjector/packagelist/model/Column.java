@@ -56,17 +56,19 @@ public enum Column {
 		}
 		public Class<? extends Object> getColumnClass() { return Date.class; }
 	},
-		RATING("Rating") {
+		SIZE("Size (MB)") {
 		public Object getData(Package p) {
-			return p.getRating();
-		}
-		public Class<? extends Object> getColumnClass() { return Package.Rating.class; }
-	},
-		NORMALIZEDUSERSRATING("Users'") {
-		public Object getData(Package p) {
-			return String.format("%.2f", p.getNormalizedUsersRating());
+			return p.getSize() / (1024);
 		}
 		public Class<? extends Object> getColumnClass() { return Integer.class; }
+    /*
+	},
+		NORMALIZEDUSERSRATING("Rating") {
+		public Object getData(Package p) {
+			return p.getNormalizedUsersRating();
+		}
+		public Class<? extends Object> getColumnClass() { return Float.class; }
+    */
 	}
 		;
 
