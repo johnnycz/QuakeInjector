@@ -125,8 +125,16 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
 
         List<String> urls = getDownloadUrls(jsonPackage, processedTags);
 
+        String legacyId = stripExtension(processedTags.filename);
+
+        List<String> startMaps = processedTags.startMaps;
+
+        if (startMaps.isEmpty()) {
+            startMaps.add(legacyId);
+        }
+
         var pkg = new Package(
-                stripExtension(processedTags.filename),
+                legacyId,
                 jsonPackage.sha256,
                 processedTags.filename,
                 urls,
@@ -139,7 +147,7 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
                 description.toString(),
                 zipbasedir,
                 processedTags.commandLine,
-                processedTags.startMaps,
+                startMaps,
                 Collections.emptyList()
         );
         unresolvedRequirements.put(pkg, processedTags.dependencies);
