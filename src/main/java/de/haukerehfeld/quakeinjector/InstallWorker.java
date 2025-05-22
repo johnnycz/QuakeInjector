@@ -19,14 +19,17 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
-import java.io.BufferedInputStream;
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.ArchiveException;
+import org.apache.commons.compress.archivers.ArchiveInputStream;
+import org.apache.commons.compress.archivers.ArchiveStreamFactory;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 import javax.swing.SwingWorker;
 
@@ -74,8 +77,8 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 
 	@Override
 	public PackageFileList doInBackground() throws IOException,
-	    FileNotFoundException,
-	    Installer.CancelledException {
+            FileNotFoundException,
+            Installer.CancelledException, ArchiveException {
 		System.out.println("Installing " + map.getId());
 
 		unzip(input,
@@ -97,20 +100,20 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 	                            String unzipdir,
 	                            String mapid,
 	                            List<File> overwrites)
-	    throws IOException, FileNotFoundException, Installer.CancelledException {
+            throws IOException, FileNotFoundException, Installer.CancelledException, ArchiveException {
 		//build progress filter chain
 		ProgressListener progress =
 			    new SumProgressListener(
 					new PercentageProgressListener(downloadSize,
 					                               new CheckCanceledProgressListener(this,
 					                                                                 this)));
-		
 
-		ZipInputStream zis = new ZipInputStream(new BufferedInputStream(in));
-		ZipEntry entry;
+		ArchiveInputStream<? extends ArchiveEntry> archiveStream = new ArchiveStreamFactory()
+				.createArchiveInputStream(in);
+		ArchiveEntry entry;
 
 		boolean extracted = false;
-		while((entry = zis.getNextEntry()) != null) {
+		while((entry = archiveStream.getNextEntry()) != null) {
 			File f = new File(unzipdir + File.separator + entry.getName());
 			String filename = RelativePath.getRelativePath(basedir, f).toString();
 			
@@ -131,13 +134,13 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 					System.out.println("create Temp file " + f);
 				}
 
-				System.out.println("Writing " + filename + " (" + entry.getCompressedSize() + "b)");
+				System.out.println("Writing " + filename + " (" + entry.getSize() + "b)");
 
 				long crc;
 				try {
-					crc = Utils.writeFile(zis,
+					crc = Utils.writeFile(archiveStream,
 					                      f,
-					                      new CompressedProgressListener(entry.getCompressedSize()
+					                      new CompressedProgressListener(entry.getSize()
 					                                                     / (double) entry.getSize(),
 					                                                     progress));
 				}
@@ -145,7 +148,7 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 					throw new FileNotWritableException(e.getMessage());
 				}
 
-				if (crc != entry.getCrc()) {
+				if (entry instanceof ZipArchiveEntry && crc != ((ZipArchiveEntry) entry).getCrc()) {
 					System.err.println("Crc32 didn't match on extraction of " + original + ", removing...");
 					f.delete();
 					continue;
@@ -175,7 +178,7 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 		if (!extracted) {
 			throw new java.util.zip.ZipException("No files extracted from zip, is it an empty file?");
 		}
-		zis.close();
+		archiveStream.close(); //FIXME close with try-finally
 	}
 
 	public void publish(long progress) {

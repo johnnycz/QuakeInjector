@@ -19,15 +19,10 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.Console;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+
+import java.io.*;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.zip.ZipEntry;
 
 /**
  * Create an xml of all the files in the zips
@@ -102,24 +96,27 @@ public class ZipInspect {
 			}
 			System.out.println(f);
 
-			try {
-				FileInputStream in = new FileInputStream(f);
+			try (BufferedInputStream in = new BufferedInputStream(new FileInputStream(f))) {
 				InspectZipWorker inspector = new InspectZipWorker(in);
 				inspector.execute();
 
-				final List<ZipEntry> entries = inspector.get();
+				final List<ArchiveEntry> entries = inspector.get();
 
 				final PackageFileList zipFiles = new PackageFileList(p.getId());
 				String dir = p.getRelativeBaseDir();
 
-				for (ZipEntry e: entries) {
+				for (ArchiveEntry e: entries) {
 					String file = "";
 					if (dir != null) {
 						file = dir;
 					}
 					file += e.getName();
 
-					FileInfo info = new FileInfo(file, e.getCrc());
+					long crc = e.getSize();
+					if (e instanceof ZipArchiveEntry) {
+						crc = ((ZipArchiveEntry) e).getCrc();
+					}
+					FileInfo info = new FileInfo(file, crc);
 					zipFiles.add(info);
 
 					List<Map.Entry<Package,FileInfo>> dupMaps =

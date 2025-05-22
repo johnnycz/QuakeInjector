@@ -19,40 +19,43 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.ArchiveException;
+import org.apache.commons.compress.archivers.ArchiveInputStream;
+import org.apache.commons.compress.archivers.ArchiveStreamFactory;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.BufferedInputStream;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 import javax.swing.SwingWorker;
 
 /**
- * Inspect a zipfile and gather all zipentries
+ * Inspect the archive and gather all entries
  */
-public class InspectZipWorker extends SwingWorker<List<ZipEntry>, Void> {
-	private InputStream input;
+public class InspectZipWorker extends SwingWorker<List<ArchiveEntry>, Void> {
+	private final InputStream input;
 
 	public InspectZipWorker(InputStream input) {
 		this.input = input;
 	}
 
 	@Override
-	public List<ZipEntry> doInBackground() throws IOException,
-	    FileNotFoundException {
-		ZipInputStream zis = new ZipInputStream(new BufferedInputStream(input));
-		List<ZipEntry> entries = new ArrayList<ZipEntry>();
+	public List<ArchiveEntry> doInBackground() throws IOException,
+            FileNotFoundException, ArchiveException {
+		try (ArchiveInputStream<? extends ArchiveEntry> archiveStream = new ArchiveStreamFactory()
+				.createArchiveInputStream(input)) {
+			List<ArchiveEntry> entries = new ArrayList<>();
 
-		ZipEntry entry;
-		while((entry = zis.getNextEntry()) != null) {
-			entries.add(entry);
-			
+			ArchiveEntry entry;
+			while ((entry = archiveStream.getNextEntry()) != null) {
+				entries.add(entry);
+
+			}
+
+			return entries;
 		}
-		zis.close();
-
-		return entries;
 	}
 }
