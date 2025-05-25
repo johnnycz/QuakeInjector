@@ -74,8 +74,8 @@ public class QuakeInjector extends JFrame {
 	private static final int[] ICON_SIZES = { 16, 32, 48, 256 };
 	
 	private static final String applicationName = "Quake Injector";
-	private static final int minWidth = 300;
-	private static final int minHeight = 300;
+	private static final int minWidth = 1024;
+	private static final int minHeight = 768;
 
 	private final static String installedMapsFileName = "installedMaps.xml";
 	private final static File installedMapsFile = new File(installedMapsFileName);
