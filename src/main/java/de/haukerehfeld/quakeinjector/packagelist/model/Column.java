@@ -58,7 +58,7 @@ public enum Column {
 	},
 		SIZE("Size (MB)") {
 		public Object getData(Package p) {
-			return p.getSize() / (1024);
+			return Math.round(10.0 * p.getSize() / (1024.0)) / 10.0;
 		}
 		public Class<? extends Object> getColumnClass() { return Integer.class; }
     /*
