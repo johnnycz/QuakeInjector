@@ -374,7 +374,6 @@ public class QuakeInjector extends JFrame {
 					return parseResult;
 				}
 				catch (Exception e) {
-					e.printStackTrace();
 					cacheReadStream = cachedDatabaseStream();
 					return parseDatabase(cacheReadStream);
 				}
