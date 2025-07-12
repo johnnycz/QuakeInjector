@@ -330,7 +330,7 @@ public class QuakeInjector extends JFrame {
 
 	private List<Requirement> parseDatabase(InputStream database)
 		throws IOException, org.xml.sax.SAXException {
-		final PackageDatabaseParser parser = new PackageDatabaseJsonParser(config);
+		final PackageDatabaseParser parser = new PackageDatabaseSolrJsonParser(config);
 		
 		List<Requirement> all = parser.parse(database);
 

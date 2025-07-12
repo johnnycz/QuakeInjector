@@ -103,8 +103,7 @@ public class Configuration {
 
 	public static class RepositoryDatabasePath extends StringValue {
 		private RepositoryDatabasePath() { super("repositoryDatabase",
-				"https://api.quaddicted.com/jsons"); }
-				//"https://www.quaddicted.com/reviews/quaddicted_database.xml"); }
+				"https://www.quaddicted.com/api/v1/?q=*"); }
 	}
 	public final RepositoryDatabasePath RepositoryDatabasePath = new RepositoryDatabasePath();
 	

@@ -6,23 +6,23 @@ import java.io.File;
 import java.io.InputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class PackageDatabaseJsonParserTest {
+public class PackageDatabaseSolrJsonParserTest {
 
-    private final PackageDatabaseParser parser = new PackageDatabaseJsonParser(new Configuration(new File("nonexistent")));
+    private final PackageDatabaseParser parser = new PackageDatabaseSolrJsonParser(new Configuration(new File("nonexistent")));
 
     @Test
     public void importsAllEntries() {
-        var result = parser.parse(testResourceFirst12());
-        assertEquals(12, result.size());
+        var result = parser.parse(testResource("/solr.json"));
+        assertEquals(28, result.size());
     }
 
     @Test
     public void readsNonNullValues() {
-        var result = parser.parse(testResourceFirst12());
+        var result = parser.parse(testResource("/solr.json"));
         for (Requirement r : result) {
+            assertNotNull(r);
+
             Package entry = (Package) r;
 
             assertNotNull(entry.getDate());
@@ -36,10 +36,11 @@ public class PackageDatabaseJsonParserTest {
 
         }
     }
-    private InputStream testResourceFirst12() {
-        var is = getClass().getResourceAsStream("/first-12.json");
+
+    private InputStream testResource(String path) {
+        var is = getClass().getResourceAsStream(path);
         if (is == null) {
-            throw new RuntimeException("Cannot load test resource first-12.json");
+            throw new RuntimeException("Cannot load test resource '" + path + "'");
         }
         return is;
     }
