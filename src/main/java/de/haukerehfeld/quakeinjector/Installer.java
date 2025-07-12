@@ -183,16 +183,16 @@ public class Installer {
 		private Throwable error;
 
 		private final String url;
-		private final Package map;
+		private final Package installedPackage;
 		private final InstallErrorHandler handler;
 		private final PropertyChangeListener downloadProgressListener;
 
 		public Worker(String url,
-		              Package map,
+		              Package installedPackage,
 		              InstallErrorHandler handler,
 		              PropertyChangeListener downloadProgressListener) {
 			this.url = url;
-			this.map = map;
+			this.installedPackage = installedPackage;
 			this.handler = handler;
 			this.downloadProgressListener = downloadProgressListener;
 		}
@@ -200,7 +200,7 @@ public class Installer {
 		@Override
 		    public Void doInBackground() {
 			try {
-				final File downloadFile = new File(downloadDirectory.get().getAbsolutePath() + File.separator + map.getId() + ".zip");
+				final File downloadFile = new File(downloadDirectory.get().getAbsolutePath() + File.separator + installedPackage.getId() + ".zip");
 				System.out.println("Downloading to " + downloadFile);
 
 				long downloadSize;
@@ -232,7 +232,7 @@ public class Installer {
 				System.out.println("Inspecting downloaded archive..." + downloadFile);
 				Map<String, File> existingFiles;
 				try (BufferedInputStream inspectStream = new BufferedInputStream(new FileInputStream(downloadFile))) {
-					existingFiles = inspect(inspectStream);
+					existingFiles = findExistingFiles(inspectStream);
 				}
 				System.out.println("done.");
 
@@ -246,13 +246,12 @@ public class Installer {
 				if (overwrites == null || !overwrites.isEmpty()) {
 					//and start install
 					System.out.println("Starting install");
-					String mapDir = installDirectory.getUnzipDir(map).getAbsolutePath();
 					BufferedInputStream in = new BufferedInputStream(new FileInputStream(downloadFile));
 					installer = new InstallWorker(in,
 					                              downloadSize,
-					                              map,
+						                          installedPackage,
 					                              installDirectory.get(),
-					                              mapDir,
+							                      installedPackage.getExtractMapping(),
 					                              overwrites);
 					synchronized (activeInstallers) { activeInstallers.submit(installer); }
 					//make sure file streams get closed
@@ -309,7 +308,7 @@ public class Installer {
 			return downloader.get();
 		}
 
-		private Map<String,File> inspect(final InputStream in) throws
+		private Map<String,File> findExistingFiles(final InputStream in) throws
 		    IOException,
 		    InterruptedException,
 			ExecutionException  {
@@ -328,7 +327,10 @@ public class Installer {
 				if (z.isDirectory()) {
 					continue;
 				}
-				File f = new File(installDirectory.getUnzipDir(map).getAbsolutePath() + File.separator + z.getName());
+				File f = installDirectory.getUnzipFile(installedPackage, z.getName());
+                if (f == null) {
+                    continue;
+                }
 				String name
 				    = RelativePath.getRelativePath(installDirectory.get(), f).toString();
 				files.put(name, f);
@@ -371,7 +373,7 @@ public class Installer {
 				files = installer.getInstalledFiles();
 			}
 			else {
-				files = new PackageFileList(map.getId());
+				files = new PackageFileList(installedPackage.getId());
 			}
 			
 			//see if there was an error
@@ -408,7 +410,7 @@ public class Installer {
 			}
 
 			System.out.println("Done saving installedmaps");
-			synchronized (queue) { queue.remove(map); }
+			synchronized (queue) { queue.remove(installedPackage); }
 
 		}
 	}	

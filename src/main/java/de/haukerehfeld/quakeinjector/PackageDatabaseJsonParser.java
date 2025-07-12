@@ -19,6 +19,7 @@ package de.haukerehfeld.quakeinjector;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
+import de.haukerehfeld.quakeinjector.repackage.ExtractMapping;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -72,6 +73,7 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
 
     private static class Install {
         public String extract;
+        public Map<String, String> extractmapping;
     }
 
     private static class ProcessedTags {
@@ -119,7 +121,7 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
 
         var processedTags = processTags(jsonPackage.metadata.tags);
 
-        var zipbasedir = getZipbasedir(jsonPackage, processedTags);
+        var extractMapping = getExtractMapping(jsonPackage, processedTags);
 
         StringBuilder description = getDescription(jsonPackage, processedTags);
 
@@ -145,7 +147,7 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
                 false,
                 (float) Math.random()*5, // TODO
                 description.toString(),
-                zipbasedir,
+                extractMapping,
                 processedTags.commandLine,
                 startMaps,
                 Collections.emptyList()
@@ -154,24 +156,26 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
         return pkg;
     }
 
-    private String getZipbasedir(JsonPackage jsonPackage, ProcessedTags processedTags) {
-        var zipbasedir = processedTags.zipbasedir;
-        if (zipbasedir == null) {
-            if (jsonPackage.metadata.install == null) {
-                throw new PackageDatabaseParseException("metadata.install missing");
+    private ExtractMapping getExtractMapping(JsonPackage jsonPackage, ProcessedTags processedTags) {
+        ExtractMapping mapping = new ExtractMapping();
+
+        if (processedTags.zipbasedir != null) {
+            mapping.addMapping("/", processedTags.zipbasedir);
+        }
+
+        Install install = jsonPackage.metadata.install;
+        if (install != null) {
+            if (install.extract != null) {
+                mapping.addMapping("/", install.extract);
             }
-            if (jsonPackage.metadata.install.extract == null) {
-                throw new PackageDatabaseParseException("metadata.install.extract is missing");
+            if (install.extractmapping != null) {
+                for (Map.Entry<String, String> entry : install.extractmapping.entrySet()) {
+                    mapping.addMapping(entry.getKey(), entry.getValue());
+                }
             }
-            zipbasedir = jsonPackage.metadata.install.extract;
         }
-        if (zipbasedir.startsWith("{base}")) {
-            zipbasedir = zipbasedir.substring("{base}".length());
-        }
-        if (zipbasedir.startsWith("/")) {
-            zipbasedir = zipbasedir.substring(1);
-        }
-        return zipbasedir;
+
+        return mapping;
     }
 
     private List<String> getDownloadUrls(JsonPackage jsonPackage, ProcessedTags processedTags) {

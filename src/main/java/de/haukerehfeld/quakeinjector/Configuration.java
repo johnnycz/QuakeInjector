@@ -39,13 +39,14 @@ public class Configuration {
 	public static class EnginePath extends FileValue {
 		private EnginePath() { super("enginePath", null); }
 		
-		public File getUnzipDir(Package map) {
-			String relativedir = map.getRelativeBaseDir();
-			String unzipdir = get().getAbsolutePath();
-			if (relativedir != null) {
-				unzipdir += File.separator + relativedir;
+		public File getUnzipFile(Package map, String entryName) {
+			String relativePath = map.getExtractMapping().remap(entryName);
+			String baseDir = get().getAbsolutePath();
+			if (relativePath != null) {
+				return new File(baseDir + File.separator + relativePath);
+			} else {
+                return null;
 			}
-			return new File(unzipdir);
 		}
 	}
 	public final EnginePath EnginePath = new EnginePath();

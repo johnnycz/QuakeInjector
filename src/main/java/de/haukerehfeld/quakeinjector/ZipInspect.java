@@ -103,7 +103,7 @@ public class ZipInspect {
 				final List<ArchiveEntry> entries = inspector.get();
 
 				final PackageFileList zipFiles = new PackageFileList(p.getId());
-				String dir = p.getRelativeBaseDir();
+				String dir = p.getExtractMapping().remap("/");
 
 				for (ArchiveEntry e: entries) {
 					String file = "";
