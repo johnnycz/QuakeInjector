@@ -10,6 +10,9 @@ build
 
 
 database.xml
+database.xml*.tmp
+database.json
+database.json*.tmp
 installedMaps.xml
 config.properties
 jre/

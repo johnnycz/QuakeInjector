@@ -118,7 +118,9 @@ public class Installer {
 	public void cancel(Package installerMap) {
 		Worker w;
 		synchronized (queue) { w = queue.get(installerMap); }
-		w.cancel();
+		if (w != null) {
+			w.cancel();
+		}
 	}
 
 

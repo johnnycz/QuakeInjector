@@ -67,7 +67,7 @@ public class ZipInspect {
 		List<Requirement> requirements = null;
 		{
 			final PackageDatabaseParserWorker requirementsParser
-			    = new PackageDatabaseParserWorker(config.RepositoryDatabasePath.get());
+			    = new PackageDatabaseParserWorker(config);
 			requirementsParser.execute();
 
 

@@ -35,11 +35,15 @@ public class Package extends SortableRequirement implements Requirement {
 	 */
 	private ChangeListenerList listeners = new ChangeListenerList();
 
+	private String sha256;
+
+	private String filename;
+
+	private List<String> downloadUrls;
+
 	private String author;
 
 	private String title;
-
-	private Rating rating;
 
 	private float normalizedUsersRating;
 
@@ -64,24 +68,14 @@ public class Package extends SortableRequirement implements Requirement {
 	private PackageFileList supposedFileList;
 
 	public Package(String id,
-				   String author,
-				   String title,
-				   int size,
-				   Date date,
-	               boolean isInstalled,
-	               Rating rating,
-	               float normalizedUsersRating,
-	               String description) {
-		this(id, author, title, size, date, isInstalled, rating, normalizedUsersRating, description, null, null, null, null);
-	}
-
-	public Package(String id,
+				   String sha256,
+				   String filename,
+				   List<String> downloadUrls,
 				   String author,
 				   String title,
 				   int size,
 				   Date date,
 				   boolean isInstalled,
-	               Rating rating,
 	               float normalizedUsersRating,
 	               String description,
 				   String relativeBaseDir,
@@ -89,12 +83,14 @@ public class Package extends SortableRequirement implements Requirement {
 				   List<String> startmaps,
 				   List<Requirement> requirements) {
 		super(id);
+		this.sha256 = sha256;
+		this.filename = filename;
+		this.downloadUrls = downloadUrls;
 		this.author = author;
 		this.title = title;
 		this.size = size;
 		this.date = date;
 		super.setInstalled(isInstalled);
-		this.rating = rating;
 		this.normalizedUsersRating = normalizedUsersRating;
 		this.description = description;
 		this.relativeBaseDir = relativeBaseDir;
@@ -113,7 +109,19 @@ public class Package extends SortableRequirement implements Requirement {
 	public void removeChangeListener(ChangeListener l) {
 		listeners.removeChangeListener(l);
 	}
-	
+
+	public String getSha256() {
+		return sha256;
+	}
+
+	public String getFilename() {
+		return filename;
+	}
+
+	public List<String> getDownloadUrls() {
+		return downloadUrls;
+	}
+
 	public String getAuthor() {
 		return author;
 	}
@@ -126,11 +134,6 @@ public class Package extends SortableRequirement implements Requirement {
 	public Date getDate() {
 		return date;
 	}
-
-	/**
-	 * get rating
-	 */
-	public Rating getRating() { return rating; }
 
 	public float getNormalizedUsersRating() { return normalizedUsersRating; }
 
@@ -225,22 +228,6 @@ public class Package extends SortableRequirement implements Requirement {
  */
 	public void setSupposedFileList(PackageFileList supposedFileList) { this.supposedFileList = supposedFileList; }
 
-	public static enum Rating {
-		Unrated(0),
-		    Crap(1),
-		    Poor(2),
-		    Average(3),
-		    Nice(4),
-		    Excellent(5);
 
-		private int rating;
-		Rating(int rating) {
-			this.rating = rating;
-		}
-
-		public int getRating() {
-			return rating;
-		}
-	}
 }
 

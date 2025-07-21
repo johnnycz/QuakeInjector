@@ -74,8 +74,8 @@ public class QuakeInjector extends JFrame {
 	private static final int[] ICON_SIZES = { 16, 32, 48, 256 };
 	
 	private static final String applicationName = "Quake Injector";
-	private static final int minWidth = 300;
-	private static final int minHeight = 300;
+	private static final int minWidth = 1024;
+	private static final int minHeight = 768;
 
 	private final static String installedMapsFileName = "installedMaps.xml";
 	private final static File installedMapsFile = new File(installedMapsFileName);
@@ -319,9 +319,9 @@ public class QuakeInjector extends JFrame {
 
 	private List<Requirement> parseDatabase(InputStream database)
 		throws IOException, org.xml.sax.SAXException {
-		final PackageDatabaseParser parser = new PackageDatabaseParser();
+		final PackageDatabaseParser parser = new PackageDatabaseJsonParser(config);
 		
-		List<Requirement> all = parser.parse(XmlUtils.getDocument(database));
+		List<Requirement> all = parser.parse(database);
 
 		return all;
 	}
@@ -373,17 +373,7 @@ public class QuakeInjector extends JFrame {
 					updateCache = true;
 					return parseResult;
 				}
-				// if using java 7 we could more nicely do:
-				// catch (IOException | org.xml.sax.SAXException e) {
-				catch (IOException e) {
-					cacheReadStream = cachedDatabaseStream();
-					return parseDatabase(cacheReadStream);
-				}
-				catch (org.xml.sax.SAXException e) {
-					cacheReadStream = cachedDatabaseStream();
-					return parseDatabase(cacheReadStream);
-				}
-				catch (HTTPException e) {
+				catch (Exception e) {
 					cacheReadStream = cachedDatabaseStream();
 					return parseDatabase(cacheReadStream);
 				}
@@ -550,7 +540,7 @@ public class QuakeInjector extends JFrame {
 						offline.set(true);
 					}
 					catch (Throwable any) { /*do nothing*/; }
-					
+
 					JOptionPane.showMessageDialog(QuakeInjector.this,
 					                              ERROR_MESSAGE + " " + msg,
 					                              ERROR_MESSAGE,
@@ -804,7 +794,7 @@ public class QuakeInjector extends JFrame {
 		JPanel infoPanel = new JPanel(new GridBagLayout());
 		
 		Configuration config = getConfig();
-		PackageDetailPanel details = new PackageDetailPanel(config.ScreenshotRepositoryPath.get());
+		PackageDetailPanel details = new PackageDetailPanel(config);
 		
 		infoPanel.add(details, new GridBagConstraints() {{
 			anchor = PAGE_START;
@@ -842,8 +832,8 @@ public class QuakeInjector extends JFrame {
 		infoSplit.setOneTouchExpandable(true);
 		infoSplit.setResizeWeight(1);
 		infoSplit.setContinuousLayout(true);
-		infoSplit.setDividerLocation(400);
-		infoSplit.setMinimumSize(new Dimension(200, 300));
+		infoSplit.setDividerLocation(600);
+		infoSplit.setMinimumSize(new Dimension(400, 600));
 		
 		PackageListSelectionHandler selectionHandler
 			= new PackageListSelectionHandler(maplist,
@@ -881,15 +871,15 @@ public class QuakeInjector extends JFrame {
 	 * @return false if the user didn't open the config dialog
 	 */
 	public boolean enginePathNotSetDialogue() {
-		String msg = "Quakepath isn't set correctly.\n"
-		    + "It  needs to be set before trying to install (or play).";
+		String msg = "Quake directory is not set correctly.\n"
+		    + "It needs to be set before trying to install (or play).";
 
 		Object[] options = {"Open Engine Configuration",
 		                    "Cancel"};
 		int openEngineConfig =
 		    JOptionPane.showOptionDialog(QuakeInjector.this,
 		                                 msg,
-		                                 "Quakepaths incorrect",
+		                                 "Quake directory incorrect",
 		                                 JOptionPane.YES_NO_OPTION,
 		                                 JOptionPane.ERROR_MESSAGE,
 		                                 null,

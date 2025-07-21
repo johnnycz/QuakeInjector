@@ -19,20 +19,12 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector.packagelist.model;
 
-import java.awt.Component;
-import java.awt.FlowLayout;
+import java.awt.*;
 import java.util.ArrayList;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import javax.swing.ImageIcon;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JTable;
-import javax.swing.RowFilter;
-import javax.swing.border.EmptyBorder;
+import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.TableModelEvent;
@@ -42,7 +34,6 @@ import javax.swing.table.TableColumnModel;
 
 import de.haukerehfeld.quakeinjector.ChangeListenerList;
 import de.haukerehfeld.quakeinjector.PackageList;
-import de.haukerehfeld.quakeinjector.Utils;
 import de.haukerehfeld.quakeinjector.Package;
 
 public class PackageListModel extends AbstractTableModel implements ChangeListener {
@@ -65,16 +56,16 @@ public class PackageListModel extends AbstractTableModel implements ChangeListen
 		m.getColumn(Column.getColumnNumber(Column.INSTALLED)).setMaxWidth(16);
 		m.getColumn(Column.getColumnNumber(Column.INSTALLED)).setMinWidth(16);
 
-		int ratingSize = 5 * (RatingRenderer.ICONSIZE + RatingRenderer.HORIZONTALGAP)
-		    + RatingRenderer.HORIZONTALGAP;
-		m.getColumn(Column.getColumnNumber(Column.RATING)).setMinWidth(ratingSize);
-		m.getColumn(Column.getColumnNumber(Column.RATING)).setMaxWidth(ratingSize);
-		m.getColumn(Column.getColumnNumber(Column.RATING)).setResizable(false);
+		m.getColumn(Column.getColumnNumber(Column.SIZE)).setMinWidth(90);
+		m.getColumn(Column.getColumnNumber(Column.SIZE)).setMaxWidth(90);
+		m.getColumn(Column.getColumnNumber(Column.SIZE)).setResizable(true);
 
-		m.getColumn(Column.getColumnNumber(Column.NORMALIZEDUSERSRATING)).setMinWidth(48);
-		m.getColumn(Column.getColumnNumber(Column.NORMALIZEDUSERSRATING)).setMaxWidth(48);
-		m.getColumn(Column.getColumnNumber(Column.NORMALIZEDUSERSRATING)).setResizable(false);
-		
+		/*
+		m.getColumn(Column.getColumnNumber(Column.NORMALIZEDUSERSRATING)).setMinWidth(90);
+		m.getColumn(Column.getColumnNumber(Column.NORMALIZEDUSERSRATING)).setMaxWidth(90);
+		m.getColumn(Column.getColumnNumber(Column.NORMALIZEDUSERSRATING)).setResizable(true);
+		*/
+
 		m.getColumn(Column.getColumnNumber(Column.RELEASEDATE)).setMinWidth(75);
 		m.getColumn(Column.getColumnNumber(Column.RELEASEDATE)).setPreferredWidth(80);
 		//m.getColumn(Column.getColumnNumber(Column.RELEASEDATE)).setMaxWidth(80);
@@ -219,64 +210,43 @@ public class PackageListModel extends AbstractTableModel implements ChangeListen
 		};
 
 		return rf;
-	}					
-	
-	public static class RatingRenderer extends JPanel implements TableCellRenderer {
-		private static final int HORIZONTALGAP = 2;
-		private static final int ICONSIZE = 8;
+	}
 
-		private ImageIcon activeIcon;
-		private ImageIcon inactiveIcon;
+	public static class BarRenderer extends JProgressBar implements TableCellRenderer {
+		private final Color[] colors = new Color[101];
 
-		private List<JLabel> ratingLabels = new ArrayList<JLabel>(5);
+		public BarRenderer() {
+			super(0, 100); // Min and max values for the bar
+			setStringPainted(true);
+			setOpaque(true);
+			initColors();
+		}
 
-		public RatingRenderer() {
-			super();
-
-			try {
-				activeIcon = Utils.createImageIcon("/star_spirit_8.png", "activeStar");
-				inactiveIcon = Utils.createImageIcon("/star_spirit_8_inactive.png", "inactiveStar");
-			}
-			catch (java.io.IOException e) {
-				System.err.println("WARNING: Couldn't load rating image!");
-			}
-			
-			EmptyBorder border = new EmptyBorder(0,0,0,0);
-			setBorder(border);
-			((FlowLayout) getLayout()).setHgap(HORIZONTALGAP);
-			((FlowLayout) getLayout()).setVgap(4);
-
-			for (int i = 0; i < 5; ++i) {
-				JLabel label = new JLabel(activeIcon);
-				label.setDisabledIcon(inactiveIcon);
-				label.setBorder(border);
-				label.setOpaque(false);
-				add(label);
-				ratingLabels.add(label);
+		private void initColors() {
+			for (int i = 0; i <= 100; i++) {
+				int r = (int) (200 * ((100.0 - i) / 100.0));
+				int g = (int) (200 * (1.0 * i / 100.0));
+				colors[i] = new Color(r, g, 0);
 			}
 		}
 
-		public Component getTableCellRendererComponent(JTable table,
-		                                               Object value,
-		                                               boolean isSelected,
-		                                               boolean hasFocus,
-		                                               int row,
-		                                               int column) {
-			if (value instanceof Package.Rating) {
-				Package.Rating rating = (Package.Rating) value;
-				int i = 0;
-				for (JLabel label: ratingLabels) {
-					boolean enabled = true;
-					if (i >= rating.getRating()) {
-						enabled = false;
-					}
-					label.setEnabled(enabled);
-					++i;
-				}
+		@Override
+		public Component getTableCellRendererComponent(JTable table, Object value,
+													   boolean isSelected, boolean hasFocus,
+													   int row, int column) {
+			if (value instanceof Float) {
+				float rating = (Float) value;
+				rating = Math.max(0, rating);
+				rating = Math.min(5, rating);
+				int percentage = (int) (100 * (rating / 5.0));
+				setValue(percentage);
+				setForeground(colors[percentage]);
+				setString(String.format("%.1f", rating));
 			}
 			return this;
 		}
-	}	
+	}
+
 
 //     /*
 //      * Don't need to implement this method unless your table's

@@ -30,18 +30,19 @@ import javax.swing.SwingWorker;
  */
 public class PackageDatabaseParserWorker extends SwingWorker<List<Requirement>, Void>
 	implements ProgressListener {
-	private final String databaseUrl;
-	
-	public PackageDatabaseParserWorker(String databaseUrl) {
-		this.databaseUrl = databaseUrl;
+
+	private final Configuration configuration;
+
+	public PackageDatabaseParserWorker(Configuration configuration) {
+		this.configuration = configuration;
 	}
 	
 	@Override
 	public List<Requirement> doInBackground() throws java.io.IOException, org.xml.sax.SAXException {
-		InputStream dl = getDownloadStream(this.databaseUrl);
+		InputStream dl = getDownloadStream(configuration.RepositoryDatabasePath.get());
 		
-		final PackageDatabaseParser parser = new PackageDatabaseParser();
-		List<Requirement> all = parser.parse(XmlUtils.getDocument(dl));
+		final PackageDatabaseParser parser = new PackageDatabaseJsonParser(configuration);
+		List<Requirement> all = parser.parse(dl);
 
 		return all;
 	}
