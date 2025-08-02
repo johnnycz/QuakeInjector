@@ -19,7 +19,6 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
-//import java.awt.*;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
@@ -63,6 +62,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import de.haukerehfeld.quakeinjector.gui.ProgressPopup;
+import de.haukerehfeld.quakeinjector.gui.UIThemeOption;
 import de.haukerehfeld.quakeinjector.packagelist.model.PackageListModel;
 
 public class QuakeInjector extends JFrame {
@@ -123,8 +123,21 @@ public class QuakeInjector extends JFrame {
 			@Override public Configuration doInBackground() { return new Configuration(configFile); }
 		};
 		((SwingWorker<?,?>) config).execute();
+		Configuration cfg = null;
+		try {
+			cfg = config.get();
+		}
+		catch (ExecutionException e) {
+			System.err.println("Couldn't load config: " + e.getCause());
+			e.getCause().printStackTrace();
+		}
+		catch (InterruptedException e) {
+			System.err.println("Interrupted: " + e);
+		}
+		this.config = cfg;
 
-		
+		loadTheme();
+
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
 		setLayout(new BoxLayout(getContentPane(),
@@ -143,18 +156,7 @@ public class QuakeInjector extends JFrame {
 
 		setMinimumSize(new Dimension(minWidth, minHeight));
 		
-		Configuration cfg = null;
-		try {
-			cfg = config.get();
-		}
-		catch (ExecutionException e) {
-			System.err.println("Couldn't load config: " + e.getCause());
-			e.getCause().printStackTrace();
-		}
-		catch (InterruptedException e) {
-			System.err.println("Interrupted: " + e);
-		}
-		this.config = cfg;
+
 
 		this.offline = cfg.OfflineMode;
 
@@ -164,6 +166,15 @@ public class QuakeInjector extends JFrame {
 		addWindowListener(new QuakeInjectorWindowListener());
 		
 		setWindowSize();
+	}
+
+	private void loadTheme() {
+		UIThemeOption option = getConfig().uiTheme.get();
+		if (option != null) {
+			option.init();
+		} else {
+			UIThemeOption.SYSTEM.init();
+		}
 	}
 
 	/**
@@ -590,7 +601,8 @@ public class QuakeInjector extends JFrame {
 		                             getConfig().DownloadPath,
 		                             getConfig().EngineCommandLine,
 		                             getConfig().RogueInstalled,
-		                             getConfig().HipnoticInstalled
+		                             getConfig().HipnoticInstalled,
+				                     getConfig().uiTheme
 		        );
 		d.addChangeListener(new ChangeListener() {
 				public void stateChanged(ChangeEvent e) {
@@ -601,7 +613,8 @@ public class QuakeInjector extends JFrame {
 						                 d.getDownloadPath(),
 						                 d.getCommandline(),
 						                 d.getRogueInstalled(),
-						                 d.getHipnoticInstalled());
+						                 d.getHipnoticInstalled(),
+								         d.getUiTheme());
 					}
 					catch (IOException err) {
 						savingFailedDialogue(err);
@@ -631,7 +644,9 @@ public class QuakeInjector extends JFrame {
 	                              File downloadPath,
 	                              String commandline,
 	                              boolean rogueInstalled,
-	                              boolean hipnoticInstalled) throws IOException {
+	                              boolean hipnoticInstalled,
+	                              UIThemeOption uiThemeOption
+	) throws IOException {
 		
 
 		Configuration c = getConfig();
@@ -643,6 +658,7 @@ public class QuakeInjector extends JFrame {
 		c.HipnoticInstalled.set(hipnoticInstalled);
 
 		c.DownloadPath.set(downloadPath);
+		c.uiTheme.set(uiThemeOption);
 
 		File workingDir;
 		if (workingDirAtExecutable) {
@@ -877,7 +893,7 @@ public class QuakeInjector extends JFrame {
 		Object[] options = {"Open Engine Configuration",
 		                    "Cancel"};
 		int openEngineConfig =
-		    JOptionPane.showOptionDialog(QuakeInjector.this,
+		    JOptionPane.showOptionDialog(null,
 		                                 msg,
 		                                 "Quake directory incorrect",
 		                                 JOptionPane.YES_NO_OPTION,
@@ -899,20 +915,6 @@ public class QuakeInjector extends JFrame {
 
 
 	public static void main(String[] args) {
-		try {
-        // Set System L&F
-			javax.swing.UIManager.setLookAndFeel(
-				javax.swing.UIManager.getSystemLookAndFeelClassName());
-		} 
-		catch (javax.swing.UnsupportedLookAndFeelException e) {
-		}
-		catch (ClassNotFoundException e) {
-		}
-		catch (InstantiationException e) {
-		}
-		catch (IllegalAccessException e) {
-		}
-
 		// borrowed from jmtd's wadc:
 		// The default setting for useSystemAAFontSettings is off; and the result
 		// looks awful on (at least my) Linux systems. We want to switch the default
@@ -947,7 +949,7 @@ public class QuakeInjector extends JFrame {
 				Object[] options = {"Wait",
 				                    "Close immediately"};
 				int optionDialog =
-				    JOptionPane.showOptionDialog(QuakeInjector.this,
+				    JOptionPane.showOptionDialog(null,
 				                                 msg,
 				                                 "Maps still installing",
 				                                 JOptionPane.YES_NO_OPTION,

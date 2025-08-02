@@ -30,38 +30,22 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.io.File;
 
-import javax.swing.BorderFactory;
+import javax.swing.*;
 import javax.swing.border.Border;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.ButtonGroup;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JRadioButton;
-import javax.swing.JDialog;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JSeparator;
-import javax.swing.JTabbedPane;
-import javax.swing.JTextField;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
 
-import de.haukerehfeld.quakeinjector.gui.ErrorEvent;
-import de.haukerehfeld.quakeinjector.gui.ErrorListener;
-import de.haukerehfeld.quakeinjector.gui.JPathPanel;
-import de.haukerehfeld.quakeinjector.gui.LookAndFeelDefaults;
-import de.haukerehfeld.quakeinjector.gui.OkayCancelApplyPanel;
+import de.haukerehfeld.quakeinjector.gui.*;
 
 public class EngineConfigDialog extends JDialog {
-	private final static String windowTitle = "Engine Configuration";
+	private final static String windowTitle = "Settings";
 
 	private final ChangeListenerList listeners = new ChangeListenerList();
 
 	private final JPanel configPanel;
+	private final JPanel appearancePanel;
 
 	private final JPathPanel enginePath;
 	private final JPathPanel engineExecutable;
@@ -74,16 +58,18 @@ public class EngineConfigDialog extends JDialog {
 	private final JCheckBox hipnotic;
 
 	private final WorkingDirOpts workingDirOpts;
-	
-	
+	private final JComboBox<UIThemeOption> uiTheme;
+
+
 	public EngineConfigDialog(final JFrame frame,
 							  Configuration.EnginePath enginePathDefault,
 							  Configuration.EngineExecutable engineExeDefault,
 							  Configuration.WorkingDirAtExecutable workingDirAtExecutable,
-	                          Configuration.DownloadPath downloadPathDefault,
-	                          Configuration.EngineCommandLine cmdlineDefault,
-	                          Configuration.RogueInstalled rogueInstalled,
-	                          Configuration.HipnoticInstalled hipnoticInstalled) {
+							  Configuration.DownloadPath downloadPathDefault,
+							  Configuration.EngineCommandLine cmdlineDefault,
+							  Configuration.RogueInstalled rogueInstalled,
+							  Configuration.HipnoticInstalled hipnoticInstalled,
+							  Configuration.UIThemeConfiguration uiThemeConfiguration) {
 		super(frame, windowTitle, true);
 
 		configPanel = new JPanel();
@@ -136,7 +122,6 @@ public class EngineConfigDialog extends JDialog {
 			configPanel.add(cmdlineLabel, new LabelConstraints() {{ gridy = row_; }});
 			configPanel.add(engineCommandline, new InputConstraints() {{ gridy = row_; }});
 		}
-
 		++row;
 
 		{
@@ -174,12 +159,6 @@ public class EngineConfigDialog extends JDialog {
 			configPanel.add(engineExecutable, new InputConstraints() {{ gridy = row_; }});
 		}
 
-
-		{
-		}
-		{
-		}
-
 		enginePath.verify();
 		engineExecutable.verify();
 
@@ -200,7 +179,6 @@ public class EngineConfigDialog extends JDialog {
 			
 		}
 		++row;
-
 
 		{
 			JLabel expansionsInstalled = new JLabel("Expansion packs installed");
@@ -227,10 +205,30 @@ public class EngineConfigDialog extends JDialog {
 
 		workingDirOpts = new WorkingDirOpts(row, workingDirAtExecutable.get());
 
+		appearancePanel = new JPanel();
+		appearancePanel.setBorder(LookAndFeelDefaults.PADDINGBORDER);
+		appearancePanel.setLayout(new GridBagLayout());
+
+		var themeLabel = new JLabel("Theme");
+		uiTheme = new JComboBox<>(UIThemeOption.values());
+		uiTheme.setSelectedItem(uiThemeConfiguration.get());
+
+		appearancePanel.add(themeLabel, new LabelConstraints() {{ gridy = 1; ipadx = 10; }});
+		appearancePanel.add(this.uiTheme, new InputConstraints() {{ gridy = 1; }});
+
+		var restartAdviceLabel = new JLabel("Restart Quake Injector to apply changes");
+		appearancePanel.add(restartAdviceLabel, new GridBagConstraints() {{
+			gridwidth = 3;
+			ipady = 10;
+			gridy = 2;
+		}});
+
 		JTabbedPane tabbedPane = new JTabbedPane();
 		tabbedPane.setBorder(LookAndFeelDefaults.PADDINGBORDER);
 		tabbedPane.addTab("Engine Specifics", null, configPanel, "Configure Engine Specifics");
+		tabbedPane.addTab("Appearance", null, appearancePanel, "Appearance");
 		tabbedPane.setMnemonicAt(0, KeyEvent.VK_1);
+		tabbedPane.setMnemonicAt(1, KeyEvent.VK_2);
 
 		add(tabbedPane, BorderLayout.CENTER);
 		
@@ -306,9 +304,6 @@ public class EngineConfigDialog extends JDialog {
 		rogue.addChangeListener(enableOkay);
 		hipnotic.addChangeListener(enableOkay);
 
-		
-		
-
 		ActionListener save = new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
 					listeners.notifyChangeListeners(this);
@@ -335,6 +330,10 @@ public class EngineConfigDialog extends JDialog {
 			add(okayCancelPanel, BorderLayout.PAGE_END);
 		}
 		
+	}
+
+	public UIThemeOption getUiTheme() {
+		return (UIThemeOption) uiTheme.getSelectedItem();
 	}
 
 	class WorkingDirOpts {

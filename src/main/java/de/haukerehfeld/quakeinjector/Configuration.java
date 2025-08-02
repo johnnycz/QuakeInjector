@@ -19,6 +19,8 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.gui.UIThemeOption;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -184,6 +186,23 @@ public class Configuration {
 		private MapWebpageBaseUrl() { super("mapWebpageBaseUrl", "https://www.quaddicted.com/db/v1/maps/"); }
 	}
 	public final MapWebpageBaseUrl mapWebpageBaseUrl = new MapWebpageBaseUrl();
+
+	public static class UIThemeConfiguration extends AbstractValue<UIThemeOption> {
+		private UIThemeConfiguration() {
+			super("uiTheme", UIThemeOption.SYSTEM);
+		}
+
+		@Override
+		public UIThemeOption stringToValue(String v) {
+			return UIThemeOption.getByCode(v);
+		}
+
+		@Override
+		public String toString() {
+			return get().getCode();
+		}
+	}
+	public final UIThemeConfiguration uiTheme = new UIThemeConfiguration();
 
 	public final Map<String,Value<?>> All = new HashMap<String,Value<?>>();
 	
