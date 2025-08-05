@@ -55,7 +55,7 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
 
     private static class Install {
         public String extract;
-		public Map<String, String> extractmapping;
+        public Map<String, String> extractmapping;
     }
 
     private static class ProcessedTags {
@@ -112,7 +112,7 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
             throw new PackageDatabaseParseException("Cannot parse date '" + processedTags.release_date + "': " + e.getMessage());
         }
 
-	    var extractMapping = getExtractMapping(jsonPackage, processedTags);
+         var extractMapping = getExtractMapping(jsonPackage, processedTags);
 
         StringBuilder description = getDescription(jsonPackage, processedTags);
 
@@ -120,7 +120,7 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
 
         String legacyId = stripExtension(processedTags.filename);
 
-        List<String> startMaps = processedTags.startMaps;
+        List<String> startMaps = reorderStartMaps(processedTags.startMaps);
 
         if (startMaps.isEmpty()) {
             startMaps.add(legacyId);
@@ -146,6 +146,27 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
         unresolvedRequirements.put(pkg, processedTags.dependencies);
         return pkg;
     }
+
+	/**
+	 * Move maps that contain the word "start" to the beginning of the list
+	 */
+	private List<String> reorderStartMaps(List<String> startMaps) {
+		List<String> preferredStartMaps = new ArrayList<>(startMaps.size());
+		List<String> otherStartMaps = new ArrayList<>(startMaps.size());
+
+		for (String map: startMaps) {
+			if (map.contains("start")) {
+				preferredStartMaps.add(map);
+			} else {
+				otherStartMaps.add(map);
+			}
+		}
+
+		List<String> result = new ArrayList<>(preferredStartMaps.size() + otherStartMaps.size());
+		result.addAll(preferredStartMaps);
+		result.addAll(otherStartMaps);
+		return result;
+	}
 
 	private ExtractMapping getExtractMapping(JsonPackage jsonPackage, ProcessedTags processedTags) {
 		ExtractMapping mapping = new ExtractMapping();

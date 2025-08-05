@@ -37,6 +37,17 @@ public class PackageDatabaseSolrJsonParserTest {
         }
     }
 
+	@Test
+	public void reordersStartMaps() {
+		var result = parser.parse(testResource("/solr.json"));
+		for (Requirement r : result) {
+			Package p = (Package) r;
+			if (p.getSha256().equals("7ad993da6c760c446ca31fad71e9f5b6c9eee99b6354f161aa746b572fe70a7d")) {
+				assertEquals("start", p.getStartmaps().get(0));
+			}
+		}
+	}
+
     private InputStream testResource(String path) {
         var is = getClass().getResourceAsStream(path);
         if (is == null) {

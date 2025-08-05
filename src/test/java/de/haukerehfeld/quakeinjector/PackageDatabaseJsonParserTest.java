@@ -6,8 +6,6 @@ import java.io.File;
 import java.io.InputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class PackageDatabaseJsonParserTest {
 
@@ -17,6 +15,20 @@ public class PackageDatabaseJsonParserTest {
     public void importsAllEntries() {
         var result = parser.parse(testResourceFirst12());
         assertEquals(12, result.size());
+        for (Requirement r : result) {
+            assertNotNull(r);
+        }
+    }
+
+    @Test
+    public void reordersStartMaps() {
+        var result = parser.parse(testResourceFirst12());
+        for (Requirement r : result) {
+            Package p = (Package) r;
+            if (p.getSha256().equals("e2efb10efeb36af3d4b6b9e1ddeac537c8bb9b4773f701a1c1e8317785cad419")) {
+                assertEquals("start", p.getStartmaps().get(0));
+            }
+        }
     }
 
     @Test
