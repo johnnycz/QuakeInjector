@@ -874,6 +874,11 @@ public class QuakeInjector extends JFrame {
 	private void display() {
 		//pack();
 		setVisible(true);
+		if (getConfig().MainWindowState.exists()) {
+			int state = getConfig().MainWindowState.get();
+			setExtendedState(state);
+			System.out.println("Setting window state: " + state);
+		}
 	}
 
 	private Configuration getConfig() {
@@ -977,6 +982,7 @@ public class QuakeInjector extends JFrame {
 			config.MainWindowPositionY.set((int) bounds.getY());
 			config.MainWindowWidth.set((int) bounds.getWidth());
 			config.MainWindowHeight.set((int) bounds.getHeight());
+			config.MainWindowState.set(QuakeInjector.this.getExtendedState());
 
 			try {
 				config.write();

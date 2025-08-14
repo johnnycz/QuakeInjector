@@ -168,6 +168,11 @@ public class Configuration {
 	}
 	public final MainWindowHeight MainWindowHeight = new MainWindowHeight();
 
+	public class MainWindowState extends IntegerValue {
+		private MainWindowState() { super("mainWindowState", null); }
+	}
+	public final MainWindowState MainWindowState = new MainWindowState();
+
 	public static class RepositoryBasePath extends StringValue {
 		private final static String onlineRepositoryExtension = ".zip";
 		
