@@ -10,28 +10,29 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.FileInputStream;
 import java.io.BufferedInputStream;
+import java.util.function.Consumer;
 import javax.swing.JOptionPane;
 
 
 class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 	implements ProgressListener {
 
-	String zipContentsDatabaseUrl;
-	String enginePath;
-	RequirementList maps;
-	SaveInstalled saveInstalled;
-	QuakeInjector injector;
+	private final String zipContentsDatabaseUrl;
+	private final String enginePath;
+	private final RequirementList maps;
+	private final QuakeInjectorView mainView;
+	private final Consumer<List<PackageFileList>> doneCallback;
 
-	public CheckInstalled(QuakeInjector injector,
+	public CheckInstalled(QuakeInjectorView mainView,
 	                      String zipContentsDatabaseUrl,
 	                      String enginePath,
 	                      RequirementList maps,
-	                      SaveInstalled saveInstalled) {
+	                      Consumer<List<PackageFileList>> doneCallback) {
 		this.zipContentsDatabaseUrl = zipContentsDatabaseUrl;
 		this.enginePath = enginePath;
 		this.maps = maps;
-		this.injector = injector;
-		this.saveInstalled = saveInstalled;
+		this.mainView = mainView;
+		this.doneCallback = doneCallback;
 	}
 
 	@Override
@@ -128,15 +129,9 @@ class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 
 
 	@Override
-	    public void done() {
+    public void done() {
 		try {
-			List<PackageFileList> list = get();
-
-			injector.setInstalledStatus(list);
-
-			synchronized (maps) {
-				saveInstalled.write(maps);
-			}
+			doneCallback.accept(get());
 		}
 		catch (java.lang.InterruptedException e) {
 			System.err.println("Interrupted: " + e);
@@ -150,7 +145,7 @@ class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 			}
 			catch (java.net.ConnectException err) {
 				String msg = "Downloading file database failed, " + err.getMessage() + "!";
-				JOptionPane.showMessageDialog(injector,
+				JOptionPane.showMessageDialog(mainView,
 				                              msg,
 				                              "Downloading failed!",
 				                              JOptionPane.ERROR_MESSAGE);
@@ -160,10 +155,6 @@ class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 			}
 		}
 		catch (java.util.concurrent.CancellationException e) {
-		}
-		catch (java.io.IOException e) {
-			System.err.println("Couldn't write installedMapsFile: " + e);
-			e.printStackTrace();
 		}
 	}
 

@@ -45,7 +45,7 @@ class PackageInteractionPanel extends JPanel implements ChangeListener,
 	private static final String installText = "Install";
 	private static final String playText = "Play";
 
-	private QuakeInjector main;
+	private QuakeInjectorView main;
 	
 	private EngineStarter starter;
 	private Configuration.RepositoryBasePath paths;
@@ -69,7 +69,7 @@ class PackageInteractionPanel extends JPanel implements ChangeListener,
 
 	private SaveInstalled installedMaps;
 	
-	public PackageInteractionPanel(QuakeInjector main, InstallQueuePanel installQueue) {
+	public PackageInteractionPanel(QuakeInjectorView main, InstallQueuePanel installQueue) {
 		super(new GridBagLayout());
 
 		this.main = main;

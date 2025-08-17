@@ -19,63 +19,27 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
-import java.awt.Container;
-import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Image;
-import java.awt.Rectangle;
+import de.haukerehfeld.quakeinjector.gui.ProgressPopup;
+import de.haukerehfeld.quakeinjector.gui.UIThemeOption;
+import de.haukerehfeld.quakeinjector.packagelist.model.PackageListModel;
+
+import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
+import java.io.*;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JSplitPane;
-import javax.swing.JTextField;
-import javax.swing.SwingConstants;
-import javax.swing.SwingWorker;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-
-import de.haukerehfeld.quakeinjector.gui.ProgressPopup;
-import de.haukerehfeld.quakeinjector.gui.UIThemeOption;
-import de.haukerehfeld.quakeinjector.packagelist.model.PackageListModel;
-
-public class QuakeInjector extends JFrame {
-	/**
-	 * Window title
-	 */
-	private static final String ICON_URL = "/Inject2_SIZE.png";
-	private static final String ICON_SIZE_PLACEHOLDER = "SIZE";
-	private static final int[] ICON_SIZES = { 16, 32, 48, 256 };
-	
-	private static final String applicationName = "Quake Injector";
-	private static final int minWidth = 1024;
-	private static final int minHeight = 768;
+public class QuakeInjector {
 
 	private final static String installedMapsFileName = "installedMaps.xml";
 	private final static File installedMapsFile = new File(installedMapsFileName);
@@ -84,39 +48,19 @@ public class QuakeInjector extends JFrame {
 	private final static String zipFilesXml = "zipFiles.xml";
 
 	final static File configFile = new File("config.properties");
-
-
-
-
 	private EngineStarter starter;
-
-	/**
-	 * @todo 2010-02-09 12:11 hrehfeld    member variable seems unnecessary
-	 */
-	private PackageInteractionPanel interactionPanel;
 	private RequirementList maps;
-	/**
-	 * @todo 2010-02-09 12:11 hrehfeld    member variable seems unnecessary
-	 */
 	private PackageList packages;
-	/**
-	 * @todo 2010-02-09 12:11 hrehfeld    member variable seems unnecessary
-	 */
 	private final PackageListModel maplist;
 	private Installer installer;
-
-
 	private final InstalledPackages installedMaps = new InstalledPackages();
-
-	/** is offline mode enabled? */
 	private Configuration.OfflineMode offline;
-
 	private final Configuration config;
 
-	private final Menu menu;
+	private final QuakeInjectorView view;
+	private PackageInteractionPanel interactionPanel;
 
 	public QuakeInjector() {
-		super(applicationName);
 
 		//load config
 		final Future<Configuration> config = new SwingWorker<Configuration,Void>() {
@@ -136,115 +80,54 @@ public class QuakeInjector extends JFrame {
 		}
 		this.config = cfg;
 
-		loadTheme();
-
-		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-		setLayout(new BoxLayout(getContentPane(),
-								BoxLayout.PAGE_AXIS));
 
 		maps = new RequirementList();
 		packages = new PackageList(maps);
 		maplist = new PackageListModel(packages);
-
-		{
-			setIconImages(createIconList(ICON_SIZES, ICON_URL, ICON_SIZE_PLACEHOLDER));
-		}
-
-		menu = createMenuBar();
-		setJMenuBar(menu);
-
-		setMinimumSize(new Dimension(minWidth, minHeight));
-		
-
-
 		this.offline = cfg.OfflineMode;
 
-		//config needed here
-		addMainPane(getContentPane());
+		view = new QuakeInjectorView(getConfig(), maplist);
 
-		addWindowListener(new QuakeInjectorWindowListener());
-		
-		setWindowSize();
-	}
+		view.addWindowListener(new QuakeInjectorWindowListener());
 
-	private void loadTheme() {
-		UIThemeOption option = getConfig().uiTheme.get();
-		if (option != null) {
-			option.init();
-		} else {
-			UIThemeOption.SYSTEM.init();
-		}
-	}
+		final InstallQueuePanel installQueue = new InstallQueuePanel();
+		this.interactionPanel = new PackageInteractionPanel(view, installQueue);
 
-	/**
-	 * main menu
-	 */
-	private Menu createMenuBar() {
-		ActionListener parseDatabase = new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					doParseInstalled();
-					parseDatabaseAndSetList();
-				}
-			};
+		addMenuActionListeners();
 
-		ActionListener checkInstalled = new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					checkForInstalledMaps();
-				}
-			};
-		
-
-		ActionListener quit = new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						setVisible(false);
-						dispose();
-					}
-			};
-
-		ActionListener showEngineConfig = new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						showEngineConfig(maps.get("rogue").isInstalled(),
-						                 maps.get("hipnotic").isInstalled());
-					}};
-		ActionListener offlineModeChanged = new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						offline.set(!offline.get());
-					}};
-
-		return new Menu(parseDatabase, checkInstalled, quit, showEngineConfig, offlineModeChanged);
-	}
-
-	/**
-	 * Try setting the saved window size and position
-	 */
-	private void setWindowSize() {
-		Configuration c = getConfig();
-
-		if (c.MainWindowWidth.exists() && c.MainWindowHeight.exists()) {
-			int width = c.MainWindowWidth.get();
-			int height = c.MainWindowHeight.get();
-			if (c.MainWindowPositionX.exists() && c.MainWindowPositionY.exists()) {
-				int posX = c.MainWindowPositionX.get();
-				int posY = c.MainWindowPositionY.get();
-				// System.out.println("Setting window bounds: "
-				//                    + posX + ", "
-				//                    + posY + ", "
-				//                    + width + ", "
-				//                    + height);
-			
-				setBounds(posX, posY, width, height);
+		view.addRandomMapButtonActionListener((e) -> {
+			// Package list index != current table index, which can change based on the column used to sort the
+			// table. Therefore, it has to be converted.
+			int mapTableRowIdx = new Random().nextInt(maplist.getRowCount());
+			int mapListIdx = view.getPackageTable().getRowSorter().convertRowIndexToModel(mapTableRowIdx);
+			Package map = maplist.getPackage(mapListIdx);
+			if(!maplist.isPackageInstalled(map)) {
+				interactionPanel.install(map, false);
 			}
-			else {
-				// System.out.println("Setting window size: " + width + ", " + height);
-				setSize(width, height);
-			}
-		}
-		else {
-			pack();
-		}
+			view.selectRowInMainTable(mapTableRowIdx);
+		});
+
+		view.addShowEngineConfigListener((e) -> showEngineConfig());
 	}
-		
+
+	private void addMenuActionListeners() {
+		Menu menu = view.getMenu();
+		menu.addReparseDatabaseActionListener((e) -> {
+			doParseInstalled();
+			parseDatabaseAndSetList();
+		});
+
+		menu.addCheckInstalledActionListener((e) -> checkForInstalledMaps());
+
+		menu.addQuitActionListener((e) -> {
+			view.setVisible(false);
+			view.dispose();
+		});
+
+		menu.addEngineActionListener((e) -> showEngineConfig());
+
+		menu.addEnableOfflineModeActionListener((e) -> offline.set(!offline.get()));
+	}
 
 	/**
 	 * Everything that may be run AFTER the initial window is shown should be run here
@@ -282,7 +165,7 @@ public class QuakeInjector extends JFrame {
 		                      maps,
 		                      starter,
 		                      new SaveInstalled(installedMapsFile)
-		    );
+	    );
 
 		if (!installer.checkInstallDirectory()) {
 			//wait until database was loaded, then pop up config
@@ -298,7 +181,7 @@ public class QuakeInjector extends JFrame {
 				}
 				@Override
 			    public void done() {
-					enginePathNotSetDialogue();
+					view.enginePathNotSetDialogue();
 				}
 			}.execute();
 		}
@@ -419,7 +302,7 @@ public class QuakeInjector extends JFrame {
 						tmpFile.delete();
 					}
 					String msg = "Failed to fetch current database; using previously downloaded info.";
-					JOptionPane.showMessageDialog(QuakeInjector.this,
+					JOptionPane.showMessageDialog(view,
 					                              msg,
 					                              "Downloading failed!",
 					                              JOptionPane.WARNING_MESSAGE);
@@ -433,7 +316,7 @@ public class QuakeInjector extends JFrame {
 									  dbParse.cancel(true);
 								  }
 							  },
-		                      QuakeInjector.this);
+		                      view);
 
 		dbParse.addPropertyChangeListener(new PropertyChangeListener() {
 				@Override
@@ -466,11 +349,25 @@ public class QuakeInjector extends JFrame {
 		final File file = new File(zipFilesXml);
 
 		final CheckInstalled checker
-		    = new CheckInstalled(this,
+		    = new CheckInstalled(view,
 		                         getConfig().ZipContentsDatabaseUrl.get(),
 		                         getConfig().EnginePath.get().toString(),
 		                         maps,
-		        saveInstalled);
+				(list) -> {
+						try {
+							setInstalledStatus(list);
+
+							synchronized (maps) {
+								saveInstalled.write(maps);
+							}
+						}
+						catch (java.util.concurrent.CancellationException e) {
+						}
+						catch (java.io.IOException e) {
+							System.err.println("Couldn't write installedMapsFile: " + e);
+							e.printStackTrace();
+						}
+				});
 
 		final ProgressPopup dbpopup =
 		    new ProgressPopup("Checking for installed maps",
@@ -480,7 +377,7 @@ public class QuakeInjector extends JFrame {
 									  checker.cancel(true);
 								  }
 							  },
-		                      QuakeInjector.this);
+		                      view);
 
 		checker.addPropertyChangeListener(new PropertyChangeListener() {
 				@Override
@@ -552,7 +449,7 @@ public class QuakeInjector extends JFrame {
 					}
 					catch (Throwable any) { /*do nothing*/; }
 
-					JOptionPane.showMessageDialog(QuakeInjector.this,
+					JOptionPane.showMessageDialog(view,
 					                              ERROR_MESSAGE + " " + msg,
 					                              ERROR_MESSAGE,
 					                              JOptionPane.ERROR_MESSAGE);
@@ -580,7 +477,7 @@ public class QuakeInjector extends JFrame {
 					}
 					catch (Throwable e) {
 						String ERROR_MESSAGE = "Reading installed maps failed!";
-						JOptionPane.showMessageDialog(QuakeInjector.this,
+						JOptionPane.showMessageDialog(view,
 						                              ERROR_MESSAGE + " " + e.getMessage(),
 						                              ERROR_MESSAGE,
 						                              JOptionPane.ERROR_MESSAGE);
@@ -592,9 +489,13 @@ public class QuakeInjector extends JFrame {
 		return waitForInstalledMapsAndDb;
 	}
 
+	private void showEngineConfig() {
+		showEngineConfig(maps.get("rogue").isInstalled(), maps.get("hipnotic").isInstalled());
+	}
+
 	private void showEngineConfig(boolean rogueInstalled, boolean hipnoticInstalled) {
 		final EngineConfigDialog d
-		    = new EngineConfigDialog(QuakeInjector.this,
+		    = new EngineConfigDialog(view,
 		                             getConfig().EnginePath,
 		                             getConfig().EngineExecutable,
 		                             getConfig().WorkingDirAtExecutable,
@@ -623,7 +524,7 @@ public class QuakeInjector extends JFrame {
 			});
 
 		d.pack();
-		d.setLocationRelativeTo(this);
+		d.setLocationRelativeTo(view);
 		d.setVisible(true);
 		
 	}
@@ -632,7 +533,7 @@ public class QuakeInjector extends JFrame {
 	private void savingFailedDialogue(IOException e) {
 		String msg = "Saving the configuration file failed: " + e.getMessage() + "\n"
 		    + "The directory is probably read-only and cannot be set writable automatically (Vista/Win7 bug), try to set write permissions manually." ;
-		JOptionPane.showMessageDialog(QuakeInjector.this,
+		JOptionPane.showMessageDialog(view,
 		                              msg,
 		                              "Saving configuration failed!",
 		                              JOptionPane.ERROR_MESSAGE);
@@ -710,176 +611,6 @@ public class QuakeInjector extends JFrame {
 		catch (java.io.IOException e) {}
 	}
 
-	private void addMainPane(Container panel) {
-		JPanel mainPanel = new JPanel();
-		mainPanel.setLayout(new GridBagLayout());
-
-
-		//create a table
-		final PackageTable table =  new PackageTable(maplist);
-		maplist.size(table);
-
-		{
-			JPanel filterPanel = new JPanel();
-			filterPanel.setLayout(new BoxLayout(filterPanel, BoxLayout.LINE_AXIS));
-			JLabel filterText = new JLabel("Filter: ", SwingConstants.TRAILING);
-			filterPanel.add(filterText);
-			filterPanel.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 4));
-
-			final JButton clearFilter = new JButton("Clear");
-			clearFilter.setEnabled(false);  // disabled until there's text in filter textfield
-
-			final JTextField filter = new JTextField();
-			filter.getDocument().addDocumentListener(
-                new DocumentListener() {
-                    public void changedUpdate(DocumentEvent e) { filter(); }
-                    public void insertUpdate(DocumentEvent e) { filter(); }
-                    public void removeUpdate(DocumentEvent e) { filter(); }
-
-					private void filter() {
-						table.getRowSorter().setRowFilter(maplist.filter(filter.getText()));
-
-						// https://stackoverflow.com/questions/21522902/how-disable-button-when-nothing-in-textfield
-						if (filter.getText().equals("")) {
-							clearFilter.setEnabled(false);
-						} else {
-							clearFilter.setEnabled(true);
-						}
-					}
-                });
-			filterText.setLabelFor(filter);
-			filterPanel.add(filter);
-
-			mainPanel.add(filterPanel, new GridBagConstraints() {{
-				anchor = LINE_START;
-				fill = HORIZONTAL;
-				weightx = 1;
-				weighty = 0;
-			}});
-
-			// https://stackoverflow.com/questions/5328945/how-to-clear-the-jtextfield-by-clicking-jbutton
-			clearFilter.addActionListener(new ActionListener(){
-				public void actionPerformed(ActionEvent e){
-					filter.setText("");
-				}
-			});
-
-			filterPanel.add(clearFilter, new GridBagConstraints() {{
-				anchor = LINE_END;
-			}});
-
-			final JButton randomMapButton = new JButton("Install Random Map");
-			randomMapButton.addActionListener(new ActionListener(){
-				public void actionPerformed(ActionEvent e){
-					// Package list index != current table index, which can change based on the column used to sort the
-					// table. Therefore, it has to be converted.
-					int mapTableRowIdx = new Random().nextInt(maplist.getRowCount());
-					int mapListIdx = table.getRowSorter().convertRowIndexToModel(mapTableRowIdx);
-					Package map = maplist.getPackage(mapListIdx);
-					if(!maplist.isPackageInstalled(map))
-						interactionPanel.install(map, false);
-
-					table.setRowSelectionInterval(mapTableRowIdx, mapTableRowIdx);
-					table.scrollRectToVisible(new Rectangle(table.getCellRect(mapTableRowIdx, 0, true)));
-				}
-			});
-
-			filterPanel.add(randomMapButton, new GridBagConstraints() {{
-				anchor = LINE_END;
-			}});
-		}
-
-		//Create the scroll pane and add the table to it.
-		JScrollPane scrollPane = new JScrollPane(table);
-
-		mainPanel.add(scrollPane, new GridBagConstraints() {{
-				anchor = CENTER;
-				fill = BOTH;
-				gridx = 0;
-				gridy = 1;
-				gridwidth = 1;
-				gridheight = 1;
-				weightx = 1;
-				weighty = 1;
-			}});
-
-		final InstallQueuePanel installQueue = new InstallQueuePanel();
-
-		this.interactionPanel = new PackageInteractionPanel(this, installQueue);
-
-		JPanel infoPanel = new JPanel(new GridBagLayout());
-		
-		Configuration config = getConfig();
-		PackageDetailPanel details = new PackageDetailPanel(config);
-		
-		infoPanel.add(details, new GridBagConstraints() {{
-			anchor = PAGE_START;
-			fill = BOTH;
-			weightx = 1;
-			weighty = 1;
-		}});
-
-		infoPanel.add(interactionPanel, new GridBagConstraints() {{
-			gridy = 1;
-			fill = BOTH;
-			weightx = 1;
-		}});
-
-// 		JLabel queueLabel = new JLabel("Install Queue");
-// 		infoPanel.add(queueLabel, new GridBagConstraints() {{
-// 			anchor = PAGE_END;
-// 			fill = BOTH;
-// 			gridy = 2;
-// 			weightx = 1;
-// 		}});
-
-		JScrollPane queueScroll = new JScrollPane(installQueue);
-		infoPanel.add(queueScroll, new GridBagConstraints() {{
-			anchor = PAGE_END;
-			fill = BOTH;
-			gridy = 3;
-			weightx = 1;
-			weighty = 1;
-		}});
-
-		JSplitPane infoSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
-		                                      infoPanel,
-		                                      queueScroll);
-		infoSplit.setOneTouchExpandable(true);
-		infoSplit.setResizeWeight(1);
-		infoSplit.setContinuousLayout(true);
-		infoSplit.setDividerLocation(600);
-		infoSplit.setMinimumSize(new Dimension(400, 600));
-		
-		PackageListSelectionHandler selectionHandler
-			= new PackageListSelectionHandler(maplist,
-											  table);
-		table.getSelectionModel().addListSelectionListener(selectionHandler);
-		selectionHandler.addSelectionListener(interactionPanel);
-		selectionHandler.addSelectionListener(details);
-
-
-		JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
-		                                      mainPanel,
-		                                      infoSplit);
-		splitPane.setOneTouchExpandable(true);
-		splitPane.setResizeWeight(1);
-		splitPane.setContinuousLayout(true);
-		splitPane.setMinimumSize(new Dimension(450, 300));
-
-		panel.add(splitPane);
-	}
-
-	
-	private void display() {
-		//pack();
-		setVisible(true);
-		if (getConfig().MainWindowState.exists()) {
-			int state = getConfig().MainWindowState.get();
-			setExtendedState(state);
-			System.out.println("Setting window state: " + state);
-		}
-	}
 
 	private Configuration getConfig() {
 		if (config == null) {
@@ -888,35 +619,6 @@ public class QuakeInjector extends JFrame {
 		return config;
 	}
 
-	/**
-	 * @return false if the user didn't open the config dialog
-	 */
-	public boolean enginePathNotSetDialogue() {
-		String msg = "Quake directory is not set correctly.\n"
-		    + "It needs to be set before trying to install (or play).";
-
-		Object[] options = {"Open Engine Configuration",
-		                    "Cancel"};
-		int openEngineConfig =
-		    JOptionPane.showOptionDialog(null,
-		                                 msg,
-		                                 "Quake directory incorrect",
-		                                 JOptionPane.YES_NO_OPTION,
-		                                 JOptionPane.ERROR_MESSAGE,
-		                                 null,
-		                                 options,
-		                                 options[0]);
-		//button for engine config pressed
-		if (openEngineConfig == 0) {
-			//wait until maps are finished loading
-			showEngineConfig(maps.get("rogue").isInstalled(),
-			                 maps.get("hipnotic").isInstalled());
-			return true;
-		}
-		else {
-			return false;
-		}
-	}
 
 
 	public static void main(String[] args) {
@@ -944,6 +646,10 @@ public class QuakeInjector extends JFrame {
 
 	}
 
+	private void display() {
+		view.display();
+	}
+
 	private class QuakeInjectorWindowListener extends WindowAdapter
 	{
 		@Override
@@ -963,12 +669,12 @@ public class QuakeInjector extends JFrame {
 				                                 options,
 				                                 options[0]);
 				if (optionDialog == 0) {
-					setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+					view.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 					return;
 				}
 				else {
 					installer.cancelAll();
-					setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+					view.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 				}
 			}
 			windowClosed(e);
@@ -977,12 +683,12 @@ public class QuakeInjector extends JFrame {
 		public void windowClosed(WindowEvent e)
 		{
 			Configuration config = getConfig();
-			Rectangle bounds = QuakeInjector.this.getBounds();
+			Rectangle bounds = view.getBounds();
 			config.MainWindowPositionX.set((int) bounds.getX());
 			config.MainWindowPositionY.set((int) bounds.getY());
 			config.MainWindowWidth.set((int) bounds.getWidth());
 			config.MainWindowHeight.set((int) bounds.getHeight());
-			config.MainWindowState.set(QuakeInjector.this.getExtendedState());
+			config.MainWindowState.set(view.getExtendedState());
 
 			try {
 				config.write();
@@ -998,19 +704,4 @@ public class QuakeInjector extends JFrame {
 
 	}
 
-	private static List<Image> createIconList(int[] iconSizes, String iconUrl, String sizeToken) {
-			List<Image> icons = new ArrayList<Image>(iconSizes.length);
-			for (int size: iconSizes) {
-				String path = iconUrl.replace(sizeToken, Integer.toString(size));
-				try {
-					javax.swing.ImageIcon icon = Utils.createImageIcon(path, "Icon" + size);
-					icons.add(icon.getImage());
-				}
-				catch (IOException e) {
-					System.err.println("WARNING: Couldn't load icon file " + path);
-				}
-			}
-			return icons;
-	}
-	
 }

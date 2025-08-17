@@ -29,44 +29,58 @@ import java.awt.event.KeyEvent;
 import javax.swing.*;
 
 public class Menu extends JMenuBar {
-		private JCheckBoxMenuItem enableOfflineMode;
-		
-		public Menu(ActionListener databaseParser,
-		            ActionListener checkForInstalledMaps,
-		            ActionListener quitter,
-		            ActionListener showEngineConfig,
-		            ActionListener offlineAction) {
-				setOpaque(true);
-				// 		setPreferredSize(new Dimension(200, 20));
+	private final JMenuItem reparseDatabase;
+	private final JCheckBoxMenuItem enableOfflineMode;
+	private final JMenuItem checkInstalled;
+	private final JMenuItem engine;
+	private final JMenuItem quit;
 
-				JMenu fileMenu = new JMenu("File");
-				add(fileMenu);
+	public Menu() {
+		setOpaque(true);
+		// 		setPreferredSize(new Dimension(200, 20));
 
-				JMenuItem reparseDatabase = new JMenuItem("Reload database", KeyEvent.VK_R);
-				reparseDatabase.addActionListener(databaseParser);
-				fileMenu.add(reparseDatabase);
+		JMenu fileMenu = new JMenu("File");
+		add(fileMenu);
 
-				JMenuItem checkInstalled = new JMenuItem("Check for installed maps (experimental!)", KeyEvent.VK_C);
-				checkInstalled.addActionListener(checkForInstalledMaps);
-				fileMenu.add(checkInstalled);
+		reparseDatabase = new JMenuItem("Reload database", KeyEvent.VK_R);
+		fileMenu.add(reparseDatabase);
 
-				enableOfflineMode = new JCheckBoxMenuItem("Offline Mode");
-				checkInstalled.addActionListener(offlineAction);
-				fileMenu.add(enableOfflineMode);
+		checkInstalled = new JMenuItem("Check for installed maps (experimental!)", KeyEvent.VK_C);
+		fileMenu.add(checkInstalled);
 
-				JMenuItem engine = new JMenuItem("Settings...");
-				fileMenu.add(engine);
-				engine.addActionListener(showEngineConfig);
+		enableOfflineMode = new JCheckBoxMenuItem("Offline Mode");
+		fileMenu.add(enableOfflineMode);
 
-				JMenuItem quit = new JMenuItem("Quit", KeyEvent.VK_T);
-				quit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1, ActionEvent.ALT_MASK));
-				quit.getAccessibleContext().setAccessibleDescription("This doesn't really do anything");
-				quit.addActionListener(quitter);
-				fileMenu.add(quit);
+		engine = new JMenuItem("Settings...");
+		fileMenu.add(engine);
 
-		}
+		quit = new JMenuItem("Quit", KeyEvent.VK_T);
+		quit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1, ActionEvent.ALT_MASK));
+		quit.getAccessibleContext().setAccessibleDescription("This doesn't really do anything");
+		fileMenu.add(quit);
+	}
 
-		public void setOfflineMode(boolean offline) {
+	public void addReparseDatabaseActionListener(ActionListener actionListener) {
+		reparseDatabase.addActionListener(actionListener);
+	}
+
+	public void addCheckInstalledActionListener(ActionListener actionListener) {
+			checkInstalled.addActionListener(actionListener);
+	}
+
+	public void addEnableOfflineModeActionListener(ActionListener actionListener) {
+			enableOfflineMode.addActionListener(actionListener);
+	}
+
+	public void addEngineActionListener(ActionListener actionListener) {
+			engine.addActionListener(actionListener);
+	}
+
+	public void addQuitActionListener(ActionListener actionListener) {
+			quit.addActionListener(actionListener);
+	}
+
+	public void setOfflineMode(boolean offline) {
 				enableOfflineMode.setSelected(offline);
 		}
 }
