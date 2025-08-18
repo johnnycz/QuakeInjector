@@ -45,7 +45,7 @@ class PackageInteractionPanel extends JPanel implements ChangeListener,
 	private static final String installText = "Install";
 	private static final String playText = "Play";
 
-	private QuakeInjectorView main;
+	private QuakeInjectorView parentView;
 	
 	private EngineStarter starter;
 	private Configuration.RepositoryBasePath paths;
@@ -69,10 +69,9 @@ class PackageInteractionPanel extends JPanel implements ChangeListener,
 
 	private SaveInstalled installedMaps;
 	
-	public PackageInteractionPanel(QuakeInjectorView main, InstallQueuePanel installQueue) {
+	public PackageInteractionPanel(InstallQueuePanel installQueue) {
 		super(new GridBagLayout());
 
-		this.main = main;
 		this.installQueue = installQueue;
 
 		uninstallButton = new JButton(uninstallText);
@@ -153,6 +152,10 @@ class PackageInteractionPanel extends JPanel implements ChangeListener,
 
 		ready = true;
 		refreshUi();
+	}
+
+	public void setParentView(QuakeInjectorView parentView) {
+		this.parentView = parentView;
 	}
 
 	public void installRequirements(Package map) {
@@ -255,7 +258,7 @@ class PackageInteractionPanel extends JPanel implements ChangeListener,
 
 	private boolean checkInstallDirectory() {
 		while (!installer.checkInstallDirectory()) {
-			if (!main.enginePathNotSetDialogue()) {
+			if (!parentView.enginePathNotSetDialogue()) {
 				return false;
 			}
 		}
@@ -303,7 +306,7 @@ class PackageInteractionPanel extends JPanel implements ChangeListener,
 							  }
 
 							  public List<File> overwrite(Map<String,File> files) {
-								  PackageOverwriteDialog overwrite = new PackageOverwriteDialog(main);
+								  PackageOverwriteDialog overwrite = new PackageOverwriteDialog(parentView);
 								  for (Map.Entry<String,File> e: files.entrySet()) {
 									  String name = e.getKey();
 									  File f = e.getValue();
@@ -466,7 +469,7 @@ class PackageInteractionPanel extends JPanel implements ChangeListener,
 		if (!hasCurrentPackage()) { return; }
 
 		if (!starter.checkPaths()) {
-			JOptionPane.showMessageDialog(main,
+			JOptionPane.showMessageDialog(parentView,
 			                              "Quake engine paths aren't set correctly, can't start.",
 			                              "Quake engine paths not configured",
 			                              JOptionPane.ERROR_MESSAGE);
@@ -480,9 +483,9 @@ class PackageInteractionPanel extends JPanel implements ChangeListener,
 
 		try {
 			Process p = starter.start(selectedMap.getCommandline(), startmap);
-			EngineOutputDialog eod = new EngineOutputDialog(main, p.getInputStream());
+			EngineOutputDialog eod = new EngineOutputDialog(parentView, p.getInputStream());
 			eod.pack();
-			eod.setLocationRelativeTo(main);
+			eod.setLocationRelativeTo(parentView);
 			eod.setVisible(true);
 
 		}
@@ -562,4 +565,7 @@ class PackageInteractionPanel extends JPanel implements ChangeListener,
 		setSelection(s);
 	}
 
+	public InstallQueuePanel getInstallQueue() {
+		return installQueue;
+	}
 }

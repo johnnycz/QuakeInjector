@@ -48,6 +48,7 @@ public class QuakeInjector {
 	private final static String zipFilesXml = "zipFiles.xml";
 
 	final static File configFile = new File("config.properties");
+	private final PackageInteractionPanel interactionPanel;
 	private EngineStarter starter;
 	private RequirementList maps;
 	private PackageList packages;
@@ -58,7 +59,6 @@ public class QuakeInjector {
 	private final Configuration config;
 
 	private final QuakeInjectorView view;
-	private PackageInteractionPanel interactionPanel;
 
 	public QuakeInjector() {
 
@@ -86,12 +86,20 @@ public class QuakeInjector {
 		maplist = new PackageListModel(packages);
 		this.offline = cfg.OfflineMode;
 
+
 		view = new QuakeInjectorView(getConfig(), maplist);
 
-		view.addWindowListener(new QuakeInjectorWindowListener());
+		// XXX FIXME this is ugly because a view should not be the one providing this
+		// interactionpanel is both a view but also a controller
+		// and so here a view (QuakeInjectorView) is actually returning a controller to us
+		// that's a bad design
+		this.interactionPanel = view.getInteractionPanel();
 
-		final InstallQueuePanel installQueue = new InstallQueuePanel();
-		this.interactionPanel = new PackageInteractionPanel(view, installQueue);
+		registerViewListeners();
+	}
+
+	private void registerViewListeners() {
+		view.addWindowListener(new QuakeInjectorWindowListener());
 
 		addMenuActionListeners();
 

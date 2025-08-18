@@ -12,7 +12,6 @@ import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 public class QuakeInjectorView extends JFrame {
 	/**
@@ -26,13 +25,14 @@ public class QuakeInjectorView extends JFrame {
 	private static final int minWidth = 1024;
 	private static final int minHeight = 768;
 
-	private final Menu menu;
-	private final PackageListModel maplist;
-
 	private final Configuration config;
+	private final PackageListModel maplist;
+	private PackageInteractionPanel interactionPanel;
+
+	private final Menu menu;
 	private JButton randomMapButton;
 	private PackageTable packageTable;
-	private List<ActionListener> showEngineConfigListeners;
+	private List<ActionListener> showEngineConfigListeners = new ArrayList<>();
 
 	public QuakeInjectorView(Configuration config, PackageListModel maplist) {
 		super(applicationName);
@@ -213,6 +213,8 @@ public class QuakeInjectorView extends JFrame {
 			weighty = 1;
 		}});
 
+		this.interactionPanel = new PackageInteractionPanel(new InstallQueuePanel());
+
 		infoPanel.add(interactionPanel, new GridBagConstraints() {{
 			gridy = 1;
 			fill = BOTH;
@@ -227,7 +229,7 @@ public class QuakeInjectorView extends JFrame {
 // 			weightx = 1;
 // 		}});
 
-		JScrollPane queueScroll = new JScrollPane(installQueue);
+		JScrollPane queueScroll = new JScrollPane(interactionPanel.getInstallQueue());
 		infoPanel.add(queueScroll, new GridBagConstraints() {{
 			anchor = PAGE_END;
 			fill = BOTH;
@@ -324,5 +326,15 @@ public class QuakeInjectorView extends JFrame {
 
 	public void addShowEngineConfigListener(ActionListener listener) {
 		showEngineConfigListeners.add(listener);
+	}
+
+	/**
+	 * @deprecated Refactoring is needed so that a view does not hold a reference to a controller.
+	 * Interaction panel is itself both a view and a controller, splitting it up would help.
+	 * @return
+	 */
+	@Deprecated
+	public PackageInteractionPanel getInteractionPanel() {
+		return interactionPanel;
 	}
 }
