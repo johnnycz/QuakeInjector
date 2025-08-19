@@ -17,7 +17,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
-package de.haukerehfeld.quakeinjector;
+package de.haukerehfeld.quakeinjector.guimodel;
 
 import java.util.ArrayList;
 
@@ -26,9 +26,9 @@ import javax.swing.ListSelectionModel;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
-import de.haukerehfeld.quakeinjector.packagelist.model.PackageListModel;
+import de.haukerehfeld.quakeinjector.Package;
 
-class PackageListSelectionHandler implements ListSelectionListener {
+public class PackageListSelectionHandler implements ListSelectionListener {
 	private PackageListModel list;
 
 	private JTable table;
@@ -81,7 +81,7 @@ class PackageListSelectionHandler implements ListSelectionListener {
 		listeners.add(l);
 	}
 
-	private void notifySelectionListeners(Package selection) {
+	private void notifySelectionListeners(de.haukerehfeld.quakeinjector.Package selection) {
 		for (SelectionListener l: listeners) {
 			l.selectionChanged(selection);
 		}

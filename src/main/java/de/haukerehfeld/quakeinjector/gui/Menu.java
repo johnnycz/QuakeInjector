@@ -17,10 +17,9 @@
   You should have received a copy of the GNU General Public License
   along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
-package de.haukerehfeld.quakeinjector;
+package de.haukerehfeld.quakeinjector.gui;
 
 //import java.awt.*;
-import de.haukerehfeld.quakeinjector.gui.UIThemeOption;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;

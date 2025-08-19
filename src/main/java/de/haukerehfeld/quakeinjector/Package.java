@@ -20,6 +20,7 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 package de.haukerehfeld.quakeinjector;
 
 import de.haukerehfeld.quakeinjector.repackage.ExtractMapping;
+import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
 import java.util.ArrayList;
 import java.util.Date;

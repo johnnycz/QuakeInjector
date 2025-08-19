@@ -19,9 +19,13 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.gui.Menu;
 import de.haukerehfeld.quakeinjector.gui.ProgressPopup;
+import de.haukerehfeld.quakeinjector.gui.QuakeInjectorView;
 import de.haukerehfeld.quakeinjector.gui.UIThemeOption;
-import de.haukerehfeld.quakeinjector.packagelist.model.PackageListModel;
+import de.haukerehfeld.quakeinjector.guimodel.PackageListModel;
+import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
+import de.haukerehfeld.quakeinjector.utils.RelativePath;
 
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
@@ -86,8 +90,9 @@ public class QuakeInjector {
 		maplist = new PackageListModel(packages);
 		this.offline = cfg.OfflineMode;
 
-
-		view = new QuakeInjectorView(getConfig(), maplist);
+		loadTheme();
+		view = new QuakeInjectorView(maplist);
+		setWindowSize();
 
 		// XXX FIXME this is ugly because a view should not be the one providing this
 		// interactionpanel is both a view but also a controller
@@ -98,7 +103,48 @@ public class QuakeInjector {
 		registerViewListeners();
 	}
 
+	private void loadTheme() {
+		UIThemeOption option = getConfig().uiTheme.get();
+		if (option != null) {
+			option.init();
+		} else {
+			UIThemeOption.SYSTEM.init();
+		}
+	}
+
+	/**
+	 * Try setting the saved window size and position
+	 */
+	private void setWindowSize() {
+		Configuration c = getConfig();
+
+		if (c.MainWindowWidth.exists() && c.MainWindowHeight.exists()) {
+			int width = c.MainWindowWidth.get();
+			int height = c.MainWindowHeight.get();
+			if (c.MainWindowPositionX.exists() && c.MainWindowPositionY.exists()) {
+				int posX = c.MainWindowPositionX.get();
+				int posY = c.MainWindowPositionY.get();
+				// System.out.println("Setting window bounds: "
+				//                    + posX + ", "
+				//                    + posY + ", "
+				//                    + width + ", "
+				//                    + height);
+
+				view.setBounds(posX, posY, width, height);
+			}
+			else {
+				// System.out.println("Setting window size: " + width + ", " + height);
+				view.setSize(width, height);
+			}
+		}
+		else {
+			view.pack();
+		}
+	}
+
 	private void registerViewListeners() {
+
+		var packageDetailPanel = new PackageDetailPanel(view.getPackageDetailPanelView(), getConfig().ScreenshotRepositoryPath.get(), getConfig().mapWebpageBaseUrl.get());
 		view.addWindowListener(new QuakeInjectorWindowListener());
 
 		addMenuActionListeners();
@@ -116,6 +162,13 @@ public class QuakeInjector {
 		});
 
 		view.addShowEngineConfigListener((e) -> showEngineConfig());
+
+
+		PackageListSelectionHandler selectionHandler =
+				new PackageListSelectionHandler(maplist, view.getPackageTable());
+		view.getPackageTable().getSelectionModel().addListSelectionListener(selectionHandler);
+		selectionHandler.addSelectionListener(interactionPanel);
+		selectionHandler.addSelectionListener(packageDetailPanel);
 	}
 
 	private void addMenuActionListeners() {
@@ -656,6 +709,11 @@ public class QuakeInjector {
 
 	private void display() {
 		view.display();
+		if (getConfig().MainWindowState.exists()) {
+			int state = getConfig().MainWindowState.get();
+			view.setExtendedState(state);
+			System.out.println("Setting window state: " + state);
+		}
 	}
 
 	private class QuakeInjectorWindowListener extends WindowAdapter

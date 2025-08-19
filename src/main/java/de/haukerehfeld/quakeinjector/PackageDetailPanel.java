@@ -30,96 +30,58 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.TimeZone;
 
 import javax.swing.ImageIcon;
-import javax.swing.JEditorPane;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
-import javax.swing.border.EmptyBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.event.HyperlinkEvent;
-import javax.swing.event.HyperlinkListener;
-import javax.swing.text.Style;
-import javax.swing.text.html.HTMLEditorKit;
-import javax.swing.text.html.StyleSheet;
 
 import de.haukerehfeld.quakeinjector.gui.BrowserLauncher;
-import de.haukerehfeld.quakeinjector.gui.ScrollablePanel;
+import de.haukerehfeld.quakeinjector.gui.PackageDetailPanelView;
+import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
+import de.haukerehfeld.quakeinjector.utils.Utils;
 
 /**
  * the panel that shows Info about the selected map
  */
-class PackageDetailPanel extends JPanel implements ChangeListener,
-										PackageListSelectionHandler.SelectionListener {
-	private static final Dimension DEFAULTIMAGESIZE = new Dimension(360, 270);
-	private static final Dimension NOIMAGESIZE = new Dimension(100, 500);
+public class PackageDetailPanel extends JPanel implements ChangeListener,
+		PackageListSelectionHandler.SelectionListener {
 
 	/**
 	 * Currently selected map
 	 */
-	private Package current = null;
+	private de.haukerehfeld.quakeinjector.Package current = null;
 
-	private JLabel title;
-	private JLabel size;
-	private JLabel date;
-
-	private ScrollablePanel content;
-
-	private JLabel image;
 	private boolean imageDisplayed = false;
-	private JPanel imagePanel;
 
-	private JEditorPane description;
+	private final String screenshotRepositoryPath;
+	private final String mapWebpageBaseUrl;
 
-	private String screenshotRepositoryPath;
-	
+	private final PackageDetailPanelView view;
+
 	/**
 	 * Holds the currently valid screenshot url, for threading reasons
 	 */
 	private String supposedImageUrl = null;
 
-	/**
-	 * @todo 2009-11-05 19:18 hrehfeld     remove, duplicate from packagelistmodel
-	 */
-		private ImageIcon createImageIcon(String path, String description) {
-			java.net.URL imgURL = getClass().getResource(path);
-			if (imgURL != null) {
-				return new ImageIcon(imgURL, description);
-			} else {
-				System.err.println("Couldn't find file: " + path);
-				return null;
-			}
-		}
-	
+	public PackageDetailPanel(PackageDetailPanelView view, String screenshotRepositoryPath, String mapWebpageBaseUrl) {
+		this.view = view;
+		this.screenshotRepositoryPath = screenshotRepositoryPath;
+		this.mapWebpageBaseUrl = mapWebpageBaseUrl;
 
-	public PackageDetailPanel(Configuration configuration) {
-		super(new GridBagLayout());
-		
-		this.screenshotRepositoryPath = configuration.ScreenshotRepositoryPath.get();
+		addListeners();
+	}
 
-		content = new ScrollablePanel(50, 50) {{
-			setLayout(new GridBagLayout());
-		}};
-		content.setOpaque(false);
-		//content.setBackground();
-		
-		title = new JLabel();
-		title.setHorizontalAlignment(SwingConstants.CENTER);
-		title.setOpaque(true);
-		title.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		title.addMouseListener(new MouseAdapter() {
+	private void addListeners() {
+		view.getTitle().addMouseListener(new MouseAdapter() {
 			public void mouseClicked(MouseEvent arg0) {
 				if (current != null) {
 					try {
 						// URLs with spaces in the path need escaping to %20, not +. We can't use built in URLEncoder
-						URL url = new URL(configuration.mapWebpageBaseUrl.get() + current.getSha256());
+						URL url = new URL(mapWebpageBaseUrl + current.getSha256());
 						URI uri = new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
 						BrowserLauncher.openURL(uri.toASCIIString());
 					}
@@ -129,34 +91,10 @@ class PackageDetailPanel extends JPanel implements ChangeListener,
 				}
 			}
 		});
-		
-		content.add(title, new GridBagConstraints() {{
-			weightx = 1;
-			weighty = 0;
-			fill = BOTH;
-			anchor = PAGE_START;
-			ipadx = 5;
-			ipady = 20;
-		}});
-
-		imagePanel = new JPanel();
-		imagePanel.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
- 		imagePanel.setOpaque(true);
- 		imagePanel.setBackground(java.awt.Color.DARK_GRAY);
-
-		imagePanel.setPreferredSize(DEFAULTIMAGESIZE);
-		imagePanel.setMinimumSize(DEFAULTIMAGESIZE);
-		//imagePanel.setSize(DEFAULTIMAGESIZE);
- 		
- 		image = new JLabel();
- 		EmptyBorder border = new EmptyBorder(0,0,0,0);
- 		image.setBorder(border);
- 		image.setHorizontalAlignment(SwingConstants.CENTER);
- 		image.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
- 		image.addMouseListener(new MouseAdapter() {
- 			@Override
- 			public void mouseClicked(MouseEvent arg0) {
- 				// TODO: Refactor
+		view.getImage().addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent arg0) {
+				// TODO: Refactor
 				try {
 					// URLs with spaces in the path need escaping to %20, not +. We can't use built in URLEncoder
 					URL url = new URL(PackageDetailPanel.this.screenshotRepositoryPath
@@ -167,96 +105,14 @@ class PackageDetailPanel extends JPanel implements ChangeListener,
 				catch (MalformedURLException | URISyntaxException e) {
 					// TODO: Emit an error message or something
 				}
- 			}		
-		});
- 		imagePanel.add(image);
-
- 		
- 		
-		description = new JEditorPane("text/html", "");
-		description.setEditable(false);
-		description.addHyperlinkListener(new HyperlinkListener() {
-				@Override public void hyperlinkUpdate(HyperlinkEvent e) {
-					if (e.getEventType().equals(HyperlinkEvent.EventType.ACTIVATED)) {
-						java.net.URL url = e.getURL();
-						if (url != null) {
-							BrowserLauncher.openURL(url.toString());							
-						}
-						else {
-							System.err.println("Weird hyperlink with null URL: " + e.getDescription());
-							String link = "https://www.quaddicted.com/reviews/" + e.getDescription();
-							BrowserLauncher.openURL(link);
-						}
-					}
-				}
-			});
-		content.add(description, new GridBagConstraints() {{
-			gridy = 2;
-			weightx = 1;
-			weighty = 0;
-			fill = BOTH;
-			anchor = PAGE_START;
-		}});
-
-		{
-			HTMLEditorKit doc = ((HTMLEditorKit) description.getEditorKit());
-			StyleSheet styles = doc.getStyleSheet();
-			
-			Enumeration rules = styles.getStyleNames();
-			while (rules.hasMoreElements()) {
-				String name = (String) rules.nextElement();
-				Style rule = styles.getStyle(name);
-				//System.out.println(rule.toString());
 			}
-		}
+		});
 
-		
 
-		//Put the editor pane in a scroll pane.
-		JScrollPane descriptionScroll = new JScrollPane(content);
-		descriptionScroll.getViewport().setBackground(javax.swing.UIManager.getColor("TextPane.background"));
-		descriptionScroll.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants
-		                                             .VERTICAL_SCROLLBAR_ALWAYS);
-
-		add(descriptionScroll, new GridBagConstraints() {{
-			gridy = 0;
-			gridwidth = 2;
-			weightx = 1;
-			weighty = 1;
-			fill = BOTH;
-			anchor = PAGE_START;
-		}});
-
-		int detailHeight = 20;
-		date = new JLabel();
-		date.setHorizontalAlignment(SwingConstants.CENTER);
-		add(date, new GridBagConstraints() {{
-			gridy = 1;
-			gridx = 0;
-			weightx = 1;
- 			weighty = 0;
-			fill = NONE;
-			anchor = CENTER;
-			ipadx = 5;
-			ipady = 3;
-		}});
-
-		size = new JLabel();
-		size.setHorizontalAlignment(SwingConstants.CENTER);
-		add(size, new GridBagConstraints() {{
-			gridy = 1;
-			gridx = 1;
-			weightx = 1;
-			weighty = 0;
-			fill = NONE;
-			anchor = CENTER;
-			ipadx = 5;
-			ipady = 3;
-		}});
 	}
 
 	private void addImage() {
-		content.add(imagePanel, new GridBagConstraints() {{
+		view.getContent().add(view.getImagePanel(), new GridBagConstraints() {{
 			gridy = 1;
 			weightx = 1;
 			weighty = 1;
@@ -267,20 +123,20 @@ class PackageDetailPanel extends JPanel implements ChangeListener,
 	}
 
 	private void removeImage() {
-		content.remove(imagePanel);
+		view.getContent().remove(view.getImagePanel());
 		imageDisplayed = false;
 	}
 
 	private void refreshUi() {
-		title.setText(current.getTitle());
-		date.setText(toString(current.getDate()));
-		size.setText(current.getSize() / 1000f + " MB");
+		view.getTitle().setText(current.getTitle());
+		view.getDate().setText(toString(current.getDate()));
+		view.getSizeLabel().setText(current.getSize() / 1000f + " MB");
 
 		if (!imageDisplayed) {
 			addImage();
 		}
 
-		image.setIcon(null);
+		view.getImage().setIcon(null);
 		
 		supposedImageUrl = screenshotRepositoryPath + current.getSha256().substring(0, 2) + "/" + current.getSha256() + "/" + current.getId() + ".jpg";
 		
@@ -325,8 +181,8 @@ class PackageDetailPanel extends JPanel implements ChangeListener,
 					System.err.println("Couldn't load image " + supposedImageUrl);
 				}
 				else {
-					image.setIcon(icon);
-					imagePanel.setMinimumSize(DEFAULTIMAGESIZE);
+					view.getImage().setIcon(icon);
+					view.getImagePanel().setMinimumSize(PackageDetailPanelView.DEFAULTIMAGESIZE);
 				}
 				
 				revalidate();
@@ -334,11 +190,11 @@ class PackageDetailPanel extends JPanel implements ChangeListener,
 			}
 		}.execute();
 
-		description.getEditorKit().createDefaultDocument();
-		description.setText(current.getDescription()
+		view.getDescription().getEditorKit().createDefaultDocument();
+		view.getDescription().setText(current.getDescription()
 		                    + toString(current.getRequirements()) + "<p></p>");
 		//scroll to top
-		description.setCaretPosition(0);
+		view.getDescription().setCaretPosition(0);
 
 		revalidate();
 		repaint();

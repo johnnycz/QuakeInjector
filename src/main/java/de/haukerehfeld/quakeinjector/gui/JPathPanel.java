@@ -36,9 +36,9 @@ import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
-import de.haukerehfeld.quakeinjector.ChangeListenerList;
-import de.haukerehfeld.quakeinjector.RelativePath;
-import de.haukerehfeld.quakeinjector.Utils;
+import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
+import de.haukerehfeld.quakeinjector.utils.RelativePath;
+import de.haukerehfeld.quakeinjector.utils.Utils;
 
 /**
  * A Panel to input paths

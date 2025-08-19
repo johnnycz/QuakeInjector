@@ -17,7 +17,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
-package de.haukerehfeld.quakeinjector;
+package de.haukerehfeld.quakeinjector.gui;
 
 import java.awt.Dimension;
 import java.awt.Color;
@@ -31,8 +31,8 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableRowSorter;
 
-import de.haukerehfeld.quakeinjector.packagelist.model.Column;
-import de.haukerehfeld.quakeinjector.packagelist.model.PackageListModel;
+import de.haukerehfeld.quakeinjector.guimodel.Column;
+import de.haukerehfeld.quakeinjector.guimodel.PackageListModel;
 
 /**
  * @todo check if dependency on de.haukerehfeld.quakeinjector.packagelist.model.PackageListModel is necessary

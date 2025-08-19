@@ -20,6 +20,8 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 package de.haukerehfeld.quakeinjector;
 
 import de.haukerehfeld.quakeinjector.gui.UIThemeOption;
+import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
+import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import java.io.File;
 import java.io.FileInputStream;

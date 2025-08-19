@@ -18,8 +18,10 @@ You should have received a copy of the GNU General Public License
 along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package de.haukerehfeld.quakeinjector;
+package de.haukerehfeld.quakeinjector.utils;
 
+
+import de.haukerehfeld.quakeinjector.ProgressListener;
 
 import java.io.BufferedOutputStream;
 import java.io.File;

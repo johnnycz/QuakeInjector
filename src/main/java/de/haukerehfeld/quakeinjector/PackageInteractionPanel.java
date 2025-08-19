@@ -19,6 +19,10 @@
 */
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.gui.QuakeInjectorView;
+import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
+import de.haukerehfeld.quakeinjector.utils.Utils;
+
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
@@ -39,7 +43,7 @@ import javax.swing.event.ChangeListener;
 /**
  * the panel that shows Info about the selected map
  */
-class PackageInteractionPanel extends JPanel implements ChangeListener,
+public class PackageInteractionPanel extends JPanel implements ChangeListener,
 											 PackageListSelectionHandler.SelectionListener {
 	private static final String uninstallText = "Uninstall";
 	private static final String installText = "Install";

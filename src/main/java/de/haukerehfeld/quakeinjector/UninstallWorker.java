@@ -1,5 +1,7 @@
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.utils.Utils;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.BufferedInputStream;

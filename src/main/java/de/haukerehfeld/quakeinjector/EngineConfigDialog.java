@@ -38,6 +38,7 @@ import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
 
 import de.haukerehfeld.quakeinjector.gui.*;
+import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
 public class EngineConfigDialog extends JDialog {
 	private final static String windowTitle = "Settings";

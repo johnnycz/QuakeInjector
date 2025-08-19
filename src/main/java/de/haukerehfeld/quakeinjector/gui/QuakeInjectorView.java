@@ -1,7 +1,8 @@
-package de.haukerehfeld.quakeinjector;
+package de.haukerehfeld.quakeinjector.gui;
 
-import de.haukerehfeld.quakeinjector.gui.UIThemeOption;
-import de.haukerehfeld.quakeinjector.packagelist.model.PackageListModel;
+import de.haukerehfeld.quakeinjector.*;
+import de.haukerehfeld.quakeinjector.guimodel.PackageListModel;
+import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
@@ -25,22 +26,19 @@ public class QuakeInjectorView extends JFrame {
 	private static final int minWidth = 1024;
 	private static final int minHeight = 768;
 
-	private final Configuration config;
 	private final PackageListModel maplist;
 	private PackageInteractionPanel interactionPanel;
 
 	private final Menu menu;
 	private JButton randomMapButton;
 	private PackageTable packageTable;
-	private List<ActionListener> showEngineConfigListeners = new ArrayList<>();
+	private final List<ActionListener> showEngineConfigListeners = new ArrayList<>();
+	private PackageDetailPanelView packageDetailPanelView;
 
-	public QuakeInjectorView(Configuration config, PackageListModel maplist) {
+	public QuakeInjectorView(PackageListModel maplist) {
 		super(applicationName);
 
-		this.config = config;
 		this.maplist = maplist;
-
-		loadTheme();
 
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -57,54 +55,10 @@ public class QuakeInjectorView extends JFrame {
 		//config needed here
 		addMainPane(getContentPane());
 
-		setWindowSize();
-	}
-
-	private Configuration getConfig() {
-		return config;
-	}
-
-	private void loadTheme() {
-		UIThemeOption option = getConfig().uiTheme.get();
-		if (option != null) {
-			option.init();
-		} else {
-			UIThemeOption.SYSTEM.init();
-		}
 	}
 
 	public Menu getMenu() {
 		return menu;
-	}
-
-	/**
-	 * Try setting the saved window size and position
-	 */
-	private void setWindowSize() {
-		Configuration c = getConfig();
-
-		if (c.MainWindowWidth.exists() && c.MainWindowHeight.exists()) {
-			int width = c.MainWindowWidth.get();
-			int height = c.MainWindowHeight.get();
-			if (c.MainWindowPositionX.exists() && c.MainWindowPositionY.exists()) {
-				int posX = c.MainWindowPositionX.get();
-				int posY = c.MainWindowPositionY.get();
-				// System.out.println("Setting window bounds: "
-				//                    + posX + ", "
-				//                    + posY + ", "
-				//                    + width + ", "
-				//                    + height);
-
-				setBounds(posX, posY, width, height);
-			}
-			else {
-				// System.out.println("Setting window size: " + width + ", " + height);
-				setSize(width, height);
-			}
-		}
-		else {
-			pack();
-		}
 	}
 
 	public void selectRowInMainTable(int mapTableRowIdx) {
@@ -116,14 +70,9 @@ public class QuakeInjectorView extends JFrame {
 		randomMapButton.addActionListener(listener);
 	}
 
-	public PackageTable getPackageTable() {
-		return packageTable;
-	}
-
 	private void addMainPane(Container panel) {
 		JPanel mainPanel = new JPanel();
 		mainPanel.setLayout(new GridBagLayout());
-
 
 		//create a table
 		packageTable = new PackageTable(maplist);
@@ -203,10 +152,9 @@ public class QuakeInjectorView extends JFrame {
 
 		JPanel infoPanel = new JPanel(new GridBagLayout());
 
-		Configuration config = getConfig();
-		PackageDetailPanel details = new PackageDetailPanel(config);
+		packageDetailPanelView = new PackageDetailPanelView();
 
-		infoPanel.add(details, new GridBagConstraints() {{
+		infoPanel.add(packageDetailPanelView, new GridBagConstraints() {{
 			anchor = PAGE_START;
 			fill = BOTH;
 			weightx = 1;
@@ -247,12 +195,6 @@ public class QuakeInjectorView extends JFrame {
 		infoSplit.setDividerLocation(600);
 		infoSplit.setMinimumSize(new Dimension(400, 600));
 
-		PackageListSelectionHandler selectionHandler
-				= new PackageListSelectionHandler(maplist,
-				packageTable);
-		packageTable.getSelectionModel().addListSelectionListener(selectionHandler);
-		selectionHandler.addSelectionListener(interactionPanel);
-		selectionHandler.addSelectionListener(details);
 
 
 		JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
@@ -270,11 +212,6 @@ public class QuakeInjectorView extends JFrame {
 	public void display() {
 		//pack();
 		setVisible(true);
-		if (getConfig().MainWindowState.exists()) {
-			int state = getConfig().MainWindowState.get();
-			setExtendedState(state);
-			System.out.println("Setting window state: " + state);
-		}
 	}
 
 
@@ -336,5 +273,13 @@ public class QuakeInjectorView extends JFrame {
 	@Deprecated
 	public PackageInteractionPanel getInteractionPanel() {
 		return interactionPanel;
+	}
+
+	public PackageDetailPanelView getPackageDetailPanelView() {
+		return packageDetailPanelView;
+	}
+
+	public PackageTable getPackageTable() {
+		return packageTable;
 	}
 }
