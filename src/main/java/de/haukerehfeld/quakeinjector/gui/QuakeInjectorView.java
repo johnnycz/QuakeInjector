@@ -27,7 +27,8 @@ public class QuakeInjectorView extends JFrame {
 	private static final int minHeight = 768;
 
 	private final PackageListModel maplist;
-	private PackageInteractionPanel interactionPanel;
+	private final Component packageInteractionPanelView;
+	private final Component installQueuePanel;
 
 	private final Menu menu;
 	private JButton randomMapButton;
@@ -35,10 +36,13 @@ public class QuakeInjectorView extends JFrame {
 	private final List<ActionListener> showEngineConfigListeners = new ArrayList<>();
 	private PackageDetailPanelView packageDetailPanelView;
 
-	public QuakeInjectorView(PackageListModel maplist) {
+	public QuakeInjectorView(PackageListModel maplist, Component packageInteractionPanelView,
+	                         Component installQueuePanel) {
 		super(applicationName);
 
 		this.maplist = maplist;
+		this.packageInteractionPanelView = packageInteractionPanelView;
+		this.installQueuePanel = installQueuePanel;
 
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -161,9 +165,7 @@ public class QuakeInjectorView extends JFrame {
 			weighty = 1;
 		}});
 
-		this.interactionPanel = new PackageInteractionPanel(new InstallQueuePanel());
-
-		infoPanel.add(interactionPanel, new GridBagConstraints() {{
+		infoPanel.add(packageInteractionPanelView, new GridBagConstraints() {{
 			gridy = 1;
 			fill = BOTH;
 			weightx = 1;
@@ -177,7 +179,8 @@ public class QuakeInjectorView extends JFrame {
 // 			weightx = 1;
 // 		}});
 
-		JScrollPane queueScroll = new JScrollPane(interactionPanel.getInstallQueue());
+
+		JScrollPane queueScroll = new JScrollPane(installQueuePanel);
 		infoPanel.add(queueScroll, new GridBagConstraints() {{
 			anchor = PAGE_END;
 			fill = BOTH;
@@ -263,16 +266,6 @@ public class QuakeInjectorView extends JFrame {
 
 	public void addShowEngineConfigListener(ActionListener listener) {
 		showEngineConfigListeners.add(listener);
-	}
-
-	/**
-	 * @deprecated Refactoring is needed so that a view does not hold a reference to a controller.
-	 * Interaction panel is itself both a view and a controller, splitting it up would help.
-	 * @return
-	 */
-	@Deprecated
-	public PackageInteractionPanel getInteractionPanel() {
-		return interactionPanel;
 	}
 
 	public PackageDetailPanelView getPackageDetailPanelView() {

@@ -19,12 +19,11 @@
 */
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.gui.PackageInteractionPanelView;
 import de.haukerehfeld.quakeinjector.gui.QuakeInjectorView;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -32,10 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
 import javax.swing.SwingWorker;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -43,24 +39,16 @@ import javax.swing.event.ChangeListener;
 /**
  * the panel that shows Info about the selected map
  */
-public class PackageInteractionPanel extends JPanel implements ChangeListener,
+public class PackageInteractionPanel implements ChangeListener,
 											 PackageListSelectionHandler.SelectionListener {
-	private static final String uninstallText = "Uninstall";
-	private static final String installText = "Install";
-	private static final String playText = "Play";
 
+	private final PackageInteractionPanelView view;
 	private QuakeInjectorView parentView;
 	
 	private EngineStarter starter;
 	private Configuration.RepositoryBasePath paths;
 	private RequirementList requirements;
-	private InstallQueuePanel installQueue;
-
-	private JButton uninstallButton;
-	private JButton installButton;
-	private JButton playButton;
-
-	private JComboBox startmaps;
+	private final InstallQueuePanel installQueue;
 
 	private boolean ready = false;
 
@@ -73,73 +61,86 @@ public class PackageInteractionPanel extends JPanel implements ChangeListener,
 
 	private SaveInstalled installedMaps;
 	
-	public PackageInteractionPanel(InstallQueuePanel installQueue) {
-		super(new GridBagLayout());
-
+	public PackageInteractionPanel(InstallQueuePanel installQueue, PackageInteractionPanelView view) {
 		this.installQueue = installQueue;
+		this.view = view;
 
-		uninstallButton = new JButton(uninstallText);
-		uninstallButton.setEnabled(false);
-		uninstallButton.addActionListener(new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					uninstall();
-				}
-			});
-
-		add(uninstallButton, new GridBagConstraints() {{
-			fill = BOTH;
-		}});
-
-		installButton = new JButton(installText);
-		installButton.setEnabled(false);
-		// int preferredHeight = (int) installButton.getPreferredSize().getHeight();
-		// {
-		// 	Dimension maxSize = new Dimension(150, preferredHeight);
-		// 	installButton.setMinimumSize(maxSize);
-		// 	installButton.setPreferredSize(maxSize);
-		// }
-		installButton.addActionListener(new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					install();
-				}
-			});
-		add(installButton, new GridBagConstraints() {{
-			gridx = 1;
-			gridy = 0;
-			fill = BOTH;
-		}});
-
-		playButton = new JButton(playText);
-		playButton.setEnabled(false);
-		playButton.addActionListener(new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					start();
-				}
-			});
-		add(playButton, new GridBagConstraints() {{
-			gridx = 0;
-			gridy = 1;
-			fill = BOTH;
-		}});
-
-		startmaps = new JComboBox();
-		// {
-		// 	Dimension maxSize = new Dimension(100, preferredHeight);
-		// 	startmaps.setPreferredSize(maxSize);
-		// 	startmaps.setMinimumSize(maxSize);
-		// }
-		add(startmaps, new GridBagConstraints() {{
-			gridx = 1;
-			gridy = 1;
-			fill = BOTH;
-			weightx = 1;
-		}});
-
+		addListeners();
 
 		disableUI();
 		refreshUi();
 	}
 
+	private void addListeners() {
+		view.getUninstallButton().addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				uninstall();
+			}
+		});
+
+		view.getInstallButton().addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				install();
+			}
+		});
+
+		view.getPlayButton().addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				start();
+			}
+		});
+	}
+
+	private void disableUI() {
+		view.getPlayButton().setEnabled(false);
+		view.getInstallButton().setEnabled(false);
+		view.getStartmaps().setEnabled(false);
+	}
+
+	private void refreshUi() {
+		if (!ready || !hasCurrentPackage()) {
+			view.getInstallButton().setText(PackageInteractionPanelView.getInstallText());
+			disableUI();
+			return;
+		}
+
+		view.getInstallButton().setText(PackageInteractionPanelView.getInstallText() + " " + selectedMap.getId());
+
+		//we do this regardless of displaying the list, because we can
+		//then simply get the selection from the list even if there's
+		//only one option
+		java.util.List<String> maps = selectedMap.getStartmaps();
+		view.getStartmaps().removeAllItems();
+		for (String startmap: maps) {
+			view.getStartmaps().addItem(startmap);
+		}
+
+		if (selectedMap.isInstalled()) {
+			view.getInstallButton().setEnabled(false);
+			view.getUninstallButton().setEnabled(true);
+			view.getPlayButton().setEnabled(true);
+
+			boolean enableList = false;
+			if (maps.size() > 1) {
+				enableList = true;
+			}
+			view.getStartmaps().setEnabled(enableList);
+		}
+		else {
+			if (installer.alreadyQueued(selectedMap)) {
+				view.getInstallButton().setEnabled(false);
+			}
+			else {
+				view.getInstallButton().setEnabled(true);
+			}
+			view.getPlayButton().setEnabled(false);
+			view.getUninstallButton().setEnabled(false);
+			view.getStartmaps().setEnabled(false);
+		}
+
+		view.revalidate();
+		view.repaint();
+	}
 
 	public void init(Installer installer,
 	                 Configuration.RepositoryBasePath paths,
@@ -198,7 +199,7 @@ public class PackageInteractionPanel extends JPanel implements ChangeListener,
 			Object[] options = {"Install anyways",
 			                    "Cancel Install"};
 			int install =
-			    JOptionPane.showOptionDialog(this,
+			    JOptionPane.showOptionDialog(view,
 			                                 msg,
 			                                 "Prerequisites not available for automatic install",
 			                                 JOptionPane.YES_NO_OPTION,
@@ -221,7 +222,7 @@ public class PackageInteractionPanel extends JPanel implements ChangeListener,
 			Object[] options = {"Install",
 			                    "Cancel Start"};
 			int install =
-			    JOptionPane.showOptionDialog(this,
+			    JOptionPane.showOptionDialog(view,
 			                                 msg,
 			                                 "Map not installed",
 			                                 JOptionPane.YES_NO_OPTION,
@@ -245,7 +246,7 @@ public class PackageInteractionPanel extends JPanel implements ChangeListener,
 			Object[] options = {"Start anyways",
 			                    "Cancel Start"};
 			int install =
-			    JOptionPane.showOptionDialog(this,
+			    JOptionPane.showOptionDialog(view,
 			                                 msg,
 			                                 "Prerequisites not installed",
 			                                 JOptionPane.YES_NO_OPTION,
@@ -303,7 +304,7 @@ public class PackageInteractionPanel extends JPanel implements ChangeListener,
 								  refreshUi();
 								  String msg = "The file couldn't be found in the online"
 								      + " repository";
-								  JOptionPane.showMessageDialog(PackageInteractionPanel.this,
+								  JOptionPane.showMessageDialog(view,
 								                                msg,
 								                                "File not found (404)",
 								                                JOptionPane.WARNING_MESSAGE);
@@ -361,7 +362,7 @@ public class PackageInteractionPanel extends JPanel implements ChangeListener,
 
 								  String msg = "Couldn't write to harddisk! "
 								      + error.getMessage();
-								  JOptionPane.showMessageDialog(PackageInteractionPanel.this,
+								  JOptionPane.showMessageDialog(view,
 								                                msg,
 								                                "Couldn't write to harddisk",
 								                                JOptionPane.ERROR_MESSAGE);
@@ -372,7 +373,7 @@ public class PackageInteractionPanel extends JPanel implements ChangeListener,
 
 								  String msg = "Couldn't open file! "
 								      + error.getMessage();
-								  JOptionPane.showMessageDialog(PackageInteractionPanel.this,
+								  JOptionPane.showMessageDialog(view,
 								                                msg,
 								                                "Couldn't open file!",
 								                                JOptionPane.ERROR_MESSAGE);
@@ -383,7 +384,7 @@ public class PackageInteractionPanel extends JPanel implements ChangeListener,
 								  cleanup(alreadyInstalledFiles, "Network Error");
 
 								  String msg = "Download failed! " + error.getMessage();
-								  JOptionPane.showMessageDialog(PackageInteractionPanel.this,
+								  JOptionPane.showMessageDialog(view,
 								                                msg,
 								                                "Download failed!",
 								                                JOptionPane.ERROR_MESSAGE);
@@ -404,7 +405,7 @@ public class PackageInteractionPanel extends JPanel implements ChangeListener,
 						  },
 		                  progressListener);
 
-		installButton.setEnabled(false);
+		view.getInstallButton().setEnabled(false);
 	}
 
 	public void uninstall() {
@@ -414,7 +415,7 @@ public class PackageInteractionPanel extends JPanel implements ChangeListener,
 		if (!hasCurrentPackage()) { return; }
 
 		uninstall(selectedMap, selectedMap.getFileList());
-		uninstallButton.setEnabled(false);
+		view.getUninstallButton().setEnabled(false);
 	}
 
 	private void uninstall(final Package map, PackageFileList files) {
@@ -482,7 +483,7 @@ public class PackageInteractionPanel extends JPanel implements ChangeListener,
 		if (!checkPlayRequirements(selectedMap)) {
 			return;
 		}
-		String startmap = (String) startmaps.getSelectedItem();
+		String startmap = (String) view.getStartmaps().getSelectedItem();
 		//System.out.println("startmap: " + startmap);
 
 		try {
@@ -507,57 +508,8 @@ public class PackageInteractionPanel extends JPanel implements ChangeListener,
 
 	}
 
-	private void refreshUi() {
-		if (!ready || !hasCurrentPackage()) {
-			installButton.setText(installText);
-			disableUI();
-			return;
-		}
-		
-		installButton.setText(installText + " " + selectedMap.getId());
 
-		//we do this regardless of displaying the list, because we can
-		//then simply get the selection from the list even if there's
-		//only one option
-		java.util.List<String> maps = selectedMap.getStartmaps();
-		startmaps.removeAllItems();
-		for (String startmap: maps) {
-			startmaps.addItem(startmap);
-		}
 
-		if (selectedMap.isInstalled()) {
-			installButton.setEnabled(false);
-			uninstallButton.setEnabled(true);
-			playButton.setEnabled(true);
-			
-			boolean enableList = false;
-			if (maps.size() > 1) {
-				enableList = true;
-			}
-			startmaps.setEnabled(enableList);
-		}
-		else {
-			if (installer.alreadyQueued(selectedMap)) {
-				installButton.setEnabled(false);
-			}
-			else {
-				installButton.setEnabled(true);
-			}
-			playButton.setEnabled(false);
-			uninstallButton.setEnabled(false);
-			startmaps.setEnabled(false);
-		}
-
-		revalidate();
-		repaint();
-	}
-
-	private void disableUI() {
-		uninstallButton.setEnabled(false);
-		playButton.setEnabled(false);
-		installButton.setEnabled(false);
-		startmaps.setEnabled(false);
-	}
 
 	@Override
 	public void stateChanged(ChangeEvent e) {

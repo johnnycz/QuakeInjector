@@ -19,10 +19,8 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.gui.*;
 import de.haukerehfeld.quakeinjector.gui.Menu;
-import de.haukerehfeld.quakeinjector.gui.ProgressPopup;
-import de.haukerehfeld.quakeinjector.gui.QuakeInjectorView;
-import de.haukerehfeld.quakeinjector.gui.UIThemeOption;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListModel;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
 import de.haukerehfeld.quakeinjector.utils.RelativePath;
@@ -91,14 +89,13 @@ public class QuakeInjector {
 		this.offline = cfg.OfflineMode;
 
 		loadTheme();
-		view = new QuakeInjectorView(maplist);
-		setWindowSize();
 
-		// XXX FIXME this is ugly because a view should not be the one providing this
-		// interactionpanel is both a view but also a controller
-		// and so here a view (QuakeInjectorView) is actually returning a controller to us
-		// that's a bad design
-		this.interactionPanel = view.getInteractionPanel();
+		PackageInteractionPanelView packageInteractionPanelView = new PackageInteractionPanelView();
+		InstallQueuePanel installQueuePanel = new InstallQueuePanel();
+		this.interactionPanel = new PackageInteractionPanel(installQueuePanel, packageInteractionPanelView);
+
+		view = new QuakeInjectorView(maplist, packageInteractionPanelView, installQueuePanel);
+		setWindowSize();
 
 		registerViewListeners();
 	}
