@@ -1,5 +1,7 @@
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.Requirement;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -23,7 +25,7 @@ public class PackageDatabaseSolrJsonParserTest {
         for (Requirement r : result) {
             assertNotNull(r);
 
-            Package entry = (Package) r;
+            de.haukerehfeld.quakeinjector.model.Package entry = (de.haukerehfeld.quakeinjector.model.Package) r;
 
             assertNotNull(entry.getDate());
             assertNotNull(entry.getTitle());
@@ -41,7 +43,7 @@ public class PackageDatabaseSolrJsonParserTest {
 	public void reordersStartMaps() {
 		var result = parser.parse(testResource("/solr.json"));
 		for (Requirement r : result) {
-			Package p = (Package) r;
+			de.haukerehfeld.quakeinjector.model.Package p = (Package) r;
 			if (p.getSha256().equals("7ad993da6c760c446ca31fad71e9f5b6c9eee99b6354f161aa746b572fe70a7d")) {
 				assertEquals("start", p.getStartmaps().get(0));
 			}

@@ -20,6 +20,8 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 package de.haukerehfeld.quakeinjector;
 
 //import java.awt.*;
+import de.haukerehfeld.quakeinjector.model.Requirement;
+
 import java.io.InputStream;
 import java.util.List;
 

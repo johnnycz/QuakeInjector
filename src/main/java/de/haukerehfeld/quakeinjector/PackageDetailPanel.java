@@ -42,6 +42,8 @@ import javax.swing.event.ChangeListener;
 import de.haukerehfeld.quakeinjector.gui.BrowserLauncher;
 import de.haukerehfeld.quakeinjector.gui.PackageDetailPanelView;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
+import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 /**
@@ -53,7 +55,7 @@ public class PackageDetailPanel extends JPanel implements ChangeListener,
 	/**
 	 * Currently selected map
 	 */
-	private de.haukerehfeld.quakeinjector.Package current = null;
+	private de.haukerehfeld.quakeinjector.model.Package current = null;
 
 	private boolean imageDisplayed = false;
 

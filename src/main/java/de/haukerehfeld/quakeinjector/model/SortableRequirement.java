@@ -1,4 +1,4 @@
-package de.haukerehfeld.quakeinjector;
+package de.haukerehfeld.quakeinjector.model;
 
 /**
  * Requirements that can be sorted alphabetically by id

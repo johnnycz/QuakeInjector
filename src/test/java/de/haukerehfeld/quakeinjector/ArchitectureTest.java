@@ -11,22 +11,20 @@ import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 public class ArchitectureTest {
 
 	@Test
-	public void testArchitecture() {
+	public void layeredArchitectureTest() {
 		JavaClasses importedClasses = new ClassFileImporter().importPackages("de.haukerehfeld.quakeinjector");
 
-		ArchRule r1 = layeredArchitecture()
-				.consideringAllDependencies()
-				.layer("gui").definedBy("..gui..")
-				.layer("main").definedBy("de.haukerehfeld.quakeinjector");
+		var rule = layeredArchitecture()
+				.consideringOnlyDependenciesInLayers()
+				.layer("gui").definedBy("de.haukerehfeld.quakeinjector.gui")
+				.layer("main").definedBy("de.haukerehfeld.quakeinjector")
+				.layer("guimodel").definedBy("de.haukerehfeld.quakeinjector.guimodel")
+				.layer("model").definedBy("de.haukerehfeld.quakeinjector.model")
 
-		ArchRule rule = classes().that().resideInAPackage("..gui..")
-						.should().onlyDependOnClassesThat().resideInAnyPackage(
-						"..gui..", "..guimodel..", "de.haukerehfeld.quakeinjector.utils",
-						"java..", "javax..",
-						"com.github.weisj.darklaf..", "edu.stanford.ejalbert..")
-				;
-
-
+				.whereLayer("gui").mayOnlyAccessLayers("gui", "guimodel")
+				.whereLayer("guimodel").mayOnlyAccessLayers("guimodel", "model")
+				.whereLayer("model").mayOnlyAccessLayers("model")
+		;
 		rule.check(importedClasses);
 	}
 }

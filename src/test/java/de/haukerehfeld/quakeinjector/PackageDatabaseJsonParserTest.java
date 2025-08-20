@@ -1,5 +1,7 @@
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.Requirement;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -24,7 +26,7 @@ public class PackageDatabaseJsonParserTest {
     public void reordersStartMaps() {
         var result = parser.parse(testResourceFirst12());
         for (Requirement r : result) {
-            Package p = (Package) r;
+            de.haukerehfeld.quakeinjector.model.Package p = (de.haukerehfeld.quakeinjector.model.Package) r;
             if (p.getSha256().equals("e2efb10efeb36af3d4b6b9e1ddeac537c8bb9b4773f701a1c1e8317785cad419")) {
                 assertEquals("start", p.getStartmaps().get(0));
             }
@@ -35,7 +37,7 @@ public class PackageDatabaseJsonParserTest {
     public void readsNonNullValues() {
         var result = parser.parse(testResourceFirst12());
         for (Requirement r : result) {
-            Package entry = (Package) r;
+            de.haukerehfeld.quakeinjector.model.Package entry = (Package) r;
 
             assertNotNull(entry.getDate());
             assertNotNull(entry.getTitle());

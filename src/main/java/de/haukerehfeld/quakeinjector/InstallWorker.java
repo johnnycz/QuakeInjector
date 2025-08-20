@@ -19,7 +19,10 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
-import de.haukerehfeld.quakeinjector.repackage.ExtractMapping;
+import de.haukerehfeld.quakeinjector.model.FileInfo;
+import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 import de.haukerehfeld.quakeinjector.utils.RelativePath;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
@@ -46,7 +49,7 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 
 	private final File baseDirectory;
 	private final ExtractMapping extractMapping;
-	private final Package map;
+	private final de.haukerehfeld.quakeinjector.model.Package map;
 	private final InputStream input;
 	private final List<File> overwrites;
 

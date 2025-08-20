@@ -33,8 +33,8 @@ import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumnModel;
 
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
-import de.haukerehfeld.quakeinjector.PackageList;
-import de.haukerehfeld.quakeinjector.Package;
+import de.haukerehfeld.quakeinjector.model.PackageList;
+import de.haukerehfeld.quakeinjector.model.Package;
 
 public class PackageListModel extends AbstractTableModel implements ChangeListener {
 	private ChangeListenerList listeners = new ChangeListenerList();

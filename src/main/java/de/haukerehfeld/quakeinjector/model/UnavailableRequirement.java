@@ -1,4 +1,4 @@
-package de.haukerehfeld.quakeinjector;
+package de.haukerehfeld.quakeinjector.model;
 
 import javax.swing.event.ChangeListener;
 

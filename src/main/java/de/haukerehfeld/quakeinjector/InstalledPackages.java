@@ -19,6 +19,8 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.model.PackageFileList;
+
 import java.util.concurrent.Future;
 import java.util.concurrent.ExecutionException;
 import java.util.List;

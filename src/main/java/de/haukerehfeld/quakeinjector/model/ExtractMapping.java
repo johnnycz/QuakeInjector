@@ -1,4 +1,4 @@
-package de.haukerehfeld.quakeinjector.repackage;
+package de.haukerehfeld.quakeinjector.model;
 
 import java.nio.file.Path;
 import java.util.Map;

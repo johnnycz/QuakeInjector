@@ -1,16 +1,16 @@
 package de.haukerehfeld.quakeinjector.repackage;
 
 import de.haukerehfeld.quakeinjector.Configuration;
-import de.haukerehfeld.quakeinjector.Package;
+import de.haukerehfeld.quakeinjector.model.ExtractMapping;
+import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.PackageDatabaseParser;
 import de.haukerehfeld.quakeinjector.PackageDatabaseSolrJsonParser;
-import de.haukerehfeld.quakeinjector.Requirement;
+import de.haukerehfeld.quakeinjector.model.Requirement;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.nio.charset.Charset;
-import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -319,8 +319,8 @@ public class ExtractMappingTest {
         assertNotNull(rs);
         assertEquals(1, rs.size());
         Requirement r = rs.get(0);
-        assertInstanceOf(de.haukerehfeld.quakeinjector.Package.class, r);
-        de.haukerehfeld.quakeinjector.Package p = (Package) r;
+        assertInstanceOf(Package.class, r);
+        Package p = (Package) r;
         mapping = p.getExtractMapping();
     }
 }

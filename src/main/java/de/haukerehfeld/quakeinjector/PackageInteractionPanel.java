@@ -22,6 +22,10 @@ package de.haukerehfeld.quakeinjector;
 import de.haukerehfeld.quakeinjector.gui.PackageInteractionPanelView;
 import de.haukerehfeld.quakeinjector.gui.QuakeInjectorView;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
+import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.model.Requirement;
+import de.haukerehfeld.quakeinjector.model.RequirementList;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import java.awt.event.ActionEvent;
@@ -55,7 +59,7 @@ public class PackageInteractionPanel implements ChangeListener,
 	/**
 	 * Currently selected map
 	 */
-	private Package selectedMap = null;
+	private de.haukerehfeld.quakeinjector.model.Package selectedMap = null;
 
 	private Installer installer;
 
@@ -163,8 +167,8 @@ public class PackageInteractionPanel implements ChangeListener,
 		this.parentView = parentView;
 	}
 
-	public void installRequirements(Package map) {
-		for (Package requirement: map.getAvailableRequirements()) {
+	public void installRequirements(de.haukerehfeld.quakeinjector.model.Package map) {
+		for (de.haukerehfeld.quakeinjector.model.Package requirement: map.getAvailableRequirements()) {
 			String id = requirement.getId();
 			
 			if (requirement.isInstalled()) {
@@ -188,7 +192,7 @@ public class PackageInteractionPanel implements ChangeListener,
 		install(selectedMap, false);
 	}
 
-	private boolean checkInstallRequirements(Package selectedMap) {
+	private boolean checkInstallRequirements(de.haukerehfeld.quakeinjector.model.Package selectedMap) {
 		List<Requirement> unmet = selectedMap.getUnavailableRequirements();
 		if (!unmet.isEmpty()) {
 			String msg = "The following prerequisites to play "
@@ -214,7 +218,7 @@ public class PackageInteractionPanel implements ChangeListener,
 		return true;
 	}
 
-	private boolean checkPlayRequirements(Package selectedMap) {
+	private boolean checkPlayRequirements(de.haukerehfeld.quakeinjector.model.Package selectedMap) {
 		//in theory this should never happen ;)
 		if (!selectedMap.isInstalled()) {
 			String msg = selectedMap.getId()
@@ -270,7 +274,7 @@ public class PackageInteractionPanel implements ChangeListener,
 		return true;
 	}
 	
-	public void install(final Package selectedMap, boolean becauseRequired) {
+	public void install(final de.haukerehfeld.quakeinjector.model.Package selectedMap, boolean becauseRequired) {
 		if (!checkInstallDirectory()
 		    || installer.alreadyQueued(selectedMap)
 		    || !checkInstallRequirements(selectedMap)) {
@@ -336,11 +340,11 @@ public class PackageInteractionPanel implements ChangeListener,
 							  public void success(PackageFileList installedFiles) {
 								  Requirement r = requirements.get(installedFiles.getId());
 								  r.setInstalled(true);
-								  if (!(r instanceof Package)) {
+								  if (!(r instanceof de.haukerehfeld.quakeinjector.model.Package)) {
 									  System.err.println(r + " isn't a Package!");
 								  }
 								  else {
-									  ((Package) r).setFileList(installedFiles);
+									  ((de.haukerehfeld.quakeinjector.model.Package) r).setFileList(installedFiles);
 								  }
 
 								  try {
@@ -418,7 +422,7 @@ public class PackageInteractionPanel implements ChangeListener,
 		view.getUninstallButton().setEnabled(false);
 	}
 
-	private void uninstall(final Package map, PackageFileList files) {
+	private void uninstall(final de.haukerehfeld.quakeinjector.model.Package map, PackageFileList files) {
 		String description = "Uninstalling " + files.getId();
 		
 		final InstallQueuePanel.Job progressListener
@@ -501,7 +505,7 @@ public class PackageInteractionPanel implements ChangeListener,
 
 	}
 
-	public void setSelection(Package map) {
+	public void setSelection(de.haukerehfeld.quakeinjector.model.Package map) {
 		this.selectedMap = map;
 
 		refreshUi();

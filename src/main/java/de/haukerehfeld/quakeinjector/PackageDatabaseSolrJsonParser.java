@@ -19,7 +19,10 @@ package de.haukerehfeld.quakeinjector;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
-import de.haukerehfeld.quakeinjector.repackage.ExtractMapping;
+import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.Requirement;
+import de.haukerehfeld.quakeinjector.model.UnavailableRequirement;
+import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -76,10 +79,10 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
 
         List<Requirement> result = new ArrayList<>(jsonPackages.size());
         HashMap<String, Requirement> packages = new HashMap<>();
-        Map<Package,List<String>> unresolvedRequirements = new HashMap<>();
+        Map<de.haukerehfeld.quakeinjector.model.Package,List<String>> unresolvedRequirements = new HashMap<>();
 
         for (JsonPackage jsonPackage : jsonPackages) {
-            Package pkg;
+            de.haukerehfeld.quakeinjector.model.Package pkg;
             try {
                 pkg = getPackage(jsonPackage, unresolvedRequirements);
             } catch (PackageDatabaseParseException e) {
@@ -102,7 +105,7 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
         return result;
     }
 
-    private Package getPackage(JsonPackage jsonPackage, Map<Package,List<String>> unresolvedRequirements) {
+    private de.haukerehfeld.quakeinjector.model.Package getPackage(JsonPackage jsonPackage, Map<de.haukerehfeld.quakeinjector.model.Package,List<String>> unresolvedRequirements) {
         var processedTags = processTags(jsonPackage.tags);
 
         Date releaseDate = null;
@@ -126,7 +129,7 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
             startMaps.add(legacyId);
         }
 
-        var pkg = new Package(
+        var pkg = new de.haukerehfeld.quakeinjector.model.Package(
                 legacyId,
                 jsonPackage.sha256,
                 processedTags.filename,
@@ -281,9 +284,9 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
         return processed;
     }
 
-    private void resolveRequirements(Map<Package,List<String>> unresolvedRequirements,
+    private void resolveRequirements(Map<de.haukerehfeld.quakeinjector.model.Package,List<String>> unresolvedRequirements,
                                      Map<String, Requirement> packages) {
-        for (Map.Entry<Package,List<String>> entry: unresolvedRequirements.entrySet()) {
+        for (Map.Entry<de.haukerehfeld.quakeinjector.model.Package,List<String>> entry: unresolvedRequirements.entrySet()) {
             Package current = entry.getKey();
             List<String> reqs = entry.getValue();
 

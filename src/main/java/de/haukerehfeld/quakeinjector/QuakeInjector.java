@@ -23,6 +23,8 @@ import de.haukerehfeld.quakeinjector.gui.*;
 import de.haukerehfeld.quakeinjector.gui.Menu;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListModel;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
+import de.haukerehfeld.quakeinjector.model.*;
+import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.RelativePath;
 
 import javax.swing.*;

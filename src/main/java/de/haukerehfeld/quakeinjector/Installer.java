@@ -19,6 +19,8 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.utils.RelativePath;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 
@@ -50,7 +52,7 @@ public class Installer {
 	private final ExecutorService activeInstallers = Executors.newFixedThreadPool(simultanousInstalls);
 	private final ExecutorService activeWaiters = Executors.newFixedThreadPool(simultanousWaiters);
 
-	private final Map<Package,Worker> queue = new HashMap<Package,Worker>();
+	private final Map<de.haukerehfeld.quakeinjector.model.Package,Worker> queue = new HashMap<de.haukerehfeld.quakeinjector.model.Package,Worker>();
 
 	public Installer(Configuration.EnginePath installDirectory, Configuration.DownloadPath downloadDirectory) {
 		this.installDirectory = installDirectory;
@@ -73,7 +75,7 @@ public class Installer {
 
 	public void cancelAll() {
 		synchronized (queue) {
-			for (Package inQueue: new java.util.HashSet<Package>(getQueue())) {
+			for (de.haukerehfeld.quakeinjector.model.Package inQueue: new java.util.HashSet<de.haukerehfeld.quakeinjector.model.Package>(getQueue())) {
 				cancel(inQueue);
 				System.out.println("Canceling " + inQueue);
 			}
@@ -85,15 +87,15 @@ public class Installer {
 		return !queue.isEmpty();
 	}
 
-	public Set<Package> getQueue() {
+	public Set<de.haukerehfeld.quakeinjector.model.Package> getQueue() {
 		return queue.keySet();
 	}
 
-	public boolean alreadyQueued(final Package map) {
+	public boolean alreadyQueued(final de.haukerehfeld.quakeinjector.model.Package map) {
 		return queue.get(map) != null;
 	}
 
-	public void install(final Package selectedMap,
+	public void install(final de.haukerehfeld.quakeinjector.model.Package selectedMap,
 	                    final String url,
 						final InstallErrorHandler errorHandler,
 						final PropertyChangeListener downloadProgressListener) {
@@ -113,7 +115,7 @@ public class Installer {
 
 	}
 
-	public void cancel(Package installerMap) {
+	public void cancel(de.haukerehfeld.quakeinjector.model.Package installerMap) {
 		Worker w;
 		synchronized (queue) { w = queue.get(installerMap); }
 		if (w != null) {
@@ -184,7 +186,7 @@ public class Installer {
 		private Throwable error;
 
 		private final String url;
-		private final Package installedPackage;
+		private final de.haukerehfeld.quakeinjector.model.Package installedPackage;
 		private final InstallErrorHandler handler;
 		private final PropertyChangeListener downloadProgressListener;
 

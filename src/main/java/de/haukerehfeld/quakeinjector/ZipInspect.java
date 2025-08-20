@@ -19,6 +19,10 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.model.FileInfo;
+import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
@@ -77,17 +81,17 @@ public class ZipInspect {
 		}
 		java.util.Collections.sort(requirements);
 
-		Map<Package, Iterable<FileInfo>> packageFiles = new TreeMap<Package,Iterable<FileInfo>>();
-		SortedMap<String, List<Map.Entry<Package,FileInfo>>> duplicateFiles
-		    = new TreeMap<String, List<Map.Entry<Package,FileInfo>>>();
+		Map<de.haukerehfeld.quakeinjector.model.Package, Iterable<FileInfo>> packageFiles = new TreeMap<de.haukerehfeld.quakeinjector.model.Package,Iterable<FileInfo>>();
+		SortedMap<String, List<Map.Entry<de.haukerehfeld.quakeinjector.model.Package,FileInfo>>> duplicateFiles
+		    = new TreeMap<String, List<Map.Entry<de.haukerehfeld.quakeinjector.model.Package,FileInfo>>>();
 		
 		for (Requirement r: requirements) {
 			//only check where package exists
-			if (!(r instanceof Package)) {
+			if (!(r instanceof de.haukerehfeld.quakeinjector.model.Package)) {
 				continue;
 			}
 
-			Package p = (Package) r;
+			de.haukerehfeld.quakeinjector.model.Package p = (de.haukerehfeld.quakeinjector.model.Package) r;
 			p.setInstalled(true);
 			
 			File f = new File(parentDir + File.separator + r.getId() + ".zip");
@@ -120,13 +124,13 @@ public class ZipInspect {
 					FileInfo info = new FileInfo(file, crc);
 					zipFiles.add(info);
 
-					List<Map.Entry<Package,FileInfo>> dupMaps =
+					List<Map.Entry<de.haukerehfeld.quakeinjector.model.Package,FileInfo>> dupMaps =
 					    duplicateFiles.get(file.toLowerCase());
 					if (dupMaps == null) {
-						dupMaps = new ArrayList<Map.Entry<Package,FileInfo>>();
+						dupMaps = new ArrayList<Map.Entry<de.haukerehfeld.quakeinjector.model.Package,FileInfo>>();
 						duplicateFiles.put(file.toLowerCase(), dupMaps);
 					}
-					dupMaps.add(new AbstractMap.SimpleEntry<Package,FileInfo>(p, info));
+					dupMaps.add(new AbstractMap.SimpleEntry<de.haukerehfeld.quakeinjector.model.Package,FileInfo>(p, info));
 					
 				}
 				p.setFileList(zipFiles);
@@ -157,13 +161,13 @@ public class ZipInspect {
 		
 		for (String file: duplicateFiles.keySet()) {
 
-			List<Map.Entry<Package,FileInfo>> dups = duplicateFiles.get(file);
+			List<Map.Entry<de.haukerehfeld.quakeinjector.model.Package,FileInfo>> dups = duplicateFiles.get(file);
 			int count = dups.size();
 			if (count > 1) {
 				List<String> packages = new ArrayList<String>();
 				boolean crcDiffers = false;
 				long crc = -1;
-				for (Map.Entry<Package,FileInfo> e: dups) {
+				for (Map.Entry<de.haukerehfeld.quakeinjector.model.Package,FileInfo> e: dups) {
 					if (crc != -1 && crc != e.getValue().getChecksum()) {
 						crcDiffers = true;
 					}

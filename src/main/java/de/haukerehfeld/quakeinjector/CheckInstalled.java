@@ -1,6 +1,7 @@
 package de.haukerehfeld.quakeinjector;
 
 import de.haukerehfeld.quakeinjector.gui.QuakeInjectorView;
+import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import javax.swing.SwingWorker;

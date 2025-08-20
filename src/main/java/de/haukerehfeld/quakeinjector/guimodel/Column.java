@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector.guimodel;
-import de.haukerehfeld.quakeinjector.Package;
+import de.haukerehfeld.quakeinjector.model.Package;
 import java.util.Date;
 
 /**

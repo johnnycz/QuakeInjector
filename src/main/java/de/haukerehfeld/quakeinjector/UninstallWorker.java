@@ -1,5 +1,7 @@
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.model.FileInfo;
+import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import java.io.File;
