@@ -20,10 +20,18 @@ public class ArchitectureTest {
 				.layer("main").definedBy("de.haukerehfeld.quakeinjector")
 				.layer("guimodel").definedBy("de.haukerehfeld.quakeinjector.guimodel")
 				.layer("model").definedBy("de.haukerehfeld.quakeinjector.model")
+				.layer("feature.install").definedBy("de.haukerehfeld.quakeinjector.feature.install")
+				.layer("feature.list").definedBy("de.haukerehfeld.quakeinjector.feature.list")
+				.layer("feature.play").definedBy("de.haukerehfeld.quakeinjector.feature.play")
+				.layer("utils").definedBy("de.haukerehfeld.quakeinjector.utils")
 
-				.whereLayer("gui").mayOnlyAccessLayers("gui", "guimodel")
-				.whereLayer("guimodel").mayOnlyAccessLayers("guimodel", "model")
-				.whereLayer("model").mayOnlyAccessLayers("model")
+				.whereLayer("gui").mayOnlyAccessLayers("gui", "guimodel", "utils")
+				.whereLayer("guimodel").mayOnlyAccessLayers("guimodel", "model", "utils")
+				.whereLayer("model").mayOnlyAccessLayers("model", "utils")
+				.whereLayer("feature.play").mayOnlyAccessLayers("main", "model", "gui", "guimodel", "utils")
+				.whereLayer("feature.install").mayOnlyAccessLayers("main", "model", "gui", "guimodel", "utils")
+				.whereLayer("feature.list").mayOnlyAccessLayers("main", "model", "gui", "guimodel", "utils")
+				.whereLayer("utils").mayNotAccessAnyLayer()
 		;
 		rule.check(importedClasses);
 	}

@@ -19,6 +19,12 @@
 */
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.feature.install.InstallQueuePanel;
+import de.haukerehfeld.quakeinjector.feature.install.Installer;
+import de.haukerehfeld.quakeinjector.feature.install.PackageOverwriteDialog;
+import de.haukerehfeld.quakeinjector.feature.install.SaveInstalled;
+import de.haukerehfeld.quakeinjector.feature.play.EngineOutputDialog;
+import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
 import de.haukerehfeld.quakeinjector.gui.PackageInteractionPanelView;
 import de.haukerehfeld.quakeinjector.gui.QuakeInjectorView;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
@@ -26,6 +32,8 @@ import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.model.RequirementList;
+import de.haukerehfeld.quakeinjector.utils.FileNotWritableException;
+import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import java.awt.event.ActionEvent;

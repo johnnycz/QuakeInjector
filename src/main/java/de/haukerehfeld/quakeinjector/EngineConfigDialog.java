@@ -37,6 +37,7 @@ import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
 
+import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
 import de.haukerehfeld.quakeinjector.gui.*;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 

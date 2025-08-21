@@ -19,6 +19,8 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.feature.install.InspectZipWorker;
+import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseParserWorker;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.Utils;

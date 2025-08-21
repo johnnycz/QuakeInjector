@@ -3,8 +3,8 @@ package de.haukerehfeld.quakeinjector.repackage;
 import de.haukerehfeld.quakeinjector.Configuration;
 import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 import de.haukerehfeld.quakeinjector.model.Package;
-import de.haukerehfeld.quakeinjector.PackageDatabaseParser;
-import de.haukerehfeld.quakeinjector.PackageDatabaseSolrJsonParser;
+import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseParser;
+import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseSolrJsonParser;
 import de.haukerehfeld.quakeinjector.model.Requirement;
 import org.junit.jupiter.api.Test;
 

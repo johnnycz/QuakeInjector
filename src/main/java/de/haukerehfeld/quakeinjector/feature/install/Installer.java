@@ -1,0 +1,424 @@
+/*
+Copyright 2009 Hauke Rehfeld
+
+
+This file is part of QuakeInjector.
+
+QuakeInjector is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+QuakeInjector is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
+*/
+package de.haukerehfeld.quakeinjector.feature.install;
+
+import de.haukerehfeld.quakeinjector.*;
+import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.utils.Download;
+import de.haukerehfeld.quakeinjector.utils.FileNotWritableException;
+import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
+import de.haukerehfeld.quakeinjector.utils.RelativePath;
+import org.apache.commons.compress.archivers.ArchiveEntry;
+
+import java.beans.PropertyChangeListener;
+import java.io.*;
+import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
+
+public class Installer {
+	private static final int simultanousDownloads = 1;
+	private static final int simultanousInstalls = 1;
+	private static final int simultanousInspectors = 1;
+	private static final int simultanousWaiters = 15;
+
+	private final Configuration.EnginePath installDirectory;
+	private final Configuration.DownloadPath downloadDirectory;
+	
+	private final ExecutorService activeDownloaders = Executors.newFixedThreadPool(simultanousDownloads);
+	private final ExecutorService activeInspectors = Executors.newFixedThreadPool(simultanousInspectors);
+	private final ExecutorService activeInstallers = Executors.newFixedThreadPool(simultanousInstalls);
+	private final ExecutorService activeWaiters = Executors.newFixedThreadPool(simultanousWaiters);
+
+	private final Map<de.haukerehfeld.quakeinjector.model.Package,Worker> queue = new HashMap<de.haukerehfeld.quakeinjector.model.Package,Worker>();
+
+	public Installer(Configuration.EnginePath installDirectory, Configuration.DownloadPath downloadDirectory) {
+		this.installDirectory = installDirectory;
+		this.downloadDirectory = downloadDirectory;
+	}
+
+	public boolean checkInstallDirectory() {
+		if (!installDirectory.existsOrDefault()) {
+			return false;
+		}
+		return installDirectory.get().canWrite();
+	}
+
+	public boolean checkDownloadDirectory() {
+		if (!downloadDirectory.existsOrDefault()) {
+			return false;
+		}
+		return downloadDirectory.get().canWrite();
+	}
+
+	public void cancelAll() {
+		synchronized (queue) {
+			for (de.haukerehfeld.quakeinjector.model.Package inQueue: new java.util.HashSet<de.haukerehfeld.quakeinjector.model.Package>(getQueue())) {
+				cancel(inQueue);
+				System.out.println("Canceling " + inQueue);
+			}
+		}
+	}
+	
+
+	public boolean working() {
+		return !queue.isEmpty();
+	}
+
+	public Set<de.haukerehfeld.quakeinjector.model.Package> getQueue() {
+		return queue.keySet();
+	}
+
+	public boolean alreadyQueued(final de.haukerehfeld.quakeinjector.model.Package map) {
+		return queue.get(map) != null;
+	}
+
+	public void install(final de.haukerehfeld.quakeinjector.model.Package selectedMap,
+	                    final String url,
+						final InstallErrorHandler errorHandler,
+						final PropertyChangeListener downloadProgressListener) {
+		//map already in the instalation queue
+		if (alreadyQueued(selectedMap)) {
+			return;
+		}
+		
+		//wait for the download to finish, then start
+		//installation. after that, handle errors or save status
+		Worker saveInstalled = new Worker(url,
+		                                  selectedMap,
+		                                  errorHandler,
+		                                  downloadProgressListener);
+		synchronized (queue) { queue.put(selectedMap, saveInstalled); }
+		synchronized (activeWaiters) { activeWaiters.submit(saveInstalled); }
+
+	}
+
+	public void cancel(de.haukerehfeld.quakeinjector.model.Package installerMap) {
+		Worker w;
+		synchronized (queue) { w = queue.get(installerMap); }
+		if (w != null) {
+			w.cancel();
+		}
+	}
+
+
+	public void uninstall(PackageFileList map,
+	                      final UninstallErrorHandler errorHandler,
+	                      PropertyChangeListener progressListener) {
+		final UninstallWorker uninstall = new UninstallWorker(map, installDirectory.get().getAbsolutePath());
+		uninstall.addPropertyChangeListener(progressListener);
+		uninstall.execute();
+
+		//wait until finished and set finished status
+		new SwingWorker<Void,Void>() {
+			@Override
+			    public Void doInBackground() {
+				try {
+					uninstall.get();
+					errorHandler.success();
+				}
+				catch (java.util.concurrent.ExecutionException e) {
+					Throwable er = e.getCause();
+					if (er instanceof Exception) {
+						errorHandler.error((Exception) er);
+					}
+					else {
+						errorHandler.error(e);
+					}
+				}
+				catch (java.lang.InterruptedException e) {
+					System.out.println("Installer: " + e.getMessage());
+					e.printStackTrace();
+				}
+				return null;
+			}
+		}.execute();
+	}
+
+	public interface InstallErrorHandler {
+		/**
+		 * Decide which files in the package should be overwritten
+		 * @param existingFiles in the package
+		 * @return all the files that should be overwritten or an empty list to overwrite no files and cancel install
+		 */
+		public List<File> overwrite(Map<String,File> existingFiles);
+		public void success(PackageFileList installedFiles);
+		public void handle(OnlineFileNotFoundException error);
+		public void handle(FileNotWritableException error, PackageFileList alreadyInstalledFiles);
+		public void handle(IOException error, PackageFileList alreadyInstalledFiles);
+		public void handle(java.net.SocketException error, PackageFileList alreadyInstalledFiles);
+		public void handle(CancelledException error, PackageFileList alreadyInstalledFiles);
+	}
+
+	public interface UninstallErrorHandler {
+		public void success();
+		public void error(Exception e);
+	}
+
+	public static class CancelledException extends RuntimeException {}
+
+	private class Worker extends SwingWorker<Void,Void> {
+		public InstallWorker installer;
+		public DownloadWorker downloader;
+
+		private Throwable error;
+
+		private final String url;
+		private final de.haukerehfeld.quakeinjector.model.Package installedPackage;
+		private final InstallErrorHandler handler;
+		private final PropertyChangeListener downloadProgressListener;
+
+		public Worker(String url,
+		              Package installedPackage,
+		              InstallErrorHandler handler,
+		              PropertyChangeListener downloadProgressListener) {
+			this.url = url;
+			this.installedPackage = installedPackage;
+			this.handler = handler;
+			this.downloadProgressListener = downloadProgressListener;
+		}
+
+		@Override
+		    public Void doInBackground() {
+			try {
+				final File downloadFile = new File(downloadDirectory.get().getAbsolutePath() + File.separator + installedPackage.getId() + ".zip");
+				System.out.println("Downloading to " + downloadFile);
+
+				long downloadSize;
+				if (!downloadFile.exists()) {
+					downloadFile.getParentFile().mkdirs();
+					FileOutputStream out = new FileOutputStream(downloadFile);
+					//make sure file streams get closed
+					try {
+						downloadSize = download(url, out);
+						out.flush();
+						out.close();
+					}
+					catch (Exception e) {
+						out.close();
+						System.out.print("Error downloading file, removing...");
+						if (!downloadFile.delete()) {
+							System.err.print("Couldn't delete partially downloaded file ("
+							                 + downloadFile + ")! ");
+						}
+						System.out.println("done.");
+						throw e;
+					}
+				}
+				else {
+					downloadSize = downloadFile.length();
+					System.out.println("Skipping download, already existing with length " + downloadSize);
+				}
+
+				System.out.println("Inspecting downloaded archive..." + downloadFile);
+				Map<String, File> existingFiles;
+				try (BufferedInputStream inspectStream = new BufferedInputStream(new FileInputStream(downloadFile))) {
+					existingFiles = findExistingFiles(inspectStream);
+				}
+				System.out.println("done.");
+
+				List<File> overwrites = null;
+				if (existingFiles != null) {
+					overwrites = askForOverwrite(existingFiles);
+				}
+
+				System.out.println("After asking");
+
+				if (overwrites == null || !overwrites.isEmpty()) {
+					//and start install
+					System.out.println("Starting install");
+					BufferedInputStream in = new BufferedInputStream(new FileInputStream(downloadFile));
+					installer = new InstallWorker(in,
+					                              downloadSize,
+						                          installedPackage,
+					                              installDirectory.get(),
+							                      installedPackage.getExtractMapping(),
+					                              overwrites);
+					synchronized (activeInstallers) { activeInstallers.submit(installer); }
+					//make sure file streams get closed
+					try {
+						installer.get();
+					}
+					catch (Exception e) {
+						throw e;
+					}
+					finally {
+						in.close();
+					}
+				}
+				else {
+					System.out.println("Canceling install");
+					cancel();
+				}
+			}
+			catch (java.io.FileNotFoundException e) {
+				error = e;
+			}
+			catch (IOException e) {
+				error = e;
+			}
+			catch (java.util.concurrent.CancellationException e) {
+				error = e;
+			}
+			catch (java.lang.InterruptedException e) {
+				error = e;
+			}
+			catch (java.util.concurrent.ExecutionException e) {
+				error = e.getCause();
+			}
+			catch (Exception e) {
+				error = e;
+				System.err.println("Caught 'unchecked' exception in Installer.Worker.doBackground(): " + e);
+				e.printStackTrace();
+			}
+			return null;
+		}
+
+		private long download(String url,
+		                     FileOutputStream out) throws
+		    IOException,
+		    InterruptedException,
+			ExecutionException {
+			//first, download the file 
+			Download download = Download.create(url);
+
+			downloader = new DownloadWorker(download, out);
+			downloader.addPropertyChangeListener(downloadProgressListener);
+			synchronized (activeDownloaders) { activeDownloaders.submit(downloader); }
+
+			return downloader.get();
+		}
+
+		private Map<String,File> findExistingFiles(final InputStream in) throws
+		    IOException,
+		    InterruptedException,
+			ExecutionException  {
+			//see what files the zip wants to extract
+
+			InspectZipWorker inspector = new InspectZipWorker(in);
+			synchronized (activeInspectors) { activeInspectors.submit(inspector); }
+
+			System.out.println("Waiting for inspection...");
+			final List<ArchiveEntry> entries = inspector.get();
+			
+			//check files
+			final Map<String,File> files = new HashMap<String,File>();
+			boolean existingFile = false;
+			for (ArchiveEntry z: entries) {
+				if (z.isDirectory()) {
+					continue;
+				}
+				File f = installDirectory.getUnzipFile(installedPackage, z.getName());
+                if (f == null) {
+                    continue;
+                }
+				String name
+				    = RelativePath.getRelativePath(installDirectory.get(), f).toString();
+				files.put(name, f);
+				if (f.exists()) {
+					existingFile = true;
+				}
+			}
+			if (!existingFile) {
+				return null;
+			}
+			return files;
+		}
+
+		private List<File> askForOverwrite(final Map<String,File> files) throws
+		    InterruptedException,
+		    InvocationTargetException,
+			ExecutionException {
+			//popup overwrite dialog
+			SwingWorker<List<File>,Void> dialogue = new SwingWorker<List<File>,Void>() {
+				public List<File> doInBackground() {
+					return handler.overwrite(files);
+				}
+			};
+			SwingUtilities.invokeAndWait(dialogue);
+
+			List<File> overwrites = dialogue.get();
+			return overwrites;
+		}
+		
+		public void cancel() {
+			if (downloader != null) { downloader.cancel(true); }
+			if (installer != null) { installer.cancel(true); }
+			cancel(true);
+		}
+
+		@Override
+		    public void done() {
+			PackageFileList files;
+			if (installer != null) {
+				files = installer.getInstalledFiles();
+			}
+			else {
+				files = new PackageFileList(installedPackage.getId());
+			}
+			
+			//see if there was an error
+			if (error != null) {
+				try {
+					throw error;
+				}
+				catch (OnlineFileNotFoundException error) {
+					handler.handle((OnlineFileNotFoundException) error);
+				}
+				catch (java.net.SocketException error) {
+					handler.handle((java.net.SocketException) error, files);
+				}
+				catch (FileNotWritableException error) {
+					handler.handle((FileNotWritableException) error, files);
+				}
+				catch (IOException error) {
+					handler.handle((IOException) error, files);
+				}
+				catch (Throwable e) {
+					System.out.println("unhandled exception from install worker" + error);
+					error.printStackTrace();
+				}
+				installer = null;
+				downloader = null;
+			}
+			else if (isCancelled()) {
+				System.out.println("CancelledException!");
+				handler.handle(new CancelledException(), files);
+			}
+			else {
+				System.out.println("Success installing");
+				handler.success(files);
+			}
+
+			System.out.println("Done saving installedmaps");
+			synchronized (queue) { queue.remove(installedPackage); }
+
+		}
+	}	
+}
