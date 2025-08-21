@@ -20,6 +20,7 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 package de.haukerehfeld.quakeinjector;
 
 import de.haukerehfeld.quakeinjector.model.FileInfo;
+import de.haukerehfeld.quakeinjector.model.InstalledPackageList;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.model.Requirement;
 

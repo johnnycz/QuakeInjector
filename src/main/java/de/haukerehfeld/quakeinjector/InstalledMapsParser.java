@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 
+import de.haukerehfeld.quakeinjector.model.InstalledPackageList;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
 
 
