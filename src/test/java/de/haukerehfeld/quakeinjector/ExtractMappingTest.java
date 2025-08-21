@@ -1,6 +1,5 @@
-package de.haukerehfeld.quakeinjector.repackage;
+package de.haukerehfeld.quakeinjector;
 
-import de.haukerehfeld.quakeinjector.Configuration;
 import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseParser;

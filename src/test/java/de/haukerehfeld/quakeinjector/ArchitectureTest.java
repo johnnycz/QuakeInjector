@@ -16,6 +16,7 @@ public class ArchitectureTest {
 
 		var rule = layeredArchitecture()
 				.consideringOnlyDependenciesInLayers()
+				.ensureAllClassesAreContainedInArchitecture()
 				.layer("gui").definedBy("de.haukerehfeld.quakeinjector.gui")
 				.layer("main").definedBy("de.haukerehfeld.quakeinjector")
 				.layer("guimodel").definedBy("de.haukerehfeld.quakeinjector.guimodel")
