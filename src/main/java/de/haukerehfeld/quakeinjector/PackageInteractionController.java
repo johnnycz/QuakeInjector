@@ -51,7 +51,7 @@ import javax.swing.event.ChangeListener;
 /**
  * the panel that shows Info about the selected map
  */
-public class PackageInteractionPanel implements ChangeListener,
+public class PackageInteractionController implements ChangeListener,
 											 PackageListSelectionHandler.SelectionListener {
 
 	private final PackageInteractionPanelView view;
@@ -73,7 +73,7 @@ public class PackageInteractionPanel implements ChangeListener,
 
 	private SaveInstalled installedMaps;
 	
-	public PackageInteractionPanel(InstallQueuePanel installQueue, PackageInteractionPanelView view) {
+	public PackageInteractionController(InstallQueuePanel installQueue, PackageInteractionPanelView view) {
 		this.installQueue = installQueue;
 		this.view = view;
 

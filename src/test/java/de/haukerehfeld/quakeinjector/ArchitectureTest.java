@@ -26,9 +26,9 @@ public class ArchitectureTest {
 				.layer("feature.play").definedBy("de.haukerehfeld.quakeinjector.feature.play")
 				.layer("utils").definedBy("de.haukerehfeld.quakeinjector.utils")
 
-				.whereLayer("gui").mayOnlyAccessLayers("gui", "guimodel", "utils")
-				.whereLayer("guimodel").mayOnlyAccessLayers("guimodel", "model", "utils")
-				.whereLayer("model").mayOnlyAccessLayers("model", "utils")
+				.whereLayer("gui").mayOnlyAccessLayers("guimodel", "utils")
+				.whereLayer("guimodel").mayOnlyAccessLayers("model", "utils")
+				.whereLayer("model").mayOnlyAccessLayers("utils")
 				.whereLayer("feature.play").mayOnlyAccessLayers("main", "model", "gui", "guimodel", "utils")
 				.whereLayer("feature.install").mayOnlyAccessLayers("main", "model", "gui", "guimodel", "utils")
 				.whereLayer("feature.list").mayOnlyAccessLayers("main", "model", "gui", "guimodel", "utils")

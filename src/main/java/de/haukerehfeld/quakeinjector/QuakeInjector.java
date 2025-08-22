@@ -60,7 +60,7 @@ public class QuakeInjector {
 	private final static String zipFilesXml = "zipFiles.xml";
 
 	final static File configFile = new File("config.properties");
-	private final PackageInteractionPanel interactionPanel;
+	private final PackageInteractionController interactionPanel;
 	private EngineStarter starter;
 	private RequirementList maps;
 	private PackageList packages;
@@ -102,7 +102,7 @@ public class QuakeInjector {
 
 		PackageInteractionPanelView packageInteractionPanelView = new PackageInteractionPanelView();
 		InstallQueuePanel installQueuePanel = new InstallQueuePanel();
-		this.interactionPanel = new PackageInteractionPanel(installQueuePanel, packageInteractionPanelView);
+		this.interactionPanel = new PackageInteractionController(installQueuePanel, packageInteractionPanelView);
 
 		view = new QuakeInjectorView(maplist, packageInteractionPanelView, installQueuePanel);
 		setWindowSize();
@@ -151,7 +151,7 @@ public class QuakeInjector {
 
 	private void registerViewListeners() {
 
-		var packageDetailPanel = new PackageDetailPanel(view.getPackageDetailPanelView(), getConfig().ScreenshotRepositoryPath.get(), getConfig().mapWebpageBaseUrl.get());
+		var packageDetailPanel = new PackageDetailController(view.getPackageDetailPanelView(), getConfig().ScreenshotRepositoryPath.get(), getConfig().mapWebpageBaseUrl.get());
 		view.addWindowListener(new QuakeInjectorWindowListener());
 
 		addMenuActionListeners();

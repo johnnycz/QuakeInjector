@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.TimeZone;
 
 import javax.swing.ImageIcon;
-import javax.swing.JPanel;
 import javax.swing.SwingWorker;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -49,7 +48,7 @@ import de.haukerehfeld.quakeinjector.utils.Utils;
 /**
  * the panel that shows Info about the selected map
  */
-public class PackageDetailPanel extends JPanel implements ChangeListener,
+public class PackageDetailController implements ChangeListener,
 		PackageListSelectionHandler.SelectionListener {
 
 	/**
@@ -69,7 +68,7 @@ public class PackageDetailPanel extends JPanel implements ChangeListener,
 	 */
 	private String supposedImageUrl = null;
 
-	public PackageDetailPanel(PackageDetailPanelView view, String screenshotRepositoryPath, String mapWebpageBaseUrl) {
+	public PackageDetailController(PackageDetailPanelView view, String screenshotRepositoryPath, String mapWebpageBaseUrl) {
 		this.view = view;
 		this.screenshotRepositoryPath = screenshotRepositoryPath;
 		this.mapWebpageBaseUrl = mapWebpageBaseUrl;
@@ -99,7 +98,7 @@ public class PackageDetailPanel extends JPanel implements ChangeListener,
 				// TODO: Refactor
 				try {
 					// URLs with spaces in the path need escaping to %20, not +. We can't use built in URLEncoder
-					URL url = new URL(PackageDetailPanel.this.screenshotRepositoryPath
+					URL url = new URL(PackageDetailController.this.screenshotRepositoryPath
 							+ current.getSha256().substring(0, 2) + "/" + current.getSha256() + "/" + current.getId() + ".jpg");
 					URI uri = new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
 					BrowserLauncher.openURL(uri.toASCIIString());
@@ -187,8 +186,8 @@ public class PackageDetailPanel extends JPanel implements ChangeListener,
 					view.getImagePanel().setMinimumSize(PackageDetailPanelView.DEFAULTIMAGESIZE);
 				}
 				
-				revalidate();
-				repaint();
+				view.revalidate();
+				view.repaint();
 			}
 		}.execute();
 
@@ -198,8 +197,8 @@ public class PackageDetailPanel extends JPanel implements ChangeListener,
 		//scroll to top
 		view.getDescription().setCaretPosition(0);
 
-		revalidate();
-		repaint();
+		view.revalidate();
+		view.repaint();
 	}
 
 	private String toString(Date date) {
