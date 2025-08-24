@@ -37,7 +37,8 @@ public class PackageDatabaseSolrJsonParserTest {
             assertNotNull(entry.getSha256());
             assertNotEquals(0, entry.getSize());
             assertNotNull(entry.getStartmaps().get(0));
-
+			assertNotNull(entry.getSupposedFileList());
+	        assertFalse(entry.getSupposedFileList().isEmpty());
         }
     }
 

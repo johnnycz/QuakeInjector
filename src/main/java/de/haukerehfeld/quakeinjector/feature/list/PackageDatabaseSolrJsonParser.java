@@ -20,10 +20,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
 import de.haukerehfeld.quakeinjector.Configuration;
+import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
-import de.haukerehfeld.quakeinjector.model.Requirement;
-import de.haukerehfeld.quakeinjector.model.UnavailableRequirement;
-import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,7 +53,15 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
         public List<String> notes;
         public Install install;
         public String description;
+		public List<JsonPackageFile> files;
     }
+
+	private static class JsonPackageFile {
+		public long bytes;
+		public String path;
+		public String sha256;
+		public String timestamp;
+	}
 
     private static class Install {
         public String extract;
@@ -147,9 +153,31 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
                 startMaps,
                 Collections.emptyList()
         );
+		pkg.setSupposedFileList(getSupposedFileList(pkg, jsonPackage));
         unresolvedRequirements.put(pkg, processedTags.dependencies);
         return pkg;
     }
+
+	private PackageFileList getSupposedFileList(Package pkg, JsonPackage jsonPackage) {
+		var list = new PackageFileList(pkg.getId());
+
+		if (jsonPackage.files == null) {
+			return list;
+		}
+		for (var jsonFile: jsonPackage.files) {
+			String path;
+			try {
+				path = pkg.getExtractMapping().remap(jsonFile.path);
+			} catch (Exception e) {
+				System.err.println(e);
+				throw e;
+			}
+			var file = new FileInfo(path, 0, jsonFile.bytes);
+			list.add(file);
+		}
+
+		return list;
+	}
 
 	/**
 	 * Move maps that contain the word "start" to the beginning of the list

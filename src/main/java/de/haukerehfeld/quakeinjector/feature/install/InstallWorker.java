@@ -160,7 +160,7 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 				}
 
 				/** @todo 2009-12-19 03:03 hrehfeld    add crc calculation */
-				FileInfo info = new FileInfo(filename, crc);
+				FileInfo info = new FileInfo(filename, crc, targetWritable.length());
 				files.add(info);
 
 

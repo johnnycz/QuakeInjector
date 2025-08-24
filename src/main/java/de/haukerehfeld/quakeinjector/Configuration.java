@@ -118,13 +118,6 @@ public class Configuration {
 	}
 	public final ScreenshotRepositoryPath ScreenshotRepositoryPath = new ScreenshotRepositoryPath();
 
-	public static class ZipContentsDatabaseUrl extends StringValue {
-		private ZipContentsDatabaseUrl() { super("ZipContentsDatabaseUrl",
-				"http://haukerehfeld.de/projects/quakeinjector/temp/zipContents.xml"); }
-	}
-	public final ZipContentsDatabaseUrl ZipContentsDatabaseUrl = new ZipContentsDatabaseUrl();
-	
-
 	public static class RogueInstalled extends BooleanValue {
 		private RogueInstalled() { super("rogueInstalled", false); }
 	}

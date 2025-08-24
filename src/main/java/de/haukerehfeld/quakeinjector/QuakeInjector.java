@@ -20,6 +20,7 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 package de.haukerehfeld.quakeinjector;
 
 import de.haukerehfeld.quakeinjector.feature.install.*;
+import de.haukerehfeld.quakeinjector.feature.list.CheckInstalled;
 import de.haukerehfeld.quakeinjector.feature.list.DumpInputStream;
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseParser;
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseSolrJsonParser;
@@ -57,8 +58,6 @@ public class QuakeInjector {
 	private final static File installedMapsFile = new File(installedMapsFileName);
 	private final SaveInstalled saveInstalled = new SaveInstalled(installedMapsFile);
 	
-	private final static String zipFilesXml = "zipFiles.xml";
-
 	final static File configFile = new File("config.properties");
 	private final PackageInteractionController interactionPanel;
 	private EngineStarter starter;
@@ -412,13 +411,9 @@ public class QuakeInjector {
 	 * See what maps are installed
 	 */
 	private Future<List<PackageFileList>> checkForInstalledMaps() {
-		final File enginePath = getConfig().EnginePath.get();
-
-		final File file = new File(zipFilesXml);
-
 		final CheckInstalled checker
 		    = new CheckInstalled(view,
-		                         getConfig().ZipContentsDatabaseUrl.get(),
+		                         getConfig(),
 		                         getConfig().EnginePath.get().toString(),
 		                         maps,
 				(list) -> {

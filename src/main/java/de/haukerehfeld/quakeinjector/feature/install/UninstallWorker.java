@@ -54,9 +54,14 @@ public class UninstallWorker extends SwingWorker<Void, Void> {
 						System.err.println("CRC for " + f + " didn't match, not deleting");
 						continue;
 					}
-				}
-				catch (java.io.IOException e) {
+				} catch (java.io.IOException e) {
 					System.err.println(skipMsg);
+				}
+			}
+			else if (file.getSize() != 0) {
+				if (!f.exists() || !f.isFile() || f.length() != file.getSize()) {
+					System.err.printf("Size for %s didn't match: expected %d but was %d. Not deleting.%n", f.getName(), file.getSize(), f.length());
+					continue;
 				}
 			}
 			else {

@@ -21,17 +21,17 @@ package de.haukerehfeld.quakeinjector.model;
 
 public class FileInfo implements Comparable<FileInfo> {
 	private String name;
-	private long checksum;
-	private boolean essential;
+	private final long checksum;
+	private final long size;
 
 	public FileInfo(String name, long checksum) {
-		this(name, checksum, true);
+		this(name, checksum, 0);
 	}
-	
-	public FileInfo(String name, long checksum, boolean essential) {
+
+	public FileInfo(String name, long checksum, long size) {
 		this.name = name;
 		this.checksum = checksum;
-		this.essential = essential;
+		this.size = size;
 	}
 
 	/**
@@ -39,31 +39,15 @@ public class FileInfo implements Comparable<FileInfo> {
 	 */
 	public long getChecksum() { return checksum; }
 	
-	/**
-	 * set checksum
-	 */
-	public void setChecksum(long checksum) { this.checksum = checksum; }
-	
+
 	/**
 	 * get name
 	 */
 	public String getName() { return name; }
-	
-	/**
-	 * set name
-	 */
-	public void setName(String name) { this.name = name; }
 
-	/**
-	 * get essential
-	 */
-	public boolean getEssential() { return essential; }
-    
-	/**
-	 * set essential
-	 */
-	public void setEssential(boolean essential) { this.essential = essential; }
-
+	public long getSize() {
+		return size;
+	}
 
 	public int compareTo(FileInfo o) {
 		int i = o.getName().compareTo(getName());

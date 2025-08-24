@@ -100,11 +100,11 @@ public class InstalledPackageList {
 					if (crc != 0) {
 						fileNode.setAttribute("crc", Long.toString(crc));
 					}
-
-					if (!file.getEssential()) {
-						fileNode.setAttribute("essential", Boolean.toString(false));
+					long size = file.getSize();
+					if (size != 0) {
+						fileNode.setAttribute("size", Long.toString(size));
 					}
-					
+
 					mapNode.appendChild(fileNode);
 				}
 			}
@@ -191,11 +191,11 @@ public class InstalledPackageList {
 				if (e.hasAttribute("crc")) {
 					crc = Long.parseLong(e.getAttribute("crc"));
 				}
-				boolean essential = true;
-				if (e.hasAttribute("essential") && e.getAttribute("essential").equals(Boolean.toString(false))) {
-					essential = false;
+				long size = 0;
+				if (e.hasAttribute("size")) {
+					size = Long.parseLong(e.getAttribute("size"));
 				}
-				fileList.add(new FileInfo(name, crc, essential));
+				fileList.add(new FileInfo(name, crc, size));
 			}
 		}
 

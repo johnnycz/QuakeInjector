@@ -1,8 +1,9 @@
-package de.haukerehfeld.quakeinjector.feature.install;
+package de.haukerehfeld.quakeinjector.feature.list;
 
+import de.haukerehfeld.quakeinjector.Configuration;
 import de.haukerehfeld.quakeinjector.gui.QuakeInjectorView;
 import de.haukerehfeld.quakeinjector.model.*;
-import de.haukerehfeld.quakeinjector.utils.Download;
+import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.ProgressListener;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
@@ -13,7 +14,6 @@ import java.util.List;
 import java.util.Collections;
 
 import java.io.File;
-import java.io.InputStream;
 import java.io.FileInputStream;
 import java.io.BufferedInputStream;
 import java.util.function.Consumer;
@@ -23,18 +23,18 @@ import javax.swing.JOptionPane;
 public class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 	implements ProgressListener {
 
-	private final String zipContentsDatabaseUrl;
+	private final Configuration configuration;
 	private final String enginePath;
 	private final RequirementList maps;
 	private final QuakeInjectorView mainView;
 	private final Consumer<List<PackageFileList>> doneCallback;
 
 	public CheckInstalled(QuakeInjectorView mainView,
-	                      String zipContentsDatabaseUrl,
+	                      Configuration configuration,
 	                      String enginePath,
 	                      RequirementList maps,
 	                      Consumer<List<PackageFileList>> doneCallback) {
-		this.zipContentsDatabaseUrl = zipContentsDatabaseUrl;
+		this.configuration = configuration;
 		this.enginePath = enginePath;
 		this.maps = maps;
 		this.mainView = mainView;
@@ -46,32 +46,36 @@ public class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 	    java.util.concurrent.ExecutionException,
 	    java.io.IOException {
 
-		List<PackageFileList> packages = Collections.emptyList();
-		{
-			//get download stream
-			Download d = Download.create(zipContentsDatabaseUrl);
-			d.connect();
-			final InputStream dl = d.getStream();
-
-			try {
-				packages = new InstalledPackageList().read(dl);
-
-				Collections.sort(packages);
-			}
-			catch (java.io.FileNotFoundException e) {
-				System.out.println("Notice: installed maps file doesn't exist yet,"
-				                   + " no maps installed? " + e);
-			}
-			catch (java.io.IOException e) {
-				System.err.println("Error: installed maps file couldn't be loaded: " + e);
-				e.printStackTrace();
-			}
+		File localDatabaseFile = configuration.LocalDatabaseFile.get();
+		if (!localDatabaseFile.exists() || !localDatabaseFile.isFile() || !localDatabaseFile.canRead()) {
+			System.err.println("Cached database file not found");
+			return Collections.emptyList();
 		}
-		
+		List<Requirement> packages;
+		try (FileInputStream dl = new FileInputStream(localDatabaseFile)) {
+			packages = new PackageDatabaseSolrJsonParser(configuration).parse(dl);
+
+			Collections.sort(packages);
+		}
+		catch (java.io.FileNotFoundException e) {
+			System.out.println("Notice: installed maps file doesn't exist yet,"
+			                   + " no maps installed? " + e);
+			return Collections.emptyList();
+		}
+		catch (java.io.IOException e) {
+			System.err.println("Error: installed maps file couldn't be loaded: " + e);
+			e.printStackTrace();
+			return Collections.emptyList();
+		}
+
 		int i = 0;
 		List<PackageFileList> installed = new ArrayList<PackageFileList>();
-		for (PackageFileList list: packages) {
-			publish(i++ * 100 / packages.size());
+		for (Requirement requirement: packages) {
+			if (!(requirement instanceof Package pkg)) {
+				continue;
+			}
+			PackageFileList list = pkg.getSupposedFileList();
+			publish(i++ * 100L / packages.size());
 			Requirement r = maps.get(list.getId());
 			String basedir = enginePath + File.separator;
 			if (r instanceof UnavailableRequirement) {
@@ -91,31 +95,26 @@ public class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 				}
 
 				String filename = entry.getName();
-				//System.out.println("Basedir: " + basedir + "; filename: " + filename);
-				String file = basedir + filename;
-				long supposedCrc = entry.getChecksum();
-				File f = new File(file);
-				System.out.print("Checking for " + f + "...");
+				File f;
+				try {
+					f = configuration.EnginePath.getUnzipFile(pkg, filename);
+				} catch (Exception e) {
+					missingFiles.add(filename);
+					continue;
+				}
+				System.out.print("Checking for " + filename + "...");
 				if (!f.exists()) {
-					if (entry.getEssential()) {
-						missingFiles.add(file);
-						System.out.println("missing!");
-					}
+					missingFiles.add(filename);
+					System.out.println("missing!");
 				}
 				else {
 					System.out.println("found!");
 					if (!f.isDirectory()) {
-						long crc = Utils.getCrc32(new BufferedInputStream(new FileInputStream(f)), null);
-						if (supposedCrc != 0 && crc != entry.getChecksum()) {
-							System.err.println("Crc differs for file " + file);
-							if (entry.getEssential()) {
-								System.out.println("Counting as missing.");
-								missingFiles.add(file);
-							}
+						if (entry.getSize() > 0 && entry.getSize() != f.length()) {
+							System.err.println("File size differs for " + f.getName());
+							System.out.println("Counting as missing.");
+							missingFiles.add(f.getName());
 						}
-						// else {
-						// 	System.out.println("Crc matches for " + f + " (" + crc + ")");
-						// }
 					}
 				}
 			}
