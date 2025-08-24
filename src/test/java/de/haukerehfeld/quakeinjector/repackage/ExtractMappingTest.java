@@ -264,6 +264,17 @@ public class ExtractMappingTest {
         verifyMapping().from("maps/mymap.bsp").to("copper/maps/mymap.bsp");
     }
 
+	@Test
+	public void handlesMultipleLeadingSlashes() {
+		parse("""
+			"install": {
+			  "extract": "{base}//"
+			}
+		""");
+
+		verifyMapping().from("copper/").to("copper");
+	}
+
     private class MappingVerifier {
         private String from;
         private String to;
