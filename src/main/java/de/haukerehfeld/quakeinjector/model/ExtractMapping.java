@@ -19,7 +19,7 @@ public class ExtractMapping {
         if (path.startsWith("{base}")) {
             path = path.substring("{base}".length());
         }
-        if (path.startsWith("/")) {
+        while (path.startsWith("/")) {
             path = path.substring(1);
         }
         return path;
