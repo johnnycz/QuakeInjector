@@ -97,7 +97,7 @@ public class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 				String filename = entry.getName();
 				File f;
 				try {
-					f = configuration.EnginePath.getUnzipFile(pkg, filename);
+					f = new File(basedir, filename);
 				} catch (Exception e) {
 					missingFiles.add(filename);
 					continue;
