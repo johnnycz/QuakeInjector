@@ -153,10 +153,13 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 					throw new FileNotWritableException(e.getMessage());
 				}
 
-				if (sourceEntry instanceof ZipArchiveEntry && crc != ((ZipArchiveEntry) sourceEntry).getCrc()) {
-					System.err.println("Crc32 didn't match on extraction of " + overwrittenFile + ", removing...");
-					targetWritable.delete();
-					continue;
+				if (sourceEntry instanceof ZipArchiveEntry zipEntry) {
+					var zipCrc = zipEntry.getCrc();
+					if (zipCrc != -1 && zipCrc != crc) {
+						System.err.println("Crc32 didn't match on extraction of " + overwrittenFile + ", removing...");
+						targetWritable.delete();
+						continue;
+					}
 				}
 
 				/** @todo 2009-12-19 03:03 hrehfeld    add crc calculation */
