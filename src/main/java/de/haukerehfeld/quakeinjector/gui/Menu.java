@@ -44,7 +44,7 @@ public class Menu extends JMenuBar {
 		reparseDatabase = new JMenuItem("Reload database", KeyEvent.VK_R);
 		fileMenu.add(reparseDatabase);
 
-		checkInstalled = new JMenuItem("Check for installed maps (experimental!)", KeyEvent.VK_C);
+		checkInstalled = new JMenuItem("Check for installed maps", KeyEvent.VK_C);
 		fileMenu.add(checkInstalled);
 
 		enableOfflineMode = new JCheckBoxMenuItem("Offline Mode");
