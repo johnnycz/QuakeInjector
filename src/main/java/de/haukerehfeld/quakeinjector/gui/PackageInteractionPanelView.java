@@ -14,7 +14,7 @@ public class PackageInteractionPanelView extends JPanel {
 	private JButton installButton;
 	private JButton playButton;
 
-	private JComboBox startmaps;
+	private JComboBox<String> startmaps;
 
 	public PackageInteractionPanelView() {
 		super(new GridBagLayout());
@@ -50,7 +50,7 @@ public class PackageInteractionPanelView extends JPanel {
 			fill = BOTH;
 		}});
 
-		startmaps = new JComboBox();
+		startmaps = new JComboBox<>();
 		// {
 		// 	Dimension maxSize = new Dimension(100, preferredHeight);
 		// 	startmaps.setPreferredSize(maxSize);
@@ -78,7 +78,7 @@ public class PackageInteractionPanelView extends JPanel {
 		return uninstallButton;
 	}
 
-	public JComboBox getStartmaps() {
+	public JComboBox<String> getStartmaps() {
 		return startmaps;
 	}
 
