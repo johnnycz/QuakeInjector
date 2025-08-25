@@ -29,7 +29,6 @@ import javax.swing.*;
 
 public class Menu extends JMenuBar {
 	private final JMenuItem reparseDatabase;
-	private final JCheckBoxMenuItem enableOfflineMode;
 	private final JMenuItem checkInstalled;
 	private final JMenuItem engine;
 	private final JMenuItem quit;
@@ -46,9 +45,6 @@ public class Menu extends JMenuBar {
 
 		checkInstalled = new JMenuItem("Check for installed maps", KeyEvent.VK_C);
 		fileMenu.add(checkInstalled);
-
-		enableOfflineMode = new JCheckBoxMenuItem("Offline Mode");
-		fileMenu.add(enableOfflineMode);
 
 		engine = new JMenuItem("Settings...");
 		fileMenu.add(engine);
@@ -67,10 +63,6 @@ public class Menu extends JMenuBar {
 			checkInstalled.addActionListener(actionListener);
 	}
 
-	public void addEnableOfflineModeActionListener(ActionListener actionListener) {
-			enableOfflineMode.addActionListener(actionListener);
-	}
-
 	public void addEngineActionListener(ActionListener actionListener) {
 			engine.addActionListener(actionListener);
 	}
@@ -79,7 +71,4 @@ public class Menu extends JMenuBar {
 			quit.addActionListener(actionListener);
 	}
 
-	public void setOfflineMode(boolean offline) {
-				enableOfflineMode.setSelected(offline);
-		}
 }

@@ -66,7 +66,6 @@ public class QuakeInjector {
 	private final PackageListModel maplist;
 	private Installer installer;
 	private final InstalledPackages installedMaps = new InstalledPackages();
-	private Configuration.OfflineMode offline;
 	private final Configuration config;
 
 	private final QuakeInjectorView view;
@@ -95,7 +94,6 @@ public class QuakeInjector {
 		maps = new RequirementList();
 		packages = new PackageList(maps);
 		maplist = new PackageListModel(packages);
-		this.offline = cfg.OfflineMode;
 
 		loadTheme();
 
@@ -192,8 +190,6 @@ public class QuakeInjector {
 		});
 
 		menu.addEngineActionListener((e) -> showEngineConfig());
-
-		menu.addEnableOfflineModeActionListener((e) -> offline.set(!offline.get()));
 	}
 
 	/**
@@ -508,7 +504,6 @@ public class QuakeInjector {
 					}
 					catch (java.net.UnknownHostException exc) {
 						msg = "Couldn't establish connection to the server (" + err.getMessage() + ").";
-						offline.set(true);
 					}
 					catch (Throwable any) { /*do nothing*/; }
 

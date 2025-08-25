@@ -123,23 +123,6 @@ public class Configuration {
 	}
 	public final RogueInstalled RogueInstalled = new RogueInstalled();
 
-	public static class OfflineMode extends BooleanValue {
-		private ChangeListenerList listeners = new ChangeListenerList();
-		
-		private OfflineMode() { super("offlineMode", false); }
-		
-		public void addChangeListener(javax.swing.event.ChangeListener l) {
-			listeners.addChangeListener(l);
-		}
-
-		@Override
-		public void set(Boolean b) {
-			super.set(b);
-			listeners.notifyChangeListeners(this);
-		}
-	}
-	public final OfflineMode OfflineMode = new OfflineMode();
-
 	public static class HipnoticInstalled extends BooleanValue {
 		private HipnoticInstalled() { super("hipnoticInstalled", false); }
 	}
