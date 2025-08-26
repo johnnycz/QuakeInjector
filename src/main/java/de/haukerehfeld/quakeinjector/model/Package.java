@@ -210,24 +210,20 @@ public class Package extends SortableRequirement implements Requirement {
 		return getId() + " (" + isInstalled() + ")";
 	}
 
-	/**
-	 * get fileList
-	 */
 	public PackageFileList getFileList() { return fileList; }
 	
-/**
- * set fileList
- */
+	/**
+	 * Files obtained by installing this package.
+	 */
 	public void setFileList(PackageFileList fileList) { this.fileList = fileList; }
 
-	/**
-	 * get supposedFileList
-	 */
 	public PackageFileList getSupposedFileList() { return supposedFileList; }
-    
-/**
- * set supposedFileList
- */
+
+	/**
+	 * Files that the metadata says should be obtained by installing this package.
+	 *
+	 * <p>This does not list the files in the archive, but files actually installed on the disk after applying installation rules for extraction.</p>
+	 */
 	public void setSupposedFileList(PackageFileList supposedFileList) { this.supposedFileList = supposedFileList; }
 
 
