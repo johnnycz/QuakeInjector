@@ -19,8 +19,7 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector.feature.play;
 
-import java.awt.BorderLayout;
-import java.awt.Rectangle;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -47,7 +46,7 @@ public class EngineOutputDialog extends JDialog {
 
 	private final JTextArea output;
 
-	public EngineOutputDialog(final JFrame parent, final InputStream engineOut) {
+	public EngineOutputDialog(final Frame parent, final InputStream engineOut) {
 		super(parent, windowTitle, true);
 		this.engineOut = engineOut;
 

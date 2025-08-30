@@ -25,13 +25,10 @@ import de.haukerehfeld.quakeinjector.feature.install.PackageOverwriteDialog;
 import de.haukerehfeld.quakeinjector.feature.install.SaveInstalled;
 import de.haukerehfeld.quakeinjector.feature.play.EngineOutputDialog;
 import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
-import de.haukerehfeld.quakeinjector.gui.PackageInteractionPanelView;
-import de.haukerehfeld.quakeinjector.gui.QuakeInjectorView;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
+import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
+import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
-import de.haukerehfeld.quakeinjector.model.PackageFileList;
-import de.haukerehfeld.quakeinjector.model.Requirement;
-import de.haukerehfeld.quakeinjector.model.RequirementList;
 import de.haukerehfeld.quakeinjector.utils.FileNotWritableException;
 import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 import de.haukerehfeld.quakeinjector.utils.Utils;
@@ -40,8 +37,13 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingWorker;
@@ -54,15 +56,11 @@ import javax.swing.event.ChangeListener;
 public class PackageInteractionController implements ChangeListener,
 											 PackageListSelectionHandler.SelectionListener {
 
-	private final PackageInteractionPanelView view;
-	private QuakeInjectorView parentView;
-	
+	private final PackageInteractionViewModel vm;
+
 	private EngineStarter starter;
-	private Configuration.RepositoryBasePath paths;
 	private RequirementList requirements;
 	private final InstallQueuePanel installQueue;
-
-	private boolean ready = false;
 
 	/**
 	 * Currently selected map
@@ -72,86 +70,12 @@ public class PackageInteractionController implements ChangeListener,
 	private Installer installer;
 
 	private SaveInstalled installedMaps;
-	
-	public PackageInteractionController(InstallQueuePanel installQueue, PackageInteractionPanelView view) {
+	private DialogProvider dialogProvider;
+
+	public PackageInteractionController(InstallQueuePanel installQueue, PackageInteractionViewModel vm, DialogProvider dialogProvider) {
 		this.installQueue = installQueue;
-		this.view = view;
-
-		addListeners();
-
-		disableUI();
-		refreshUi();
-	}
-
-	private void addListeners() {
-		view.getUninstallButton().addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				uninstall();
-			}
-		});
-
-		view.getInstallButton().addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				install();
-			}
-		});
-
-		view.getPlayButton().addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				start();
-			}
-		});
-	}
-
-	private void disableUI() {
-		view.getPlayButton().setEnabled(false);
-		view.getInstallButton().setEnabled(false);
-		view.getStartmaps().setEnabled(false);
-	}
-
-	private void refreshUi() {
-		if (!ready || !hasCurrentPackage()) {
-			view.getInstallButton().setText(PackageInteractionPanelView.getInstallText());
-			disableUI();
-			return;
-		}
-
-		view.getInstallButton().setText(PackageInteractionPanelView.getInstallText() + " " + selectedMap.getId());
-
-		//we do this regardless of displaying the list, because we can
-		//then simply get the selection from the list even if there's
-		//only one option
-		java.util.List<String> maps = selectedMap.getStartmaps();
-		view.getStartmaps().removeAllItems();
-		for (String startmap: maps) {
-			view.getStartmaps().addItem(startmap);
-		}
-
-		if (selectedMap.isInstalled()) {
-			view.getInstallButton().setEnabled(false);
-			view.getUninstallButton().setEnabled(true);
-			view.getPlayButton().setEnabled(true);
-
-			boolean enableList = false;
-			if (maps.size() > 1) {
-				enableList = true;
-			}
-			view.getStartmaps().setEnabled(enableList);
-		}
-		else {
-			if (installer.alreadyQueued(selectedMap)) {
-				view.getInstallButton().setEnabled(false);
-			}
-			else {
-				view.getInstallButton().setEnabled(true);
-			}
-			view.getPlayButton().setEnabled(false);
-			view.getUninstallButton().setEnabled(false);
-			view.getStartmaps().setEnabled(false);
-		}
-
-		view.revalidate();
-		view.repaint();
+		this.vm = vm;
+		this.dialogProvider = dialogProvider;
 	}
 
 	public void init(Installer installer,
@@ -159,20 +83,11 @@ public class PackageInteractionController implements ChangeListener,
 	                 RequirementList requirements,
 	                 EngineStarter starter,
 	                 SaveInstalled installedMaps) {
-		this.paths = paths;
 		this.requirements = requirements;
 		this.starter = starter;
 		this.installedMaps = installedMaps;
 
 		this.installer = installer;
-		
-
-		ready = true;
-		refreshUi();
-	}
-
-	public void setParentView(QuakeInjectorView parentView) {
-		this.parentView = parentView;
 	}
 
 	public void installRequirements(de.haukerehfeld.quakeinjector.model.Package map) {
@@ -208,20 +123,10 @@ public class PackageInteractionController implements ChangeListener,
 			    + " can't be installed automatically:\n"
 			    + Utils.join(unmet, ",\n")
 			    + ".\n";
-			Object[] options = {"Install anyways",
-			                    "Cancel Install"};
-			int install =
-			    JOptionPane.showOptionDialog(view,
-			                                 msg,
-			                                 "Prerequisites not available for automatic install",
-			                                 JOptionPane.YES_NO_OPTION,
-			                                 JOptionPane.WARNING_MESSAGE,
-			                                 null,
-			                                 options,
-			                                 options[1]);
-			if (install != 0) {
-				return false;
-			}
+			String[] options = {"Install anyways", "Cancel Install"};
+			var selectedOption = dialogProvider.showOptions(
+					msg, "Prerequisites not available for automatic install", options, options[1]);
+			return selectedOption == 0;
 		}
 		return true;
 	}
@@ -231,18 +136,11 @@ public class PackageInteractionController implements ChangeListener,
 		if (!selectedMap.isInstalled()) {
 			String msg = selectedMap.getId()
 			    + " doesn't seem to be installed.";
-			Object[] options = {"Install",
+			String[] options = {"Install",
 			                    "Cancel Start"};
-			int install =
-			    JOptionPane.showOptionDialog(view,
-			                                 msg,
-			                                 "Map not installed",
-			                                 JOptionPane.YES_NO_OPTION,
-			                                 JOptionPane.WARNING_MESSAGE,
-			                                 null,
-			                                 options,
-			                                 options[1]);
-			if (install == 0) {
+			int selectedOption = dialogProvider.showOptions(
+					msg, "Map not installed", options, options[1]);
+			if (selectedOption == 0) {
 				install(selectedMap, false);
 			}
 			return false;
@@ -255,20 +153,10 @@ public class PackageInteractionController implements ChangeListener,
 			    + " don't seem to be installed: \n"
 			    + Utils.join(unmet, ",\n ")
 			    + ".\nYou probably can't play this package.";
-			Object[] options = {"Start anyways",
+			String[] options = {"Start anyways",
 			                    "Cancel Start"};
-			int install =
-			    JOptionPane.showOptionDialog(view,
-			                                 msg,
-			                                 "Prerequisites not installed",
-			                                 JOptionPane.YES_NO_OPTION,
-			                                 JOptionPane.WARNING_MESSAGE,
-			                                 null,
-			                                 options,
-			                                 options[1]);
-			if (install != 0) {
-				return false;
-			}
+			int selectedOption = dialogProvider.showOptions(msg, "Prerequisites not installed", options, options[1]);
+			return selectedOption == 0;
 		}
 		return true;
 	}
@@ -306,6 +194,32 @@ public class PackageInteractionController implements ChangeListener,
 								  });
 		
 
+		/* how to handle these dialogs
+		 1. GUI layer provides an implementation of dialog provider and registers it with the app
+		    - kind of dirty - controller invokes GUI code and understands logic of dialogs and different screens?
+		    - could be more general - message user provider; user question provider
+		    - which layer defines the interface for this?
+		      - feature? no - seems to be too general for a specific feature layer - some dialogues appear in each feature
+		      - model? maybe - so far we don't have so much behavior in the model, this seems behavior?
+		      - guimodel? maybe - not bad, but it does not carry that much data or gui logic
+		      -
+		      - model should contain "currently displayed pop-up message" and vm should be notified when this is set
+		      - subsequently gui dialog component should display a dialogue as a result
+		      - dialog that returns a value - there should be a callback
+		      - but could it be simpler? only one registered dialog provider? gui registers its dialog provider
+		        - that would skip the vm layer, everything needs to go through vm layer
+		        - vm observes dialog model, gui observes vm
+		        - seems like a pointless indirection via vm, does vm add anything useful?
+
+
+		 2. controller returns a special value that the GUI layer understands
+		    - but we are working asynchronously here, the call has already returned, the return value would only be returned
+		      to the installer thread which then ends without doing anything with it
+		    - gui code would have to poll for a result?
+		    - too complex for now
+
+	      How would this work if this was a web application?
+		 */
 		installer.install(selectedMap,
 		                  selectedMap.getDownloadUrls().get(0), // TODO give user the option to choose the URL
 		                  new Installer.InstallErrorHandler() {
@@ -313,33 +227,34 @@ public class PackageInteractionController implements ChangeListener,
 								  installQueue.finished(progressListener,
 								                        "File not found");
 								  
-								  refreshUi();
+								  vm.setInstalling(false);
 								  String msg = "The file couldn't be found in the online"
 								      + " repository";
-								  JOptionPane.showMessageDialog(view,
-								                                msg,
-								                                "File not found (404)",
-								                                JOptionPane.WARNING_MESSAGE);
+								  dialogProvider.showWarning(msg, "File not found (404)");
 							  }
 
 							  public List<File> overwrite(Map<String,File> files) {
-								  PackageOverwriteDialog overwrite = new PackageOverwriteDialog(parentView);
+								  List<String> overwriteList = new ArrayList<>();
+								  List<String> alwaysWriteList = new ArrayList<>();
 								  for (Map.Entry<String,File> e: files.entrySet()) {
 									  String name = e.getKey();
 									  File f = e.getValue();
-									  
-									  overwrite.addFile(name, f.exists());
+
+									  if (f.exists()) {
+										  overwriteList.add(name);
+									  } else {
+										  alwaysWriteList.add(name);
+									  }
 								  }
 
-								  overwrite.packAndShow();
+								  List<File> overwriteFiles = new ArrayList<>();
+								  List<String> overwritten = dialogProvider.showOverwriteDialog(overwriteList, alwaysWriteList);
 
-								  List<File> overwriteFiles = new ArrayList<File>();
-
-								  if (overwrite.isCanceled()) {
+								  if (overwritten == null || overwritten.isEmpty()) {
 									  return overwriteFiles;
 								  }
 
-								  for (String name: overwrite.getOverwritten()) {
+								  for (String name: overwritten) {
 									  overwriteFiles.add(files.get(name));
 								  }
 								  return overwriteFiles;
@@ -364,8 +279,7 @@ public class PackageInteractionController implements ChangeListener,
 								  }
 								  progressListener.setProgress(100);
 								  installQueue.finished(progressListener, "Success");
-								  refreshUi();
-								  
+								  vm.setInstalling(false);
 							  }
 							  public void handle(FileNotWritableException error,
 							                     PackageFileList alreadyInstalledFiles) {
@@ -374,10 +288,7 @@ public class PackageInteractionController implements ChangeListener,
 
 								  String msg = "Couldn't write to harddisk! "
 								      + error.getMessage();
-								  JOptionPane.showMessageDialog(view,
-								                                msg,
-								                                "Couldn't write to harddisk",
-								                                JOptionPane.ERROR_MESSAGE);
+								  dialogProvider.showError(msg, "Couldn't write to harddisk");
 							  }
 							  public void handle(java.io.IOException error,
 							                     PackageFileList alreadyInstalledFiles) {
@@ -385,10 +296,7 @@ public class PackageInteractionController implements ChangeListener,
 
 								  String msg = "Couldn't open file! "
 								      + error.getMessage();
-								  JOptionPane.showMessageDialog(view,
-								                                msg,
-								                                "Couldn't open file!",
-								                                JOptionPane.ERROR_MESSAGE);
+								  dialogProvider.showError(msg,"Couldn't open file!");
 							  }
 
 							  public void handle(java.net.SocketException error,
@@ -396,10 +304,7 @@ public class PackageInteractionController implements ChangeListener,
 								  cleanup(alreadyInstalledFiles, "Network Error");
 
 								  String msg = "Download failed! " + error.getMessage();
-								  JOptionPane.showMessageDialog(view,
-								                                msg,
-								                                "Download failed!",
-								                                JOptionPane.ERROR_MESSAGE);
+								  dialogProvider.showError(msg, "Download failed!");
 							  }
 							  
 							  public void handle(Installer.CancelledException error,
@@ -412,12 +317,12 @@ public class PackageInteractionController implements ChangeListener,
 								  System.out.println("Cleaning up...");
 								  uninstall(selectedMap, alreadyInstalledFiles);
 								  installQueue.finished(progressListener, message);
-								  refreshUi();
+								  vm.setInstalling(false);
 							  }
 						  },
 		                  progressListener);
 
-		view.getInstallButton().setEnabled(false);
+		vm.setInstalling(true);
 	}
 
 	public void uninstall() {
@@ -427,7 +332,6 @@ public class PackageInteractionController implements ChangeListener,
 		if (!hasCurrentPackage()) { return; }
 
 		uninstall(selectedMap, selectedMap.getFileList());
-		view.getUninstallButton().setEnabled(false);
 	}
 
 	private void uninstall(final de.haukerehfeld.quakeinjector.model.Package map, PackageFileList files) {
@@ -466,13 +370,10 @@ public class PackageInteractionController implements ChangeListener,
 										}
 									};
 									saveInstalled.execute();
-
-									refreshUi();
 								}
 
 								@Override
 								public void error(Exception e) {
-									refreshUi();
 									installQueue.finished(progressListener, "fail");
 									System.out.println(e.getMessage());
 									e.printStackTrace();
@@ -482,29 +383,20 @@ public class PackageInteractionController implements ChangeListener,
 		    );
 	}
 
-	public void start() {
+	public void start(String startmap) {
 		if (!hasCurrentPackage()) { return; }
 
 		if (!starter.checkPaths()) {
-			JOptionPane.showMessageDialog(parentView,
-			                              "Quake engine paths aren't set correctly, can't start.",
-			                              "Quake engine paths not configured",
-			                              JOptionPane.ERROR_MESSAGE);
+			dialogProvider.showError("Quake engine paths aren't set correctly, can't start.","Quake engine paths not configured");
 			return;
 		}
 		if (!checkPlayRequirements(selectedMap)) {
 			return;
 		}
-		String startmap = (String) view.getStartmaps().getSelectedItem();
-		//System.out.println("startmap: " + startmap);
 
 		try {
 			Process p = starter.start(selectedMap.getCommandline(), startmap);
-			EngineOutputDialog eod = new EngineOutputDialog(parentView, p.getInputStream());
-			eod.pack();
-			eod.setLocationRelativeTo(parentView);
-			eod.setVisible(true);
-
+			dialogProvider.showEngineOutout(p.getInputStream());
 		}
 		catch (java.io.IOException e) {
 			/** @todo 2009-05-04 14:28 hrehfeld    pop up dialogue */
@@ -515,17 +407,12 @@ public class PackageInteractionController implements ChangeListener,
 
 	public void setSelection(de.haukerehfeld.quakeinjector.model.Package map) {
 		this.selectedMap = map;
-
-		refreshUi();
-
+		vm.setSelectedPackage(map);
 	}
-
-
-
 
 	@Override
 	public void stateChanged(ChangeEvent e) {
-		refreshUi();
+		vm.stateChanged(e);
 	}
 
 	@Override
@@ -533,7 +420,4 @@ public class PackageInteractionController implements ChangeListener,
 		setSelection(s);
 	}
 
-	public InstallQueuePanel getInstallQueue() {
-		return installQueue;
-	}
 }

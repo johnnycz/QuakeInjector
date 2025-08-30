@@ -14,17 +14,18 @@ public class ArchitectureTest {
 	public void layeredArchitectureTest() {
 		JavaClasses importedClasses = new ClassFileImporter().importPackages("de.haukerehfeld.quakeinjector");
 
+		var basePackage = "de.haukerehfeld.quakeinjector";
 		var rule = layeredArchitecture()
 				.consideringOnlyDependenciesInLayers()
 				.ensureAllClassesAreContainedInArchitecture()
-				.layer("gui").definedBy("de.haukerehfeld.quakeinjector.gui")
-				.layer("main").definedBy("de.haukerehfeld.quakeinjector")
-				.layer("guimodel").definedBy("de.haukerehfeld.quakeinjector.guimodel")
-				.layer("model").definedBy("de.haukerehfeld.quakeinjector.model")
-				.layer("feature.install").definedBy("de.haukerehfeld.quakeinjector.feature.install")
-				.layer("feature.list").definedBy("de.haukerehfeld.quakeinjector.feature.list")
-				.layer("feature.play").definedBy("de.haukerehfeld.quakeinjector.feature.play")
-				.layer("utils").definedBy("de.haukerehfeld.quakeinjector.utils")
+				.layer("gui").definedBy(basePackage + ".gui")
+				.layer("main").definedBy(basePackage + "")
+				.layer("guimodel").definedBy(basePackage + ".guimodel")
+				.layer("model").definedBy(basePackage + ".model")
+				.layer("feature.install").definedBy(basePackage + ".feature.install")
+				.layer("feature.list").definedBy(basePackage + ".feature.list")
+				.layer("feature.play").definedBy(basePackage + ".feature.play")
+				.layer("utils").definedBy(basePackage + ".utils")
 
 				.whereLayer("gui").mayOnlyAccessLayers("guimodel", "utils")
 				.whereLayer("guimodel").mayOnlyAccessLayers("model", "utils")

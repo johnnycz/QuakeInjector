@@ -1,13 +1,18 @@
 package de.haukerehfeld.quakeinjector.gui;
 
+import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
+
 import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import java.awt.*;
 
-public class PackageInteractionPanelView extends JPanel {
+public class PackageInteractionPanelView extends JPanel implements ChangeListener {
 
 	private static final String uninstallText = "Uninstall";
 	private static final String installText = "Install";
 	private static final String playText = "Play";
+	private final PackageInteractionViewModel vm;
 
 	private QuakeInjectorView parentView;
 	private JButton uninstallButton;
@@ -16,24 +21,18 @@ public class PackageInteractionPanelView extends JPanel {
 
 	private JComboBox<String> startmaps;
 
-	public PackageInteractionPanelView() {
+	public PackageInteractionPanelView(PackageInteractionViewModel vm) {
 		super(new GridBagLayout());
+		this.vm = vm;
 		uninstallButton = new JButton(uninstallText);
-		uninstallButton.setEnabled(false);
-
+		uninstallButton.addActionListener((e) -> vm.uninstall());
 
 		add(uninstallButton, new GridBagConstraints() {{
 			fill = BOTH;
 		}});
 
 		installButton = new JButton(installText);
-		installButton.setEnabled(false);
-		// int preferredHeight = (int) installButton.getPreferredSize().getHeight();
-		// {
-		// 	Dimension maxSize = new Dimension(150, preferredHeight);
-		// 	installButton.setMinimumSize(maxSize);
-		// 	installButton.setPreferredSize(maxSize);
-		// }
+		installButton.addActionListener((e) -> vm.install());
 
 		add(installButton, new GridBagConstraints() {{
 			gridx = 1;
@@ -42,7 +41,6 @@ public class PackageInteractionPanelView extends JPanel {
 		}});
 
 		playButton = new JButton(playText);
-		playButton.setEnabled(false);
 
 		add(playButton, new GridBagConstraints() {{
 			gridx = 0;
@@ -51,38 +49,32 @@ public class PackageInteractionPanelView extends JPanel {
 		}});
 
 		startmaps = new JComboBox<>();
-		// {
-		// 	Dimension maxSize = new Dimension(100, preferredHeight);
-		// 	startmaps.setPreferredSize(maxSize);
-		// 	startmaps.setMinimumSize(maxSize);
-		// }
 		add(startmaps, new GridBagConstraints() {{
 			gridx = 1;
 			gridy = 1;
 			fill = BOTH;
 			weightx = 1;
 		}});
+
+		playButton.addActionListener((e) -> vm.play(startmaps.getItemAt(startmaps.getSelectedIndex())));
+		updateElements();
 	}
 
+	private void updateElements() {
+		uninstallButton.setEnabled(vm.isInstalled());
+		installButton.setEnabled(!vm.isInstalled() && !vm.isInstalling());
+		installButton.setText(vm.isInstalled() ? installText : installText + " " + vm.getPackageId());
+		playButton.setEnabled(vm.isInstalled());
 
-
-	public JButton getInstallButton() {
-		return installButton;
+		startmaps.setEnabled(vm.isInstalled() && vm.getStartmaps() != null && !vm.getStartmaps().isEmpty());
+		startmaps.removeAllItems();
+		for (String startmap: vm.getStartmaps()) {
+			startmaps.addItem(startmap);
+		}
 	}
 
-	public JButton getPlayButton() {
-		return playButton;
-	}
-
-	public JButton getUninstallButton() {
-		return uninstallButton;
-	}
-
-	public JComboBox<String> getStartmaps() {
-		return startmaps;
-	}
-
-	public static String getInstallText() {
-		return installText;
+	@Override
+	public void stateChanged(ChangeEvent e) {
+		updateElements();
 	}
 }

@@ -19,10 +19,7 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector.feature.install;
 
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
@@ -77,7 +74,7 @@ public class PackageOverwriteDialog extends JDialog {
 	
 	private final static int SECTIONMARGIN = 15;
 
-	private final JFrame parent;
+	private final Frame parent;
 
 	private final JPanel panel;
 
@@ -88,8 +85,10 @@ public class PackageOverwriteDialog extends JDialog {
 
 	private final Map<String,JCheckBox> overwriteBoxes = new HashMap<String,JCheckBox>();
 	
-	public PackageOverwriteDialog(final JFrame frame) {
+	public PackageOverwriteDialog(final Frame frame, List<String> overwriteList, List<String> writeList) {
 		super(frame, windowTitle, true);
+		this.overwriteList.addAll(overwriteList);
+		this.alwaysWriteList.addAll(writeList);
 		this.parent = frame;
 
 		panel = new ScrollablePanel(50, 50);
@@ -148,12 +147,6 @@ public class PackageOverwriteDialog extends JDialog {
 		addDescriptionLabel("Files that need to be installed:", line);
 	}
 	
-
-	public void addFile(String name, boolean overwrite) {
-		List<String> list = (overwrite ? overwriteList : alwaysWriteList);
-		list.add(name);
-	}
-
 	public List<String> getOverwritten() {
 		List<String> overwritten = new ArrayList<String>(alwaysWriteList);
 		for (Map.Entry<String,JCheckBox> e: overwriteBoxes.entrySet()) {

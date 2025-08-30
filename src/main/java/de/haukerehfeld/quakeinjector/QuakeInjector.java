@@ -27,8 +27,10 @@ import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseSolrJsonParser;
 import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
 import de.haukerehfeld.quakeinjector.gui.*;
 import de.haukerehfeld.quakeinjector.gui.Menu;
+import de.haukerehfeld.quakeinjector.guimodel.DialogViewModel;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListModel;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
+import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
@@ -60,6 +62,8 @@ public class QuakeInjector {
 	
 	final static File configFile = new File("config.properties");
 	private final PackageInteractionController interactionPanel;
+	private final PackageInteractionViewModel packageInteractionViewModel;
+	private final CommandRouter router;
 	private EngineStarter starter;
 	private RequirementList maps;
 	private PackageList packages;
@@ -97,14 +101,38 @@ public class QuakeInjector {
 
 		loadTheme();
 
-		PackageInteractionPanelView packageInteractionPanelView = new PackageInteractionPanelView();
+
+		this.router = new CommandRouter();
+
+		this.packageInteractionViewModel = new PackageInteractionViewModel(router);
+		PackageInteractionPanelView packageInteractionPanelView = new PackageInteractionPanelView(packageInteractionViewModel);
 		InstallQueuePanel installQueuePanel = new InstallQueuePanel();
-		this.interactionPanel = new PackageInteractionController(installQueuePanel, packageInteractionPanelView);
+		var dialogVm = new DialogViewModel();
+		this.interactionPanel = new PackageInteractionController(installQueuePanel, packageInteractionViewModel, dialogVm);
 
 		view = new QuakeInjectorView(maplist, packageInteractionPanelView, installQueuePanel);
 		setWindowSize();
+		new DialogView(dialogVm, view);
+
 
 		registerViewListeners();
+	}
+
+	private class CommandRouter implements CommandHandler {
+		@Override
+		public void install() {
+			interactionPanel.install();
+		}
+
+		@Override
+		public void uninstall() {
+			interactionPanel.uninstall();
+		}
+
+		@Override
+		public void play(String startmap) {
+			interactionPanel.start(startmap);
+		}
 	}
 
 	private void loadTheme() {
