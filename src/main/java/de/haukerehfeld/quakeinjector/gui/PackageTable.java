@@ -23,16 +23,17 @@ import java.awt.Dimension;
 import java.awt.Color;
 import java.awt.Component;
 
-import javax.swing.UIManager;
+import javax.swing.*;
 
-import javax.swing.JTable;
-import javax.swing.JComponent;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableRowSorter;
 
 import de.haukerehfeld.quakeinjector.guimodel.Column;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListModel;
+import de.haukerehfeld.quakeinjector.model.Package;
 
 /**
  * @todo check if dependency on de.haukerehfeld.quakeinjector.packagelist.model.PackageListModel is necessary
@@ -46,10 +47,10 @@ public class PackageTable extends JTable {
 	private final EmptyBorder border = new EmptyBorder(0, CELLPADDING, 0, CELLPADDING);
 	                                                           
 
-	public PackageTable(PackageListModel maplist) {
-		super(maplist);
+	public PackageTable(PackageListModel vm) {
+		super(vm);
 		
-		final TableRowSorter<PackageListModel> sorter = new TableRowSorter<PackageListModel>(maplist);
+		final TableRowSorter<PackageListModel> sorter = new TableRowSorter<PackageListModel>(vm);
 		setRowSorter(sorter);
 		sorter.toggleSortOrder(Column.RELEASEDATE.ordinal());
 		sorter.toggleSortOrder(Column.RELEASEDATE.ordinal());
@@ -64,6 +65,40 @@ public class PackageTable extends JTable {
 		setRowHeight(getFontMetrics(getFont()).getHeight());
 
 		//getColumnModel().getColumn(Column.NORMALIZEDUSERSRATING.ordinal()).setCellRenderer(new PackageListModel.BarRenderer());
+		getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+			int lastSelection = -1;
+			@Override
+			public void valueChanged(ListSelectionEvent e) {
+				ListSelectionModel lsm = (ListSelectionModel) e.getSource();
+
+				if (!lsm.isSelectionEmpty()) {
+					int selection = convertRowIndexToModel(getSelection(lsm));
+					if (lastSelection == selection) {
+						return;
+					}
+					Package aPackage = vm.getPackage(selection);
+					vm.selectPackage(aPackage);
+					lastSelection = selection;
+				}
+			}
+
+			/**
+			 * Find out what entry was selected
+			 */
+			public int getSelection(ListSelectionModel lsm) {
+				int selection = -1;
+				// Find out which indexes are selected.
+				int minIndex = lsm.getMinSelectionIndex();
+				int maxIndex = lsm.getMaxSelectionIndex();
+				for (int i = minIndex; i <= maxIndex; i++) {
+					if (lsm.isSelectedIndex(i)) {
+						selection = i;
+						break;
+					}
+				}
+				return selection;
+			}
+		});
 	}
 	
     /**

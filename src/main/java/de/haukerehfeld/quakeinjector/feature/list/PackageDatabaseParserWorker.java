@@ -20,7 +20,7 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 package de.haukerehfeld.quakeinjector.feature.list;
 
 //import java.awt.*;
-import de.haukerehfeld.quakeinjector.*;
+import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.utils.Download;
 import de.haukerehfeld.quakeinjector.utils.PercentageProgressListener;
 import de.haukerehfeld.quakeinjector.utils.ProgressListener;

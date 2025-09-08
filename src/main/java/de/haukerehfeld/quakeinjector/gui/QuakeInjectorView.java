@@ -233,6 +233,25 @@ public class QuakeInjectorView extends JFrame {
 		return icons;
 	}
 
+	/*
+
+	make separate usecase for all this?
+	 - should get its own vm
+	 - should get the classic dialog provider
+	 - and reference to the config
+	 - is it its own feature?
+
+	this should be the vm of the engine config dialog:
+			                     getConfig().EnginePath,
+		                             getConfig().EngineExecutable,
+		                             getConfig().WorkingDirAtExecutable,
+		                             getConfig().DownloadPath,
+		                             getConfig().EngineCommandLine,
+		                             getConfig().RogueInstalled,
+		                             getConfig().HipnoticInstalled,
+				             getConfig().uiTheme
+	- this use case would then be also passed to other use cases so that they can execute it
+	*/
 	/**
 	 * @return false if the user didn't open the config dialog
 	 */

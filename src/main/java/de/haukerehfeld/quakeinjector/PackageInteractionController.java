@@ -19,13 +19,10 @@
 */
 package de.haukerehfeld.quakeinjector;
 
-import de.haukerehfeld.quakeinjector.feature.install.InstallQueuePanel;
+import de.haukerehfeld.quakeinjector.gui.InstallQueuePanel;
 import de.haukerehfeld.quakeinjector.feature.install.Installer;
-import de.haukerehfeld.quakeinjector.feature.install.PackageOverwriteDialog;
 import de.haukerehfeld.quakeinjector.feature.install.SaveInstalled;
-import de.haukerehfeld.quakeinjector.feature.play.EngineOutputDialog;
 import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
-import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
 import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
@@ -37,15 +34,9 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.IntConsumer;
 
-import javax.swing.JOptionPane;
 import javax.swing.SwingWorker;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -53,8 +44,7 @@ import javax.swing.event.ChangeListener;
 /**
  * the panel that shows Info about the selected map
  */
-public class PackageInteractionController implements ChangeListener,
-											 PackageListSelectionHandler.SelectionListener {
+public class PackageInteractionController implements ChangeListener {
 
 	private final PackageInteractionViewModel vm;
 
@@ -163,7 +153,7 @@ public class PackageInteractionController implements ChangeListener,
 
 	private boolean checkInstallDirectory() {
 		while (!installer.checkInstallDirectory()) {
-			if (!parentView.enginePathNotSetDialogue()) {
+			if (!dialogProvider.askAndshowEngineConfigWindow()) {
 				return false;
 			}
 		}
@@ -192,34 +182,7 @@ public class PackageInteractionController implements ChangeListener,
 										  installer.cancel(selectedMap);
 									  }
 								  });
-		
 
-		/* how to handle these dialogs
-		 1. GUI layer provides an implementation of dialog provider and registers it with the app
-		    - kind of dirty - controller invokes GUI code and understands logic of dialogs and different screens?
-		    - could be more general - message user provider; user question provider
-		    - which layer defines the interface for this?
-		      - feature? no - seems to be too general for a specific feature layer - some dialogues appear in each feature
-		      - model? maybe - so far we don't have so much behavior in the model, this seems behavior?
-		      - guimodel? maybe - not bad, but it does not carry that much data or gui logic
-		      -
-		      - model should contain "currently displayed pop-up message" and vm should be notified when this is set
-		      - subsequently gui dialog component should display a dialogue as a result
-		      - dialog that returns a value - there should be a callback
-		      - but could it be simpler? only one registered dialog provider? gui registers its dialog provider
-		        - that would skip the vm layer, everything needs to go through vm layer
-		        - vm observes dialog model, gui observes vm
-		        - seems like a pointless indirection via vm, does vm add anything useful?
-
-
-		 2. controller returns a special value that the GUI layer understands
-		    - but we are working asynchronously here, the call has already returned, the return value would only be returned
-		      to the installer thread which then ends without doing anything with it
-		    - gui code would have to poll for a result?
-		    - too complex for now
-
-	      How would this work if this was a web application?
-		 */
 		installer.install(selectedMap,
 		                  selectedMap.getDownloadUrls().get(0), // TODO give user the option to choose the URL
 		                  new Installer.InstallErrorHandler() {
@@ -405,19 +368,14 @@ public class PackageInteractionController implements ChangeListener,
 
 	}
 
-	public void setSelection(de.haukerehfeld.quakeinjector.model.Package map) {
-		this.selectedMap = map;
-		vm.setSelectedPackage(map);
-	}
-
 	@Override
 	public void stateChanged(ChangeEvent e) {
 		vm.stateChanged(e);
 	}
 
-	@Override
 	public void selectionChanged(Package s) {
-		setSelection(s);
+		this.selectedMap = s;
+		vm.setSelectedPackage(s);
 	}
 
 }

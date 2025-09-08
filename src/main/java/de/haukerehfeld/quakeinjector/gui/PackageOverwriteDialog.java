@@ -17,7 +17,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
-package de.haukerehfeld.quakeinjector.feature.install;
+package de.haukerehfeld.quakeinjector.gui;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -32,14 +32,10 @@ import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.border.Border;
-
-import de.haukerehfeld.quakeinjector.gui.OkayCancelApplyPanel;
-import de.haukerehfeld.quakeinjector.gui.ScrollablePanel;
 
 public class PackageOverwriteDialog extends JDialog {
 	private final static String windowTitle = "Overwrite Package Files?";

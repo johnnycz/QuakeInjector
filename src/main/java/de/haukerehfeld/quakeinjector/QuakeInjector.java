@@ -27,20 +27,14 @@ import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseSolrJsonParser;
 import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
 import de.haukerehfeld.quakeinjector.gui.*;
 import de.haukerehfeld.quakeinjector.gui.Menu;
-import de.haukerehfeld.quakeinjector.guimodel.DialogViewModel;
-import de.haukerehfeld.quakeinjector.guimodel.PackageListModel;
-import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
-import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
+import de.haukerehfeld.quakeinjector.guimodel.*;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
 import de.haukerehfeld.quakeinjector.utils.Download;
-import de.haukerehfeld.quakeinjector.utils.RelativePath;
 import de.haukerehfeld.quakeinjector.utils.RuntimeExecutionException;
 
 import javax.swing.*;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -63,7 +57,9 @@ public class QuakeInjector {
 	final static File configFile = new File("config.properties");
 	private final PackageInteractionController interactionPanel;
 	private final PackageInteractionViewModel packageInteractionViewModel;
+	private PackageDetailController packageDetailController;
 	private final CommandRouter router;
+	private final DialogProvider dialogProvider;
 	private EngineStarter starter;
 	private RequirementList maps;
 	private PackageList packages;
@@ -95,19 +91,22 @@ public class QuakeInjector {
 		this.config = cfg;
 
 
+		this.router = new CommandRouter();
 		maps = new RequirementList();
 		packages = new PackageList(maps);
-		maplist = new PackageListModel(packages);
+		maplist = new PackageListModel(packages, router);
 
 		loadTheme();
 
 
-		this.router = new CommandRouter();
 
 		this.packageInteractionViewModel = new PackageInteractionViewModel(router);
 		PackageInteractionPanelView packageInteractionPanelView = new PackageInteractionPanelView(packageInteractionViewModel);
-		InstallQueuePanel installQueuePanel = new InstallQueuePanel();
-		var dialogVm = new DialogViewModel();
+		var iqvm = new InstallQueueViewModel();
+		InstallQueuePanel installQueuePanel = new InstallQueuePanel(iqvm);
+		var configViewModel = new ConfigViewModel(router, getConfig());
+		var dialogVm = new DialogViewModel(configViewModel);
+		this.dialogProvider = dialogVm;
 		this.interactionPanel = new PackageInteractionController(installQueuePanel, packageInteractionViewModel, dialogVm);
 
 		view = new QuakeInjectorView(maplist, packageInteractionPanelView, installQueuePanel);
@@ -133,14 +132,26 @@ public class QuakeInjector {
 		public void play(String startmap) {
 			interactionPanel.start(startmap);
 		}
+
+		@Override
+		public void saveConfig() {
+			QuakeInjector.this.applyAndPersistConfig();
+		}
+
+		public void selectPackage(Package pkg) {
+			packageInteractionViewModel.setSelectedPackage(pkg);
+			packageDetailController.selectionChanged(pkg);
+			interactionPanel.selectionChanged(pkg);
+		}
 	}
 
 	private void loadTheme() {
-		UIThemeOption option = getConfig().uiTheme.get();
+		String stringOption = getConfig().uiTheme.get();
+		DarkLafUIThemeOption option = DarkLafUIThemeOption.getByCode(stringOption);
 		if (option != null) {
 			option.init();
 		} else {
-			UIThemeOption.SYSTEM.init();
+			DarkLafUIThemeOption.SYSTEM.init();
 		}
 	}
 
@@ -176,7 +187,7 @@ public class QuakeInjector {
 
 	private void registerViewListeners() {
 
-		var packageDetailPanel = new PackageDetailController(view.getPackageDetailPanelView(), getConfig().ScreenshotRepositoryPath.get(), getConfig().mapWebpageBaseUrl.get());
+		this.packageDetailController = new PackageDetailController(view.getPackageDetailPanelView(), getConfig().ScreenshotRepositoryPath.get(), getConfig().mapWebpageBaseUrl.get());
 		view.addWindowListener(new QuakeInjectorWindowListener());
 
 		addMenuActionListeners();
@@ -194,13 +205,6 @@ public class QuakeInjector {
 		});
 
 		view.addShowEngineConfigListener((e) -> showEngineConfig());
-
-
-		PackageListSelectionHandler selectionHandler =
-				new PackageListSelectionHandler(maplist, view.getPackageTable());
-		view.getPackageTable().getSelectionModel().addListSelectionListener(selectionHandler);
-		selectionHandler.addSelectionListener(interactionPanel);
-		selectionHandler.addSelectionListener(packageDetailPanel);
 	}
 
 	private void addMenuActionListeners() {
@@ -436,7 +440,7 @@ public class QuakeInjector {
 	 */
 	private Future<List<PackageFileList>> checkForInstalledMaps() {
 		final CheckInstalled checker
-		    = new CheckInstalled(view,
+		    = new CheckInstalled(dialogProvider,
 		                         getConfig(),
 		                         getConfig().EnginePath.get().toString(),
 		                         maps,
@@ -576,86 +580,29 @@ public class QuakeInjector {
 	}
 
 	private void showEngineConfig() {
-		showEngineConfig(maps.get("rogue").isInstalled(), maps.get("hipnotic").isInstalled());
+		dialogProvider.showEngineConfigWindow();
 	}
-
-	private void showEngineConfig(boolean rogueInstalled, boolean hipnoticInstalled) {
-		final EngineConfigDialog d
-		    = new EngineConfigDialog(view,
-		                             getConfig().EnginePath,
-		                             getConfig().EngineExecutable,
-		                             getConfig().WorkingDirAtExecutable,
-		                             getConfig().DownloadPath,
-		                             getConfig().EngineCommandLine,
-		                             getConfig().RogueInstalled,
-		                             getConfig().HipnoticInstalled,
-				                     getConfig().uiTheme
-		        );
-		d.addChangeListener(new ChangeListener() {
-				public void stateChanged(ChangeEvent e) {
-					try {
-						saveEngineConfig(d.getEnginePath(),
-						                 d.getEngineExecutable(),
-						                 d.getWorkingDirAtExecutable(),
-						                 d.getDownloadPath(),
-						                 d.getCommandline(),
-						                 d.getRogueInstalled(),
-						                 d.getHipnoticInstalled(),
-								         d.getUiTheme());
-					}
-					catch (IOException err) {
-						savingFailedDialogue(err);
-					}
-				}
-			});
-
-		d.pack();
-		d.setLocationRelativeTo(view);
-		d.setVisible(true);
-		
-	}
-
 
 	private void savingFailedDialogue(IOException e) {
 		String msg = "Saving the configuration file failed: " + e.getMessage() + "\n"
 		    + "The directory is probably read-only and cannot be set writable automatically (Vista/Win7 bug), try to set write permissions manually." ;
-		JOptionPane.showMessageDialog(view,
-		                              msg,
-		                              "Saving configuration failed!",
-		                              JOptionPane.ERROR_MESSAGE);
+		dialogProvider.showError(msg,"Saving configuration failed!");
 	}
 
-	private void saveEngineConfig(File enginePath,
-								  File engineExecutable,
-								  boolean workingDirAtExecutable,
-	                              File downloadPath,
-	                              String commandline,
-	                              boolean rogueInstalled,
-	                              boolean hipnoticInstalled,
-	                              UIThemeOption uiThemeOption
-	) throws IOException {
-		
-
+	private void applyAndPersistConfig() {
 		Configuration c = getConfig();
-		c.EnginePath.set(enginePath);
-		c.EngineExecutable.set(RelativePath.getRelativePath(enginePath, engineExecutable));
-		c.WorkingDirAtExecutable.set(workingDirAtExecutable);
-		c.EngineCommandLine.set(commandline);
-		c.RogueInstalled.set(rogueInstalled);
-		c.HipnoticInstalled.set(hipnoticInstalled);
-
-		c.DownloadPath.set(downloadPath);
-		c.uiTheme.set(uiThemeOption);
+		var workingDirAtExecutable = c.WorkingDirAtExecutable.get();
+		var engineExecutable = c.EngineExecutable.get();
 
 		File workingDir;
 		if (workingDirAtExecutable) {
 			workingDir = engineExecutable.getParentFile();
 		}
 		else {
-			workingDir = enginePath;
+			workingDir = c.EnginePath.get();
 		}
 
-		setEngineConfig(workingDir, engineExecutable, getConfig().EngineCommandLine, rogueInstalled, hipnoticInstalled);
+		setEngineConfig(workingDir, engineExecutable, getConfig().EngineCommandLine, c.RogueInstalled.get(), c.HipnoticInstalled.get());
 
 
 		try {
@@ -671,9 +618,14 @@ public class QuakeInjector {
 				System.out.println("Couldn't set writable: " + securityError);
 			}
 
-			c.write();
+			try {
+				c.write();
+			} catch (IOException writeException) {
+				savingFailedDialogue(writeException);
+			}
 		}
 	}
+
 
 	/**
 	 * @todo 2010-02-09 12:19 hrehfeld    Let this use configuration values to their full extent

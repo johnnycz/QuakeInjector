@@ -1,7 +1,5 @@
 package de.haukerehfeld.quakeinjector.gui;
 
-import de.haukerehfeld.quakeinjector.feature.install.PackageOverwriteDialog;
-import de.haukerehfeld.quakeinjector.feature.play.EngineOutputDialog;
 import de.haukerehfeld.quakeinjector.guimodel.DialogViewModel;
 
 import javax.swing.*;
@@ -54,6 +52,12 @@ public class DialogView implements ChangeListener {
 			vm.overwritenFiles = pod.getOverwritten();
 			vm.filesToOverwrite = null;
 			vm.filesToWrite = null;
+		} else if (vm.engineConfigWindowShown) {
+			final EngineConfigDialog d = new EngineConfigDialog(parentComponent, vm.configViewModel);
+
+			d.pack();
+			d.setLocationRelativeTo(parentComponent);
+			d.setVisible(true);
 		}
 	}
 }

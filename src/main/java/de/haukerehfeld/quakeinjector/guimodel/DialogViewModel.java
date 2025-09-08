@@ -23,6 +23,8 @@ public class DialogViewModel implements DialogProvider {
 		listeners.notifyChangeListeners(new ChangeEvent(this));
 	}
 
+	public final ConfigViewModel configViewModel;
+
 	public String errorMessage;
 	public String warningMessage;
 	public String optionsMessage;
@@ -36,6 +38,12 @@ public class DialogViewModel implements DialogProvider {
 	public List<String> filesToOverwrite;
 	public List<String> filesToWrite;
 	public List<String> overwritenFiles;
+
+	public boolean engineConfigWindowShown;
+
+	public DialogViewModel(ConfigViewModel configViewModel) {
+		this.configViewModel = configViewModel;
+	}
 
 	@Override
 	public void showWarning(String message, String title) {
@@ -59,6 +67,8 @@ public class DialogViewModel implements DialogProvider {
 		this.defaultOption = defaultOption;
 		this.selectedOption = -1;
 		notifyChangeListeners();
+		this.optionsMessage = null;
+		this.options = null;
 		return this.selectedOption;
 	}
 
@@ -76,5 +86,33 @@ public class DialogViewModel implements DialogProvider {
 		return this.overwritenFiles;
 	}
 
+	@Override
+	public boolean askAndshowEngineConfigWindow() {
+		this.optionsMessage = "Quake directory is not set correctly.\n"
+				+ "It needs to be set before trying to install (or play).";
+		this.title = "Quake directory incorrect";
+
+		this.options = new String[] {"Open Engine Configuration", "Cancel"};
+		this.defaultOption = options[0];
+		this.selectedOption = -1;
+		notifyChangeListeners();
+		this.options = null;
+		this.optionsMessage = null;
+
+		if (this.selectedOption == 0) {
+			showEngineConfigWindow();
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	@Override
+	public void showEngineConfigWindow() {
+		this.configViewModel.updateFromConfig();
+		this.engineConfigWindowShown = true;
+		notifyChangeListeners();
+		this.engineConfigWindowShown = false;
+	}
 
 }

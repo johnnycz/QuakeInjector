@@ -17,12 +17,10 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
-package de.haukerehfeld.quakeinjector;
+package de.haukerehfeld.quakeinjector.model;
 
-import de.haukerehfeld.quakeinjector.gui.UIThemeOption;
-import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.gui.DarkLafUIThemeOption;
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
-import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import java.io.File;
@@ -172,19 +170,9 @@ public class Configuration {
 	}
 	public final MapWebpageBaseUrl mapWebpageBaseUrl = new MapWebpageBaseUrl();
 
-	public static class UIThemeConfiguration extends AbstractValue<UIThemeOption> {
+	public static class UIThemeConfiguration extends StringValue {
 		private UIThemeConfiguration() {
-			super("uiTheme", UIThemeOption.SYSTEM);
-		}
-
-		@Override
-		public UIThemeOption stringToValue(String v) {
-			return UIThemeOption.getByCode(v);
-		}
-
-		@Override
-		public String toString() {
-			return get().getCode();
+			super("uiTheme", null);
 		}
 	}
 	public final UIThemeConfiguration uiTheme = new UIThemeConfiguration();

@@ -157,4 +157,66 @@ public class Utils {
 			throw new java.io.IOException("Couldn't find file: " + path);
 		}
 	}
+
+	private static boolean isMacOSX() {
+		return System.getProperty("os.name").startsWith("Mac OS X");
+	}
+
+	/**
+	 * Checks whether the given File is a Mac OS X application bundle.
+	 */
+	public static boolean isMacApplication(File app) {
+		return app.isDirectory()
+				&& app.getName().endsWith(".app");
+	}
+
+	/**
+	 * Checks whether exe is an executable file.
+	 */
+	public static boolean isExecutable(File exe) {
+		return !exe.isDirectory() && exe.canExecute();
+	}
+
+	/**
+	 * Checks whether app is a valid application. On Mac OS X it can
+	 * either be an executable or an app bundle, on other platforms
+	 * it must be an executable.
+	 */
+	public static boolean isValidApplication(File app) {
+		if (!app.exists() || !app.canRead())
+			return false;
+
+		if (isMacOSX()  && isMacApplication(app))
+			return true;
+
+		return isExecutable(app);
+	}
+
+	/**
+	 * Returns an error message to display when the user picks app
+	 * as the engine, or returns null if it is a valid application.
+	 *
+	 * @see #isValidApplication(File)
+	 */
+	public static String errorMessageForApplication(File app) {
+		if (!app.exists()) {
+			return "Doesn't exist!";
+		}
+
+		if (isMacOSX()) {
+			if (!isMacApplication(app) && !isExecutable(app)) {
+				return "Must be an application or executable!";
+			}
+			return null;
+
+		} else {
+			if (app.isDirectory()) {
+				return "Must be an executable file!";
+			}
+			else if (!app.canExecute()) {
+				return "Cannot be executed!";
+			}
+			return null;
+		}
+	}
 }

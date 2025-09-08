@@ -40,7 +40,6 @@ import javax.swing.event.ChangeListener;
 
 import de.haukerehfeld.quakeinjector.gui.BrowserLauncher;
 import de.haukerehfeld.quakeinjector.gui.PackageDetailPanelView;
-import de.haukerehfeld.quakeinjector.guimodel.PackageListSelectionHandler;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.utils.Utils;
@@ -48,8 +47,7 @@ import de.haukerehfeld.quakeinjector.utils.Utils;
 /**
  * the panel that shows Info about the selected map
  */
-public class PackageDetailController implements ChangeListener,
-		PackageListSelectionHandler.SelectionListener {
+public class PackageDetailController implements ChangeListener {
 
 	/**
 	 * Currently selected map
@@ -218,7 +216,6 @@ public class PackageDetailController implements ChangeListener,
 		return "<p>Requires: " + Utils.join(links, ", ") + ".</p>";
 	}
 
-	@Override
 	public void selectionChanged(Package map) {
 		this.current = map;
 

@@ -2,6 +2,7 @@ package de.haukerehfeld.quakeinjector;
 
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseParser;
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseSolrJsonParser;
+import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.Requirement;
 import org.junit.jupiter.api.Test;

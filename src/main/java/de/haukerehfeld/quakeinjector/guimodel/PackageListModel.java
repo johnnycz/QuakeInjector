@@ -32,17 +32,20 @@ import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumnModel;
 
+import de.haukerehfeld.quakeinjector.model.CommandHandler;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 import de.haukerehfeld.quakeinjector.model.PackageList;
 import de.haukerehfeld.quakeinjector.model.Package;
 
 public class PackageListModel extends AbstractTableModel implements ChangeListener {
-	private ChangeListenerList listeners = new ChangeListenerList();
-	
+	private final ChangeListenerList listeners = new ChangeListenerList();
+	private final CommandHandler commandHandler;
+
 	private PackageList data;
 
 
-	public PackageListModel(PackageList data) {
+	public PackageListModel(PackageList data, CommandHandler commandHandler) {
+		this.commandHandler = commandHandler;
 		setMapList(data);
 	}
 
@@ -210,6 +213,10 @@ public class PackageListModel extends AbstractTableModel implements ChangeListen
 		};
 
 		return rf;
+	}
+
+	public void selectPackage(Package aPackage) {
+		commandHandler.selectPackage(aPackage);
 	}
 
 	public static class BarRenderer extends JProgressBar implements TableCellRenderer {

@@ -17,7 +17,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
-package de.haukerehfeld.quakeinjector.feature.play;
+package de.haukerehfeld.quakeinjector.gui;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -29,14 +29,11 @@ import java.io.InputStreamReader;
 
 import javax.swing.JButton;
 import javax.swing.JDialog;
-import javax.swing.JFrame;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingWorker;
 import javax.swing.KeyStroke;
 import javax.swing.JComponent;
-
-import de.haukerehfeld.quakeinjector.gui.OkayCancelApplyPanel;
 
 public class EngineOutputDialog extends JDialog {
 	private final static String windowTitle = "Engine Output";

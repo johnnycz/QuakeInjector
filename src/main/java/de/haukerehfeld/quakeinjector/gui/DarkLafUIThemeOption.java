@@ -6,7 +6,7 @@ import com.github.weisj.darklaf.theme.IntelliJTheme;
 import com.github.weisj.darklaf.theme.SolarizedDarkTheme;
 import com.github.weisj.darklaf.theme.SolarizedLightTheme;
 
-public enum UIThemeOption {
+public enum DarkLafUIThemeOption {
     SYSTEM("system", "Follow System Preferences") {
         @Override
         public void init() {
@@ -53,7 +53,7 @@ public enum UIThemeOption {
     private final String code;
     private final String title;
 
-    UIThemeOption(String code, String title) {
+    DarkLafUIThemeOption(String code, String title) {
         this.code = code;
         this.title = title;
     }
@@ -68,8 +68,8 @@ public enum UIThemeOption {
         return title;
     }
 
-    public static UIThemeOption getByCode(String code) {
-        for (UIThemeOption t : values()) {
+    public static DarkLafUIThemeOption getByCode(String code) {
+        for (DarkLafUIThemeOption t : values()) {
             if (t.getCode().equals(code)) {
                 return t;
             }

@@ -28,7 +28,8 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathFactory;
 
-import de.haukerehfeld.quakeinjector.Configuration;
+import de.haukerehfeld.quakeinjector.model.Configuration;
+import de.haukerehfeld.quakeinjector.utils.Utils;
 import org.w3c.dom.Document;
 
 public class EngineStarter {
@@ -36,67 +37,7 @@ public class EngineStarter {
 	private File quakeExe;
 	private String quakeCmdline;
 
-	private static boolean isMacOSX() {
-		return System.getProperty("os.name").startsWith("Mac OS X");
-	}
-	
-	/**	
-	 * Checks whether the given File is a Mac OS X application bundle.
-	 */
-	private static boolean isMacApplication(File app) {
-		return app.isDirectory()
-				&& app.getName().endsWith(".app");
-	}
-	
-	/**
-	 * Checks whether exe is an executable file.
-	 */
-	private static boolean isExecutable(File exe) {
-		return !exe.isDirectory() && exe.canExecute();
-	}
-	
-	/**
-	 * Checks whether app is a valid application. On Mac OS X it can
-	 * either be an executable or an app bundle, on other platforms
-	 * it must be an executable.
-	 */
-	public static boolean isValidApplication(File app) {
-		if (!app.exists() || !app.canRead())
-			return false;
-		
-		if (isMacOSX()  && isMacApplication(app))
-			return true;
-		
-		return isExecutable(app);
-	}
-	
-	/**
-	 * Returns an error message to display when the user picks app
-	 * as the engine, or returns null if it is a valid application.
-	 * 
-	 * @see #isValidApplication(File)
-	 */
-	public static String errorMessageForApplication(File app) {
-		if (!app.exists()) {
-			return "Doesn't exist!";
-		}
-		
-		if (isMacOSX()) {
-			if (!isMacApplication(app) && !isExecutable(app)) {
-				return "Must be an application or executable!";
-			}
-			return null;
-			
-		} else {
-			if (app.isDirectory()) {
-				return "Must be an executable file!";
-			}
-			else if (!app.canExecute()) {
-				return "Cannot be executed!";
-			}
-			return null;
-		}
-	}
+
 	
 	/**
 	 * If app is a Mac OS X app bundle (e.g. ~/quake/QuakeSpasm.app), returns
@@ -104,7 +45,7 @@ public class EngineStarter {
 	 * Otherwise, returns app. 
 	 */
 	private static File executableForApplication(File app) {
-		if (app != null && isMacApplication(app)) {
+		if (app != null && Utils.isMacApplication(app)) {
 			try {
 				File contents = new File(app, "Contents");
 				File plist = new File(contents, "Info.plist");

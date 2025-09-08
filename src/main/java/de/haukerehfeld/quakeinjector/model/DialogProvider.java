@@ -10,5 +10,7 @@ public interface DialogProvider {
 	int showOptions(String message, String title, String[] options, String defaultOption);
 	void showEngineOutout(InputStream engineOutput);
 	List<String> showOverwriteDialog(List<String> filesToOverwrite, List<String> filesToWrite);
+	boolean askAndshowEngineConfigWindow();
+	void showEngineConfigWindow();
 
 }

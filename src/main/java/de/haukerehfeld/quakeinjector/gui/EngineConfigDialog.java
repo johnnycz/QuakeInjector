@@ -17,14 +17,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
-package de.haukerehfeld.quakeinjector;
+package de.haukerehfeld.quakeinjector.gui;
 
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
-import java.awt.Rectangle;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -38,13 +33,11 @@ import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
 
 import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
-import de.haukerehfeld.quakeinjector.gui.*;
-import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
+import de.haukerehfeld.quakeinjector.guimodel.ConfigViewModel;
+import de.haukerehfeld.quakeinjector.utils.Utils;
 
 public class EngineConfigDialog extends JDialog {
 	private final static String windowTitle = "Settings";
-
-	private final ChangeListenerList listeners = new ChangeListenerList();
 
 	private final JPanel configPanel;
 	private final JPanel appearancePanel;
@@ -60,10 +53,9 @@ public class EngineConfigDialog extends JDialog {
 	private final JCheckBox hipnotic;
 
 	private final WorkingDirOpts workingDirOpts;
-	private final JComboBox<UIThemeOption> uiTheme;
+	private final JComboBox<DarkLafUIThemeOption> uiTheme;
 
-
-	public EngineConfigDialog(final JFrame frame,
+/*
 							  Configuration.EnginePath enginePathDefault,
 							  Configuration.EngineExecutable engineExeDefault,
 							  Configuration.WorkingDirAtExecutable workingDirAtExecutable,
@@ -72,6 +64,9 @@ public class EngineConfigDialog extends JDialog {
 							  Configuration.RogueInstalled rogueInstalled,
 							  Configuration.HipnoticInstalled hipnoticInstalled,
 							  Configuration.UIThemeConfiguration uiThemeConfiguration) {
+
+ */
+	public EngineConfigDialog(final Frame frame, ConfigViewModel vm) {
 		super(frame, windowTitle, true);
 
 		configPanel = new JPanel();
@@ -118,7 +113,7 @@ public class EngineConfigDialog extends JDialog {
 			JLabel cmdlineLabel = new JLabel("Quake commandline options");
 			cmdlineLabel.setBorder(leftBorder);
 
-			this.engineCommandline = new JTextField(cmdlineDefault.get(), 40);
+			this.engineCommandline = new JTextField(vm.engineCommandLine, 40);
 
 			final int row_ = row;
 			configPanel.add(cmdlineLabel, new LabelConstraints() {{ gridy = row_; }});
@@ -132,7 +127,7 @@ public class EngineConfigDialog extends JDialog {
 			enginePathLabel.setBorder(leftBorder);
 			
 			enginePath = new JPathPanel(new JPathPanel.WritableDirectoryVerifier(),
-			                            enginePathDefault.get(),
+			                            vm.enginePath,
 			                            javax.swing.JFileChooser.DIRECTORIES_ONLY);
 			final int row_ = row;
 			configPanel.add(enginePathLabel, new LabelConstraints() {{ gridy = row_; }});
@@ -145,14 +140,14 @@ public class EngineConfigDialog extends JDialog {
 		engineExecutable = new JPathPanel(
 			new JPathPanel.Verifier() {
 				public boolean verify(File exe) {
-					return EngineStarter.isValidApplication(exe);
+					return Utils.isValidApplication(exe);
 				}
 				public String errorMessage(File f) {
-					return EngineStarter.errorMessageForApplication(f);
+					return Utils.errorMessageForApplication(f);
 				}
 			},
-			engineExeDefault.get(),
-			enginePathDefault.get(),
+			vm.engineExecutable,
+			vm.enginePath,
 			javax.swing.JFileChooser.FILES_ONLY);
 
 		{
@@ -171,7 +166,7 @@ public class EngineConfigDialog extends JDialog {
 			JLabel downloadLabel = new JLabel("Download Directory");
 			downloadLabel.setBorder(leftBorder);
 			downloadPath = new JPathPanel(new JPathPanel.WritableDirectoryVerifier(),
-			                              downloadPathDefault.get(),
+			                              vm.downloadPath,
 			                              javax.swing.JFileChooser.DIRECTORIES_ONLY);
 			downloadPath.verify();
 
@@ -188,11 +183,11 @@ public class EngineConfigDialog extends JDialog {
 
 			rogue = new JCheckBox("rogue");
 			rogue.setMnemonic(KeyEvent.VK_R);
-			rogue.setSelected(rogueInstalled.get());
+			rogue.setSelected(vm.rogueInstalled);
 
 			hipnotic = new JCheckBox("hipnotic");
 			hipnotic.setMnemonic(KeyEvent.VK_H);
-			hipnotic.setSelected(hipnoticInstalled.get());
+			hipnotic.setSelected(vm.hipnoticInstalled);
 
 			final int row_ = row;
 			configPanel.add(expansionsInstalled, new LabelConstraints() {{ gridy = row_; }});
@@ -205,15 +200,15 @@ public class EngineConfigDialog extends JDialog {
 		}
 		++row;
 
-		workingDirOpts = new WorkingDirOpts(row, workingDirAtExecutable.get());
+		workingDirOpts = new WorkingDirOpts(row, vm.workingDirAtExecutable);
 
 		appearancePanel = new JPanel();
 		appearancePanel.setBorder(LookAndFeelDefaults.PADDINGBORDER);
 		appearancePanel.setLayout(new GridBagLayout());
 
 		var themeLabel = new JLabel("Theme");
-		uiTheme = new JComboBox<>(UIThemeOption.values());
-		uiTheme.setSelectedItem(uiThemeConfiguration.get());
+		uiTheme = new JComboBox<>(DarkLafUIThemeOption.values());
+		uiTheme.setSelectedItem(vm.uiTheme);
 
 		appearancePanel.add(themeLabel, new LabelConstraints() {{ gridy = 1; ipadx = 10; }});
 		appearancePanel.add(this.uiTheme, new InputConstraints() {{ gridy = 1; }});
@@ -308,7 +303,15 @@ public class EngineConfigDialog extends JDialog {
 
 		ActionListener save = new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
-					listeners.notifyChangeListeners(this);
+					vm.engineExecutable = engineExecutable.getPath();
+					vm.enginePath = enginePath.getPath();
+					vm.downloadPath = downloadPath.getPath();
+					vm.engineCommandLine = engineCommandline.getText();
+					vm.rogueInstalled = rogue.isSelected();
+					vm.hipnoticInstalled = hipnotic.isSelected();
+					vm.workingDirAtExecutable = workingDirOpts.getWorkingDirAtExecutable();
+					vm.uiTheme = ((DarkLafUIThemeOption) uiTheme.getSelectedItem()).getCode();
+					vm.applyConfig();
 					apply.setEnabled(false);
 				}
 			};
@@ -334,8 +337,8 @@ public class EngineConfigDialog extends JDialog {
 		
 	}
 
-	public UIThemeOption getUiTheme() {
-		return (UIThemeOption) uiTheme.getSelectedItem();
+	public DarkLafUIThemeOption getUiTheme() {
+		return (DarkLafUIThemeOption) uiTheme.getSelectedItem();
 	}
 
 	class WorkingDirOpts {
@@ -407,8 +410,8 @@ public class EngineConfigDialog extends JDialog {
 			boolean validPaths =
 				null != exeDir &&
 				null != enginePath &&
-				!(exeDir.getPath().equals("")) &&
-				!(enginePath.getPath().getPath().equals("")) &&
+				!(exeDir.getPath().isEmpty()) &&
+				!(enginePath.getPath().getPath().isEmpty()) &&
 				!(engineExecutable.getPath().equals(enginePath.getPath()));
 			boolean showOpt =
 				validPaths && !(enginePath.getPath().equals(exeDir));
@@ -443,34 +446,4 @@ public class EngineConfigDialog extends JDialog {
 		}
 	}
 
-	public File getEnginePath() {
-		return enginePath.getPath();
-	}
-	public File getEngineExecutable() {
-		return engineExecutable.getPath();
-	}
-	public boolean getWorkingDirAtExecutable() {
-		return workingDirOpts.getWorkingDirAtExecutable();
-	}
-	public String getCommandline() {
-		return engineCommandline.getText();
-	}
-
-	/**
-	 * get hipnoticInstalled
-	 */
-	public boolean getHipnoticInstalled() { return hipnotic.isSelected(); }
-
-	/**
-	 * get rogueInstalled
-	 */
-	public boolean getRogueInstalled() { return rogue.isSelected(); }
-
-	public File getDownloadPath() {
-		return downloadPath.getPath();
-	}
-	
-	public void addChangeListener(ChangeListener l) {
-		listeners.addChangeListener(l);
-	}
 }

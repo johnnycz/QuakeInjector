@@ -1,11 +1,10 @@
 package de.haukerehfeld.quakeinjector.feature.list;
 
-import de.haukerehfeld.quakeinjector.Configuration;
+import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.gui.QuakeInjectorView;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.ProgressListener;
-import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import javax.swing.SwingWorker;
 
@@ -15,7 +14,6 @@ import java.util.Collections;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.BufferedInputStream;
 import java.util.function.Consumer;
 import javax.swing.JOptionPane;
 
@@ -26,10 +24,10 @@ public class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 	private final Configuration configuration;
 	private final String enginePath;
 	private final RequirementList maps;
-	private final QuakeInjectorView mainView;
+	private final DialogProvider dialogProvider;
 	private final Consumer<List<PackageFileList>> doneCallback;
 
-	public CheckInstalled(QuakeInjectorView mainView,
+	public CheckInstalled(DialogProvider dialogProvider,
 	                      Configuration configuration,
 	                      String enginePath,
 	                      RequirementList maps,
@@ -37,7 +35,7 @@ public class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 		this.configuration = configuration;
 		this.enginePath = enginePath;
 		this.maps = maps;
-		this.mainView = mainView;
+		this.dialogProvider = dialogProvider;
 		this.doneCallback = doneCallback;
 	}
 
@@ -150,11 +148,7 @@ public class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 			}
 			catch (java.net.ConnectException err) {
 				String msg = "Downloading file database failed, " + err.getMessage() + "!";
-				JOptionPane.showMessageDialog(mainView,
-				                              msg,
-				                              "Downloading failed!",
-				                              JOptionPane.ERROR_MESSAGE);
-				
+				dialogProvider.showError(msg,"Downloading failed!");
 			}
 			catch (Throwable err) {
 			}
