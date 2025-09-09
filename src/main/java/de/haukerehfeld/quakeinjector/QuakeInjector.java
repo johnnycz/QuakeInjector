@@ -25,6 +25,7 @@ import de.haukerehfeld.quakeinjector.feature.list.DumpInputStream;
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseParser;
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseSolrJsonParser;
 import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
+import de.haukerehfeld.quakeinjector.feature.play.PackageLauncher;
 import de.haukerehfeld.quakeinjector.gui.*;
 import de.haukerehfeld.quakeinjector.gui.Menu;
 import de.haukerehfeld.quakeinjector.guimodel.*;
@@ -57,6 +58,7 @@ public class QuakeInjector {
 	final static File configFile = new File("config.properties");
 	private final PackageInteractionController interactionPanel;
 	private final PackageInteractionViewModel packageInteractionViewModel;
+	private final PackageLauncher packageLauncher;
 	private PackageDetailController packageDetailController;
 	private final CommandRouter router;
 	private final DialogProvider dialogProvider;
@@ -98,16 +100,18 @@ public class QuakeInjector {
 
 		loadTheme();
 
-
+		// TODO clean this up
+		// initialize model, then view model, then view
 
 		this.packageInteractionViewModel = new PackageInteractionViewModel(router);
 		PackageInteractionPanelView packageInteractionPanelView = new PackageInteractionPanelView(packageInteractionViewModel);
-		var iqvm = new InstallQueueViewModel();
-		InstallQueuePanel installQueuePanel = new InstallQueuePanel(iqvm);
+		var jobTrackerProvider = new InstallQueueViewModel();
+		InstallQueuePanel installQueuePanel = new InstallQueuePanel(jobTrackerProvider);
 		var configViewModel = new ConfigViewModel(router, getConfig());
 		var dialogVm = new DialogViewModel(configViewModel);
 		this.dialogProvider = dialogVm;
-		this.interactionPanel = new PackageInteractionController(installQueuePanel, packageInteractionViewModel, dialogVm);
+		this.interactionPanel = new PackageInteractionController(jobTrackerProvider, packageInteractionViewModel, dialogVm);
+		this.packageLauncher = new PackageLauncher(jobTrackerProvider, dialogVm);
 
 		view = new QuakeInjectorView(maplist, packageInteractionPanelView, installQueuePanel);
 		setWindowSize();
@@ -130,7 +134,7 @@ public class QuakeInjector {
 
 		@Override
 		public void play(String startmap) {
-			interactionPanel.start(startmap);
+			packageLauncher.start(startmap);
 		}
 
 		@Override
@@ -256,10 +260,8 @@ public class QuakeInjector {
 		                          getConfig().DownloadPath);
 
 		interactionPanel.init(installer,
-		                      getConfig().RepositoryBasePath,
-		                      maps,
-		                      starter,
-		                      new SaveInstalled(installedMapsFile)
+				maps,
+				new SaveInstalled(installedMapsFile)
 	    );
 
 		if (!installer.checkInstallDirectory()) {
@@ -306,13 +308,10 @@ public class QuakeInjector {
 	}
 
 
-	private List<Requirement> parseDatabase(InputStream database)
-		throws IOException, org.xml.sax.SAXException {
+	private List<Requirement> parseDatabase(InputStream database) {
 		final PackageDatabaseParser parser = new PackageDatabaseSolrJsonParser(config);
-		
-		List<Requirement> all = parser.parse(database);
 
-		return all;
+		return parser.parse(database);
 	}
 
 	/**
@@ -323,32 +322,44 @@ public class QuakeInjector {
 		final String databaseUrl = getConfig().RepositoryDatabasePath.get();
 		
 		final SwingWorker<List<Requirement>, Void> dbParse
-		    = new SwingWorker<List<Requirement>,Void>() {
-			/** the stream for the database download **/
+		    = new SwingWorker<>() {
+			/**
+			 * the stream for the database download
+			 **/
 			private BufferedInputStream downloadStream;
-			/** we need to try to download the db to a tmp file first so the old one doesn't get overwritten */
+			/**
+			 * we need to try to download the db to a tmp file first so the old one doesn't get overwritten
+			 */
 			private File tmpFile;
-			/** the stream to the temporary file */
+			/**
+			 * the stream to the temporary file
+			 */
 			private BufferedOutputStream tmpWriteStream;
-			/** the cached database file **/
+			/**
+			 * the cached database file
+			 **/
 			private File cache;
-			/** stream from the cached database file, if needed **/
+			/**
+			 * stream from the cached database file, if needed
+			 **/
 			private BufferedInputStream cacheReadStream;
-			/** whether the temporary file was populated with a good DB **/
+			/**
+			 * whether the temporary file was populated with a good DB
+			 **/
 			private boolean updateCache = false;
-			
+
 			private BufferedInputStream cachedDatabaseStream() throws IOException {
 				if (cache != null && cache.exists() && cache.canRead()) {
 					try {
 						return new BufferedInputStream(new FileInputStream(cache));
+					} catch (IOException ignored) {
 					}
-					catch (IOException e) {}
 				}
 				throw new IOException("cannot download package database or read local cache");
 			}
 
 			@Override
-			public List<Requirement> doInBackground() throws IOException, org.xml.sax.SAXException {
+			public List<Requirement> doInBackground() throws IOException {
 				cache = getConfig().LocalDatabaseFile.get();
 				cache = cache.getAbsoluteFile();
 				InputStream db;
@@ -361,8 +372,7 @@ public class QuakeInjector {
 					List<Requirement> parseResult = parseDatabase(db);
 					updateCache = true;
 					return parseResult;
-				}
-				catch (Exception e) {
+				} catch (Exception e) {
 					cacheReadStream = cachedDatabaseStream();
 					return parseDatabase(cacheReadStream);
 				}
@@ -380,37 +390,32 @@ public class QuakeInjector {
 					if (downloadStream != null) {
 						downloadStream.close();
 					}
+				} catch (IOException e) {
 				}
-				catch (IOException e) {}
-				if (updateCache == true) {
+				if (updateCache) {
 					if (cache.exists()) {
-						if (cache.delete() == false) {
+						if (!cache.delete()) {
 							System.err.println("Couldn't delete the real cache file!");
 						}
 					}
-					if (tmpFile.renameTo(cache) == false) {
+					if (!tmpFile.renameTo(cache)) {
 						System.err.println("Couldn't move the temporary cache file to the real cache file!");
 					}
-				}
-				else {
+				} else {
 					if (tmpFile != null && tmpFile.exists()) {
 						tmpFile.delete();
 					}
 					String msg = "Failed to fetch current database; using previously downloaded info.";
 					JOptionPane.showMessageDialog(view,
-					                              msg,
-					                              "Downloading failed!",
-					                              JOptionPane.WARNING_MESSAGE);
+							msg,
+							"Downloading failed!",
+							JOptionPane.WARNING_MESSAGE);
 				}
 			}
 		};
 
 		final ProgressPopup dbpopup = new ProgressPopup("Downloading package database",
-		                      new ActionListener() {
-								  public void actionPerformed(ActionEvent e) {
-									  dbParse.cancel(true);
-								  }
-							  },
+				e -> dbParse.cancel(true),
 		                      view);
 
 		dbParse.addPropertyChangeListener(new PropertyChangeListener() {

@@ -14,7 +14,6 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 	private static final String playText = "Play";
 	private final PackageInteractionViewModel vm;
 
-	private QuakeInjectorView parentView;
 	private JButton uninstallButton;
 	private JButton installButton;
 	private JButton playButton;

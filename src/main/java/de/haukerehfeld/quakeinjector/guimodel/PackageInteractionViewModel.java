@@ -1,5 +1,6 @@
 package de.haukerehfeld.quakeinjector.guimodel;
 
+import de.haukerehfeld.quakeinjector.feature.install.Installer;
 import de.haukerehfeld.quakeinjector.model.CommandHandler;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 import de.haukerehfeld.quakeinjector.model.Package;
@@ -15,6 +16,7 @@ public class PackageInteractionViewModel implements ChangeListener {
 	private boolean isInstalling;
 	private final ChangeListenerList listeners = new ChangeListenerList();
 	private final CommandHandler commandHandler;
+	private final Installer installer;
 
 	public PackageInteractionViewModel(CommandHandler commandHandler) {
 		this.commandHandler = commandHandler;
@@ -82,12 +84,7 @@ public class PackageInteractionViewModel implements ChangeListener {
 		return selectedPackage != null ? selectedPackage.getStartmaps() : Collections.emptyList();
 	}
 
-	public void setInstalling(boolean installing) {
-		isInstalling = installing;
-		notifyChangeListeners();
-	}
-
 	public boolean isInstalling() {
-		return isInstalling;
+		return installer.alreadyQueued(selectedPackage);
 	}
 }

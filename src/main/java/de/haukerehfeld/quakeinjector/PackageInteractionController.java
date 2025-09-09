@@ -19,10 +19,8 @@
 */
 package de.haukerehfeld.quakeinjector;
 
-import de.haukerehfeld.quakeinjector.gui.InstallQueuePanel;
 import de.haukerehfeld.quakeinjector.feature.install.Installer;
 import de.haukerehfeld.quakeinjector.feature.install.SaveInstalled;
-import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
 import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
@@ -30,8 +28,6 @@ import de.haukerehfeld.quakeinjector.utils.FileNotWritableException;
 import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,35 +42,36 @@ import javax.swing.event.ChangeListener;
  */
 public class PackageInteractionController implements ChangeListener {
 
+	private final JobTrackerProvider jobTrackerProvider;
+	private final DialogProvider dialogProvider;
 	private final PackageInteractionViewModel vm;
 
-	private EngineStarter starter;
 	private RequirementList requirements;
-	private final InstallQueuePanel installQueue;
 
 	/**
 	 * Currently selected map
+	 *
+	 * TODO where should be this tracked? Who's the owner? Is it defined in the model or in the viewmodel? Is it in multiple view models?
+	 * Is it useful for the applogic to be aware which package is selected? Or should app logic always be given the package as a parameter to operate on?
+	 *
+	 * It seems like there's an issue when a package is being installed and a different package is selected in the UI.
 	 */
 	private de.haukerehfeld.quakeinjector.model.Package selectedMap = null;
 
 	private Installer installer;
 
 	private SaveInstalled installedMaps;
-	private DialogProvider dialogProvider;
 
-	public PackageInteractionController(InstallQueuePanel installQueue, PackageInteractionViewModel vm, DialogProvider dialogProvider) {
-		this.installQueue = installQueue;
+	public PackageInteractionController(JobTrackerProvider jobTrackerProvider, PackageInteractionViewModel vm, DialogProvider dialogProvider) {
+		this.jobTrackerProvider = jobTrackerProvider;
 		this.vm = vm;
 		this.dialogProvider = dialogProvider;
 	}
 
 	public void init(Installer installer,
-	                 Configuration.RepositoryBasePath paths,
 	                 RequirementList requirements,
-	                 EngineStarter starter,
 	                 SaveInstalled installedMaps) {
 		this.requirements = requirements;
-		this.starter = starter;
 		this.installedMaps = installedMaps;
 
 		this.installer = installer;
@@ -97,7 +94,6 @@ public class PackageInteractionController implements ChangeListener {
 	private boolean hasCurrentPackage() {
 		return (selectedMap != null);
 	}
-	
 
 	public void install() {
 		if (!hasCurrentPackage()) { return; }
@@ -121,35 +117,6 @@ public class PackageInteractionController implements ChangeListener {
 		return true;
 	}
 
-	private boolean checkPlayRequirements(de.haukerehfeld.quakeinjector.model.Package selectedMap) {
-		//in theory this should never happen ;)
-		if (!selectedMap.isInstalled()) {
-			String msg = selectedMap.getId()
-			    + " doesn't seem to be installed.";
-			String[] options = {"Install",
-			                    "Cancel Start"};
-			int selectedOption = dialogProvider.showOptions(
-					msg, "Map not installed", options, options[1]);
-			if (selectedOption == 0) {
-				install(selectedMap, false);
-			}
-			return false;
-		}
-		
-		List<Requirement> unmet = selectedMap.getUnmetRequirements();
-		if (!unmet.isEmpty()) {
-			String msg = "The following prerequisites to play "
-			    + selectedMap.getId()
-			    + " don't seem to be installed: \n"
-			    + Utils.join(unmet, ",\n ")
-			    + ".\nYou probably can't play this package.";
-			String[] options = {"Start anyways",
-			                    "Cancel Start"};
-			int selectedOption = dialogProvider.showOptions(msg, "Prerequisites not installed", options, options[1]);
-			return selectedOption == 0;
-		}
-		return true;
-	}
 
 	private boolean checkInstallDirectory() {
 		while (!installer.checkInstallDirectory()) {
@@ -175,22 +142,14 @@ public class PackageInteractionController implements ChangeListener {
 		}
 		description += selectedMap.getId();
 		
-		final InstallQueuePanel.Job progressListener
-		    = installQueue.addJob(description,
-		                          new ActionListener() {
-									  public void actionPerformed(ActionEvent e) {
-										  installer.cancel(selectedMap);
-									  }
-								  });
+		var job = jobTrackerProvider.addJob(description, e -> installer.cancel(selectedMap));
 
 		installer.install(selectedMap,
 		                  selectedMap.getDownloadUrls().get(0), // TODO give user the option to choose the URL
 		                  new Installer.InstallErrorHandler() {
 							  public void handle(OnlineFileNotFoundException error) {
-								  installQueue.finished(progressListener,
-								                        "File not found");
+								  job.finish("File not found");
 								  
-								  vm.setInstalling(false);
 								  String msg = "The file couldn't be found in the online"
 								      + " repository";
 								  dialogProvider.showWarning(msg, "File not found (404)");
@@ -240,9 +199,8 @@ public class PackageInteractionController implements ChangeListener {
 									  System.out.println("Couldn't write installed Maps file!"
 									                     + e.getMessage());
 								  }
-								  progressListener.setProgress(100);
-								  installQueue.finished(progressListener, "Success");
-								  vm.setInstalling(false);
+								  job.setProgress(100);
+								  job.finish("Success");
 							  }
 							  public void handle(FileNotWritableException error,
 							                     PackageFileList alreadyInstalledFiles) {
@@ -279,13 +237,10 @@ public class PackageInteractionController implements ChangeListener {
 							                       String message) {
 								  System.out.println("Cleaning up...");
 								  uninstall(selectedMap, alreadyInstalledFiles);
-								  installQueue.finished(progressListener, message);
-								  vm.setInstalling(false);
+								  job.finish(message);
 							  }
 						  },
-		                  progressListener);
-
-		vm.setInstalling(true);
+		                  job);
 	}
 
 	public void uninstall() {
@@ -300,26 +255,20 @@ public class PackageInteractionController implements ChangeListener {
 	private void uninstall(final de.haukerehfeld.quakeinjector.model.Package map, PackageFileList files) {
 		String description = "Uninstalling " + files.getId();
 		
-		final InstallQueuePanel.Job progressListener
-		    = installQueue.addJob(description,
-		                          new ActionListener() {
-									  public void actionPerformed(ActionEvent e) {
-//cancel button action
-									  }
-								  });
+		var job = jobTrackerProvider.addJob(description, e -> {});
 
 		installer.uninstall(files,
 		                    new Installer.UninstallErrorHandler() {
 								@Override
 								public void success() {
-									installQueue.finished(progressListener, "success");
+									job.finish("success");
 
 									synchronized (map) {
 										map.setInstalled(false);
 									}
 									
 									SwingWorker<Void,Void> saveInstalled
-									    = new SwingWorker<Void,Void>() {
+									    = new SwingWorker<>() {
 										@Override
 										public Void doInBackground() {
 											
@@ -337,35 +286,13 @@ public class PackageInteractionController implements ChangeListener {
 
 								@Override
 								public void error(Exception e) {
-									installQueue.finished(progressListener, "fail");
+									job.finish("fail");
 									System.out.println(e.getMessage());
 									e.printStackTrace();
 								}
 							},
-		                    progressListener
+		                    job
 		    );
-	}
-
-	public void start(String startmap) {
-		if (!hasCurrentPackage()) { return; }
-
-		if (!starter.checkPaths()) {
-			dialogProvider.showError("Quake engine paths aren't set correctly, can't start.","Quake engine paths not configured");
-			return;
-		}
-		if (!checkPlayRequirements(selectedMap)) {
-			return;
-		}
-
-		try {
-			Process p = starter.start(selectedMap.getCommandline(), startmap);
-			dialogProvider.showEngineOutout(p.getInputStream());
-		}
-		catch (java.io.IOException e) {
-			/** @todo 2009-05-04 14:28 hrehfeld    pop up dialogue */
-			System.out.println("Couldn't start quake engine: " + e.getMessage());
-		}
-
 	}
 
 	@Override

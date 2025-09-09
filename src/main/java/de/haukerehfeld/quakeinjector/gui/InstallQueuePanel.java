@@ -23,9 +23,6 @@ import de.haukerehfeld.quakeinjector.guimodel.InstallQueueViewModel;
 import de.haukerehfeld.quakeinjector.guimodel.InstallQueueViewModel.JobVm;
 
 import java.awt.*;
-import java.awt.event.ActionListener;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.util.*;
 
 import javax.swing.JButton;
@@ -140,6 +137,8 @@ public class InstallQueuePanel extends JPanel implements Scrollable, ChangeListe
 
 			InstallQueuePanel.this.add(progressBar, new ProgressBarConstraints() {{ gridy = jobVm.getId(); }});
 			InstallQueuePanel.this.add(cancelButton, new CancelButtonConstraints() {{ gridy = jobVm.getId(); }});
+
+			update();
 		}
 
 		public void update() {
