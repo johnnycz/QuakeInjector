@@ -1,7 +1,7 @@
 package de.haukerehfeld.quakeinjector.feature.play;
 
 import de.haukerehfeld.quakeinjector.model.DialogProvider;
-import de.haukerehfeld.quakeinjector.model.JobTrackerProvider;
+import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
@@ -9,17 +9,11 @@ import java.util.List;
 
 public class PackageLauncher {
 
-	private final JobTrackerProvider jobTrackerProvider;
 	private final DialogProvider dialogProvider;
 
-	private de.haukerehfeld.quakeinjector.model.Package selectedMap = null;
 	private EngineStarter starter;
 
-	private boolean hasCurrentPackage() {
-		return (selectedMap != null);
-	}
-	public PackageLauncher(JobTrackerProvider jobTrackerProvider, DialogProvider dialogProvider) {
-		this.jobTrackerProvider = jobTrackerProvider;
+	public PackageLauncher(DialogProvider dialogProvider) {
 		this.dialogProvider = dialogProvider;
 	}
 
@@ -47,19 +41,19 @@ public class PackageLauncher {
 		return true;
 	}
 
-	public void start(String startmap) {
-		if (!hasCurrentPackage()) { return; }
+	public void start(Package pkg, String startmap) {
+		if (pkg == null) { return; }
 
 		if (!starter.checkPaths()) {
 			dialogProvider.showError("Quake engine paths aren't set correctly, can't start.","Quake engine paths not configured");
 			return;
 		}
-		if (!checkPlayRequirements(selectedMap)) {
+		if (!checkPlayRequirements(pkg)) {
 			return;
 		}
 
 		try {
-			Process p = starter.start(selectedMap.getCommandline(), startmap);
+			Process p = starter.start(pkg.getCommandline(), startmap);
 			dialogProvider.showEngineOutout(p.getInputStream());
 		}
 		catch (java.io.IOException e) {

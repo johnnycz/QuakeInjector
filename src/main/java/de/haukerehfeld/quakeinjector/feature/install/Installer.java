@@ -23,7 +23,6 @@ import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.utils.Download;
-import de.haukerehfeld.quakeinjector.utils.FileNotWritableException;
 import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 import de.haukerehfeld.quakeinjector.utils.RelativePath;
 import org.apache.commons.compress.archivers.ArchiveEntry;

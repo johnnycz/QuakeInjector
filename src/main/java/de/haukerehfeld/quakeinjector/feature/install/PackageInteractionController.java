@@ -17,14 +17,10 @@
   You should have received a copy of the GNU General Public License
   along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
-package de.haukerehfeld.quakeinjector;
+package de.haukerehfeld.quakeinjector.feature.install;
 
-import de.haukerehfeld.quakeinjector.feature.install.Installer;
-import de.haukerehfeld.quakeinjector.feature.install.SaveInstalled;
-import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
-import de.haukerehfeld.quakeinjector.utils.FileNotWritableException;
 import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
@@ -34,37 +30,23 @@ import java.util.List;
 import java.util.Map;
 
 import javax.swing.SwingWorker;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 
 /**
  * the panel that shows Info about the selected map
  */
-public class PackageInteractionController implements ChangeListener {
+public class PackageInteractionController {
 
 	private final JobTrackerProvider jobTrackerProvider;
 	private final DialogProvider dialogProvider;
-	private final PackageInteractionViewModel vm;
 
 	private RequirementList requirements;
-
-	/**
-	 * Currently selected map
-	 *
-	 * TODO where should be this tracked? Who's the owner? Is it defined in the model or in the viewmodel? Is it in multiple view models?
-	 * Is it useful for the applogic to be aware which package is selected? Or should app logic always be given the package as a parameter to operate on?
-	 *
-	 * It seems like there's an issue when a package is being installed and a different package is selected in the UI.
-	 */
-	private de.haukerehfeld.quakeinjector.model.Package selectedMap = null;
 
 	private Installer installer;
 
 	private SaveInstalled installedMaps;
 
-	public PackageInteractionController(JobTrackerProvider jobTrackerProvider, PackageInteractionViewModel vm, DialogProvider dialogProvider) {
+	public PackageInteractionController(JobTrackerProvider jobTrackerProvider, DialogProvider dialogProvider) {
 		this.jobTrackerProvider = jobTrackerProvider;
-		this.vm = vm;
 		this.dialogProvider = dialogProvider;
 	}
 
@@ -91,14 +73,11 @@ public class PackageInteractionController implements ChangeListener {
 		}
 	}
 
-	private boolean hasCurrentPackage() {
-		return (selectedMap != null);
-	}
+	public void install(Package pkg) {
+		if (pkg == null)
+			return;
 
-	public void install() {
-		if (!hasCurrentPackage()) { return; }
-		
-		install(selectedMap, false);
+		install(pkg, false);
 	}
 
 	private boolean checkInstallRequirements(de.haukerehfeld.quakeinjector.model.Package selectedMap) {
@@ -243,13 +222,15 @@ public class PackageInteractionController implements ChangeListener {
 		                  job);
 	}
 
-	public void uninstall() {
+	public void uninstall(Package pkg) {
 		if (!checkInstallDirectory()) {
 			return;
 		}
-		if (!hasCurrentPackage()) { return; }
+		if (pkg == null) {
+			return;
+		}
 
-		uninstall(selectedMap, selectedMap.getFileList());
+		uninstall(pkg, pkg.getFileList());
 	}
 
 	private void uninstall(final de.haukerehfeld.quakeinjector.model.Package map, PackageFileList files) {
@@ -293,16 +274,6 @@ public class PackageInteractionController implements ChangeListener {
 							},
 		                    job
 		    );
-	}
-
-	@Override
-	public void stateChanged(ChangeEvent e) {
-		vm.stateChanged(e);
-	}
-
-	public void selectionChanged(Package s) {
-		this.selectedMap = s;
-		vm.setSelectedPackage(s);
 	}
 
 }

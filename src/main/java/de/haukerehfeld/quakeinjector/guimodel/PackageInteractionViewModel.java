@@ -1,22 +1,22 @@
 package de.haukerehfeld.quakeinjector.guimodel;
 
-import de.haukerehfeld.quakeinjector.feature.install.Installer;
 import de.haukerehfeld.quakeinjector.model.CommandHandler;
+import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 import de.haukerehfeld.quakeinjector.model.Package;
 
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import java.net.URI;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 public class PackageInteractionViewModel implements ChangeListener {
 
 	private Package selectedPackage = null;
-	private boolean isInstalling;
 	private final ChangeListenerList listeners = new ChangeListenerList();
 	private final CommandHandler commandHandler;
-	private final Installer installer;
 
 	public PackageInteractionViewModel(CommandHandler commandHandler) {
 		this.commandHandler = commandHandler;
@@ -36,22 +36,29 @@ public class PackageInteractionViewModel implements ChangeListener {
 		notifyChangeListeners();
 	}
 
-	public Package getSelectedPackage() {
-		return selectedPackage;
-	}
-
 	public void install() {
-		commandHandler.install();
+		commandHandler.install(selectedPackage);
 	}
 
 	public void uninstall() {
-		commandHandler.uninstall();
+		commandHandler.uninstall(selectedPackage);
 	}
 
 	public void play(String startmap) {
-		commandHandler.play(startmap);
+		commandHandler.play(selectedPackage, startmap);
 	}
 
+	public void openPackageWebpage() {
+		commandHandler.openPackageWebpage(selectedPackage);
+	}
+
+	public void openScreenshotInBrowser() {
+		commandHandler.openScreenshotInBrowser(selectedPackage);
+	}
+
+	public URI getScreenshotUri() {
+		return commandHandler.getScreenshotUri(selectedPackage);
+	}
 	/**
 	 * When the underlying model has changed
 	 */
@@ -85,6 +92,26 @@ public class PackageInteractionViewModel implements ChangeListener {
 	}
 
 	public boolean isInstalling() {
-		return installer.alreadyQueued(selectedPackage);
+		return commandHandler.isInstallInProgress(selectedPackage);
+	}
+
+	public String getTitle() {
+		return selectedPackage != null ? selectedPackage.getTitle() : "";
+	}
+
+	public Date getDate() {
+		return selectedPackage != null ? selectedPackage.getDate() : null;
+	}
+
+	public int getSize() {
+		return selectedPackage != null ? selectedPackage.getSize() : 0;
+	}
+
+	public String getDescription() {
+		return selectedPackage != null ? selectedPackage.getDescription() : "";
+	}
+
+	public List<String> getRequirements() {
+		return selectedPackage != null ? selectedPackage.getRequirements().stream().map(Requirement::getId).toList() : Collections.emptyList();
 	}
 }

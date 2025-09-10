@@ -39,13 +39,13 @@ import de.haukerehfeld.quakeinjector.model.Package;
 
 public class PackageListModel extends AbstractTableModel implements ChangeListener {
 	private final ChangeListenerList listeners = new ChangeListenerList();
-	private final CommandHandler commandHandler;
+	private final PackageInteractionViewModel packageInteractionViewModel;
 
 	private PackageList data;
 
 
-	public PackageListModel(PackageList data, CommandHandler commandHandler) {
-		this.commandHandler = commandHandler;
+	public PackageListModel(PackageList data, PackageInteractionViewModel packageInteractionViewModel) {
+		this.packageInteractionViewModel = packageInteractionViewModel;
 		setMapList(data);
 	}
 
@@ -216,7 +216,7 @@ public class PackageListModel extends AbstractTableModel implements ChangeListen
 	}
 
 	public void selectPackage(Package aPackage) {
-		commandHandler.selectPackage(aPackage);
+		packageInteractionViewModel.setSelectedPackage(aPackage);
 	}
 
 	public static class BarRenderer extends JProgressBar implements TableCellRenderer {

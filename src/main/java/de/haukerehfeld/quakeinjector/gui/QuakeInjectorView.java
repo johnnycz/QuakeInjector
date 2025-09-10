@@ -1,6 +1,7 @@
 package de.haukerehfeld.quakeinjector.gui;
 
 import de.haukerehfeld.quakeinjector.*;
+import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
 import de.haukerehfeld.quakeinjector.guimodel.PackageListModel;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
@@ -31,18 +32,20 @@ public class QuakeInjectorView extends JFrame {
 	private final Component installQueuePanel;
 
 	private final Menu menu;
+	private final PackageInteractionViewModel packageVm;
 	private JButton randomMapButton;
 	private PackageTable packageTable;
 	private final List<ActionListener> showEngineConfigListeners = new ArrayList<>();
 	private PackageDetailPanelView packageDetailPanelView;
 
-	public QuakeInjectorView(PackageListModel maplist, Component packageInteractionPanelView,
+	public QuakeInjectorView(PackageListModel maplist, PackageInteractionViewModel packageVm, Component packageInteractionPanelView,
 	                         Component installQueuePanel) {
 		super(applicationName);
 
 		this.maplist = maplist;
 		this.packageInteractionPanelView = packageInteractionPanelView;
 		this.installQueuePanel = installQueuePanel;
+		this.packageVm = packageVm;
 
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -156,7 +159,7 @@ public class QuakeInjectorView extends JFrame {
 
 		JPanel infoPanel = new JPanel(new GridBagLayout());
 
-		packageDetailPanelView = new PackageDetailPanelView();
+		packageDetailPanelView = new PackageDetailPanelView(packageVm);
 
 		infoPanel.add(packageDetailPanelView, new GridBagConstraints() {{
 			anchor = PAGE_START;

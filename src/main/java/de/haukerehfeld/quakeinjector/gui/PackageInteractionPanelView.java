@@ -23,6 +23,7 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 	public PackageInteractionPanelView(PackageInteractionViewModel vm) {
 		super(new GridBagLayout());
 		this.vm = vm;
+		vm.addChangeListener(this);
 		uninstallButton = new JButton(uninstallText);
 		uninstallButton.addActionListener((e) -> vm.uninstall());
 

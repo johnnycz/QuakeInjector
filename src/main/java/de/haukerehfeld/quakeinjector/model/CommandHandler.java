@@ -1,9 +1,14 @@
 package de.haukerehfeld.quakeinjector.model;
 
+import java.net.URI;
+
 public interface CommandHandler {
-	void install();
-	void uninstall();
-	void play(String startmap);
+	void install(Package selectedPackage);
+	void uninstall(Package selectedPackage);
+	void play(Package selectedPackage, String startmap);
 	void saveConfig();
-	void selectPackage(Package pkg);
+	boolean isInstallInProgress(Package aPackage);
+	void openPackageWebpage(Package pkg);
+	void openScreenshotInBrowser(Package pkg);
+	URI getScreenshotUri(Package pkg);
 }

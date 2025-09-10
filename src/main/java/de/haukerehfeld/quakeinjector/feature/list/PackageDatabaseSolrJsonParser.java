@@ -172,6 +172,9 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
 				System.err.println(e);
 				throw e;
 			}
+			if (path == null) {
+				continue;
+			}
 			var file = new FileInfo(path, 0, jsonFile.bytes);
 			list.add(file);
 		}

@@ -44,6 +44,10 @@ import java.awt.event.WindowEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
@@ -59,7 +63,6 @@ public class QuakeInjector {
 	private final PackageInteractionController interactionPanel;
 	private final PackageInteractionViewModel packageInteractionViewModel;
 	private final PackageLauncher packageLauncher;
-	private PackageDetailController packageDetailController;
 	private final CommandRouter router;
 	private final DialogProvider dialogProvider;
 	private EngineStarter starter;
@@ -96,7 +99,6 @@ public class QuakeInjector {
 		this.router = new CommandRouter();
 		maps = new RequirementList();
 		packages = new PackageList(maps);
-		maplist = new PackageListModel(packages, router);
 
 		loadTheme();
 
@@ -104,16 +106,17 @@ public class QuakeInjector {
 		// initialize model, then view model, then view
 
 		this.packageInteractionViewModel = new PackageInteractionViewModel(router);
+		maplist = new PackageListModel(packages, packageInteractionViewModel);
 		PackageInteractionPanelView packageInteractionPanelView = new PackageInteractionPanelView(packageInteractionViewModel);
 		var jobTrackerProvider = new InstallQueueViewModel();
 		InstallQueuePanel installQueuePanel = new InstallQueuePanel(jobTrackerProvider);
 		var configViewModel = new ConfigViewModel(router, getConfig());
 		var dialogVm = new DialogViewModel(configViewModel);
 		this.dialogProvider = dialogVm;
-		this.interactionPanel = new PackageInteractionController(jobTrackerProvider, packageInteractionViewModel, dialogVm);
-		this.packageLauncher = new PackageLauncher(jobTrackerProvider, dialogVm);
+		this.interactionPanel = new PackageInteractionController(jobTrackerProvider, dialogVm);
+		this.packageLauncher = new PackageLauncher(dialogVm);
 
-		view = new QuakeInjectorView(maplist, packageInteractionPanelView, installQueuePanel);
+		view = new QuakeInjectorView(maplist, packageInteractionViewModel, packageInteractionPanelView, installQueuePanel);
 		setWindowSize();
 		new DialogView(dialogVm, view);
 
@@ -123,18 +126,18 @@ public class QuakeInjector {
 
 	private class CommandRouter implements CommandHandler {
 		@Override
-		public void install() {
-			interactionPanel.install();
+		public void install(Package selectedPackage) {
+			interactionPanel.install(selectedPackage);
 		}
 
 		@Override
-		public void uninstall() {
-			interactionPanel.uninstall();
+		public void uninstall(Package selectedPackage) {
+			interactionPanel.uninstall(selectedPackage);
 		}
 
 		@Override
-		public void play(String startmap) {
-			packageLauncher.start(startmap);
+		public void play(Package pkg, String startmap) {
+			packageLauncher.start(pkg, startmap);
 		}
 
 		@Override
@@ -142,10 +145,44 @@ public class QuakeInjector {
 			QuakeInjector.this.applyAndPersistConfig();
 		}
 
-		public void selectPackage(Package pkg) {
-			packageInteractionViewModel.setSelectedPackage(pkg);
-			packageDetailController.selectionChanged(pkg);
-			interactionPanel.selectionChanged(pkg);
+		@Override
+		public boolean isInstallInProgress(Package aPackage) {
+			return installer != null ? installer.alreadyQueued(aPackage) : false;
+		}
+
+		@Override
+		public void openPackageWebpage(Package pkg) {
+			try {
+				// URLs with spaces in the path need escaping to %20, not +. We can't use built in URLEncoder
+				URL url = new URL(config.mapWebpageBaseUrl.get() + pkg.getSha256());
+				URI uri = new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
+				BrowserLauncher.openURL(uri.toASCIIString());
+			}
+			catch (MalformedURLException | URISyntaxException e) {
+				// TODO: Emit an error message or something
+			}
+		}
+
+		@Override
+		public void openScreenshotInBrowser(Package pkg) {
+			var uri = getScreenshotUri(pkg);
+			if (uri != null) {
+				BrowserLauncher.openURL(uri.toASCIIString());
+			}
+		}
+
+		@Override
+		public URI getScreenshotUri(Package pkg) {
+			try {
+				// URLs with spaces in the path need escaping to %20, not +. We can't use built in URLEncoder
+				URL url = new URL(config.ScreenshotRepositoryPath.get()
+						+ pkg.getSha256().substring(0, 2) + "/" + pkg.getSha256() + "/" + pkg.getId() + ".jpg");
+				URI uri = new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
+				return uri;
+			}
+			catch (MalformedURLException | URISyntaxException e) {
+				return null;
+			}
 		}
 	}
 
@@ -191,7 +228,6 @@ public class QuakeInjector {
 
 	private void registerViewListeners() {
 
-		this.packageDetailController = new PackageDetailController(view.getPackageDetailPanelView(), getConfig().ScreenshotRepositoryPath.get(), getConfig().mapWebpageBaseUrl.get());
 		view.addWindowListener(new QuakeInjectorWindowListener());
 
 		addMenuActionListeners();
@@ -256,8 +292,8 @@ public class QuakeInjector {
 		starter = new EngineStarter(workingDir,
 		                            engineExe,
 		                            getConfig().EngineCommandLine);
-		installer = new Installer(enginePath,
-		                          getConfig().DownloadPath);
+
+		installer = new Installer(getConfig().EnginePath, getConfig().DownloadPath);
 
 		interactionPanel.init(installer,
 				maps,

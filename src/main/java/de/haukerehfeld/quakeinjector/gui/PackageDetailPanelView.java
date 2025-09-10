@@ -1,34 +1,54 @@
 package de.haukerehfeld.quakeinjector.gui;
 
+import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
+import de.haukerehfeld.quakeinjector.model.Requirement;
+import de.haukerehfeld.quakeinjector.utils.Utils;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
 import javax.swing.text.Style;
 import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
 import java.awt.*;
-import java.util.Enumeration;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.List;
 
-public class PackageDetailPanelView extends JPanel {
+public class PackageDetailPanelView extends JPanel implements ChangeListener {
 
 	public static final Dimension DEFAULTIMAGESIZE = new Dimension(360, 270);
 	private static final Dimension NOIMAGESIZE = new Dimension(100, 500);
+	private final PackageInteractionViewModel vm;
 
-	private JLabel title;
-	private JLabel size;
-	private JLabel date;
+	private final JLabel title;
+	private final JLabel size;
+	private final JLabel date;
 
-	private ScrollablePanel content;
+	private final ScrollablePanel content;
 
-	private JLabel image;
-	private JPanel imagePanel;
+	private final JLabel image;
+	private final JPanel imagePanel;
 
-	private JEditorPane description;
+	private final JEditorPane description;
 
-	public PackageDetailPanelView() {
+	private boolean imageDisplayed = false;
+
+	public PackageDetailPanelView(PackageInteractionViewModel vm) {
 		super(new GridBagLayout());
 
+		this.vm = vm;
+		vm.addChangeListener(this);
 		content = new ScrollablePanel(50, 50) {{
 			setLayout(new GridBagLayout());
 		}};
@@ -39,7 +59,11 @@ public class PackageDetailPanelView extends JPanel {
 		title.setHorizontalAlignment(SwingConstants.CENTER);
 		title.setOpaque(true);
 		title.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
+		title.addMouseListener(new MouseAdapter() {
+			public void mouseClicked(MouseEvent arg0) {
+				vm.openPackageWebpage();
+			}
+		});
 
 		content.add(title, new GridBagConstraints() {{
 			weightx = 1;
@@ -64,6 +88,12 @@ public class PackageDetailPanelView extends JPanel {
 		image.setBorder(border);
 		image.setHorizontalAlignment(SwingConstants.CENTER);
 		image.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		image.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent arg0) {
+				vm.openScreenshotInBrowser();
+			}
+		});
 
 		imagePanel.add(image);
 
@@ -151,31 +181,116 @@ public class PackageDetailPanelView extends JPanel {
 		}});
 	}
 
-	public JLabel getTitle() {
-		return title;
+
+	private void addImage() {
+		add(imagePanel, new GridBagConstraints() {{
+			gridy = 1;
+			weightx = 1;
+			weighty = 1;
+			fill = NONE;
+			anchor = CENTER;
+		}});
+		imageDisplayed = true;
 	}
 
-	public ScrollablePanel getContent() {
-		return content;
+	private void removeImage() {
+		remove(imagePanel);
+		imageDisplayed = false;
 	}
 
-	public JPanel getImagePanel() {
-		return imagePanel;
+	private void refreshUi() {
+		title.setText(vm.getTitle());
+		date.setText(toString(vm.getDate()));
+		size.setText(vm.getSize() / 1000f + " MB");
+
+		if (!imageDisplayed) {
+			addImage();
+		}
+
+		image.setIcon(null);
+
+		var screenshotUri = vm.getScreenshotUri();
+
+		//load image in bg thread
+		new SwingWorker<ImageIcon,Void>() {
+			private final URI url = screenshotUri;
+
+			@Override
+			public ImageIcon doInBackground() {
+				try {
+					if (screenshotUri != null) {
+						URL cleanUrl = new URL(screenshotUri.toASCIIString());
+						return new ImageIcon(new ImageIcon(cleanUrl, vm.getTitle()).getImage().getScaledInstance(360, 270, Image.SCALE_SMOOTH));
+					}
+				}
+				catch (MalformedURLException e) {
+				}
+				return null;
+			}
+			@Override
+			public void done() {
+				//threading: is the image still valid?
+				if (isCancelled() || !screenshotUri.equals(url)) {
+					return;
+				}
+
+				ImageIcon icon;
+				try {
+					icon = get();
+				}
+				catch (java.lang.InterruptedException e) {
+					icon = null;
+				}
+				catch (java.util.concurrent.ExecutionException e) {
+					icon = null;
+				}
+
+				if (icon == null || (icon.getImageLoadStatus() & java.awt.MediaTracker.COMPLETE) == 0) {
+					removeImage();
+					System.err.println("Couldn't load image " + screenshotUri);
+				}
+				else {
+					image.setIcon(icon);
+					image.setMinimumSize(PackageDetailPanelView.DEFAULTIMAGESIZE);
+				}
+
+				revalidate();
+				repaint();
+			}
+		}.execute();
+
+		description.getEditorKit().createDefaultDocument();
+		description.setText(vm.getDescription()
+				+ toString(vm.getRequirements()) + "<p></p>");
+		//scroll to top
+		description.setCaretPosition(0);
+
+		revalidate();
+		repaint();
 	}
 
-	public JLabel getImage() {
-		return image;
+	private String toString(Date date) {
+		if (date == null) {
+			return "";
+		}
+		DateFormat dfm = new SimpleDateFormat("MMM d, yyyy");
+		dfm.setTimeZone(TimeZone.getTimeZone("Europe/Berlin"));
+		return dfm.format(date);
 	}
 
-	public JLabel getDate() {
-		return date;
+	private String toString(java.util.List<String> requirements) {
+		if (requirements.isEmpty()) {
+			return "";
+		}
+		List<String> links = new ArrayList<String>(requirements.size());
+		for (String r: requirements) {
+			links.add("<a href=\"" + r + ".html\">" + r + "</a>");
+		}
+		return "<p>Requires: " + Utils.join(links, ", ") + ".</p>";
 	}
 
-	public JLabel getSizeLabel() {
-		return size;
-	}
-
-	public JEditorPane getDescription() {
-		return description;
+	@Override
+	public void stateChanged(ChangeEvent e) {
+		refreshUi();
 	}
 }
