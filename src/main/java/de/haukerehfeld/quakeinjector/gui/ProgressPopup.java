@@ -19,14 +19,12 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector.gui;
 
-//import java.awt.*;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
+import java.awt.*;
 import java.awt.event.ActionListener;
+import java.util.function.Consumer;
 
 import javax.swing.JButton;
 import javax.swing.JDialog;
-import javax.swing.JFrame;
 import javax.swing.JProgressBar;
 
 public class ProgressPopup extends JDialog {
@@ -34,7 +32,7 @@ public class ProgressPopup extends JDialog {
 	private JButton cancelButton;
 	private String description;
 
-	public ProgressPopup(String description, ActionListener cancel, JFrame frame) {
+	public ProgressPopup(String description, ActionListener cancel, Frame frame) {
 		super(frame, description, true);
 		setLocationRelativeTo(frame);
 		
@@ -89,6 +87,5 @@ public class ProgressPopup extends JDialog {
 	public static String progressString(String description, int progress) {
 		return progressString(description, progress + "%");
 	}
-	
 }
 

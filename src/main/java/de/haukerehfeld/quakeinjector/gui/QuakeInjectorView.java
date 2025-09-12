@@ -290,10 +290,6 @@ public class QuakeInjectorView extends JFrame {
 		showEngineConfigListeners.add(listener);
 	}
 
-	public PackageDetailPanelView getPackageDetailPanelView() {
-		return packageDetailPanelView;
-	}
-
 	public PackageTable getPackageTable() {
 		return packageTable;
 	}

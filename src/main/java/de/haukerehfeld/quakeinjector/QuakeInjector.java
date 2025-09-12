@@ -21,9 +21,7 @@ package de.haukerehfeld.quakeinjector;
 
 import de.haukerehfeld.quakeinjector.feature.install.*;
 import de.haukerehfeld.quakeinjector.feature.list.CheckInstalled;
-import de.haukerehfeld.quakeinjector.feature.list.DumpInputStream;
-import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseParser;
-import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseSolrJsonParser;
+import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseService;
 import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
 import de.haukerehfeld.quakeinjector.feature.play.PackageLauncher;
 import de.haukerehfeld.quakeinjector.gui.*;
@@ -32,7 +30,6 @@ import de.haukerehfeld.quakeinjector.guimodel.*;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
-import de.haukerehfeld.quakeinjector.utils.Download;
 import de.haukerehfeld.quakeinjector.utils.RuntimeExecutionException;
 
 import javax.swing.*;
@@ -60,14 +57,13 @@ public class QuakeInjector {
 	private final SaveInstalled saveInstalled = new SaveInstalled(installedMapsFile);
 	
 	final static File configFile = new File("config.properties");
-	private final PackageInteractionController interactionPanel;
-	private final PackageInteractionViewModel packageInteractionViewModel;
-	private final PackageLauncher packageLauncher;
+	private final PackageInstallUninstallService installUninstallService;
+	private PackageLauncher packageLauncher;
 	private final CommandRouter router;
 	private final DialogProvider dialogProvider;
+	private final PackageDatabaseService packageDatabaseSerice;
 	private EngineStarter starter;
-	private RequirementList maps;
-	private PackageList packages;
+	private final RequirementList maps;
 	private final PackageListModel maplist;
 	private Installer installer;
 	private final InstalledPackages installedMaps = new InstalledPackages();
@@ -98,28 +94,26 @@ public class QuakeInjector {
 
 		this.router = new CommandRouter();
 		maps = new RequirementList();
-		packages = new PackageList(maps);
+		PackageList packages = new PackageList(maps);
 
 		loadTheme();
 
 		// TODO clean this up
 		// initialize model, then view model, then view
 
-		this.packageInteractionViewModel = new PackageInteractionViewModel(router);
+		PackageInteractionViewModel packageInteractionViewModel = new PackageInteractionViewModel(router);
 		maplist = new PackageListModel(packages, packageInteractionViewModel);
-		PackageInteractionPanelView packageInteractionPanelView = new PackageInteractionPanelView(packageInteractionViewModel);
 		var jobTrackerProvider = new InstallQueueViewModel();
-		InstallQueuePanel installQueuePanel = new InstallQueuePanel(jobTrackerProvider);
 		var configViewModel = new ConfigViewModel(router, getConfig());
 		var dialogVm = new DialogViewModel(configViewModel);
 		this.dialogProvider = dialogVm;
-		this.interactionPanel = new PackageInteractionController(jobTrackerProvider, dialogVm);
-		this.packageLauncher = new PackageLauncher(dialogVm);
+		this.installUninstallService = new PackageInstallUninstallService(jobTrackerProvider, dialogVm);
+		this.packageDatabaseSerice = new PackageDatabaseService(getConfig(), dialogVm);
 
-		view = new QuakeInjectorView(maplist, packageInteractionViewModel, packageInteractionPanelView, installQueuePanel);
+		view = new QuakeInjectorView(maplist, packageInteractionViewModel, new PackageInteractionPanelView(packageInteractionViewModel), new InstallQueuePanel(jobTrackerProvider));
+
 		setWindowSize();
 		new DialogView(dialogVm, view);
-
 
 		registerViewListeners();
 	}
@@ -127,12 +121,12 @@ public class QuakeInjector {
 	private class CommandRouter implements CommandHandler {
 		@Override
 		public void install(Package selectedPackage) {
-			interactionPanel.install(selectedPackage);
+			installUninstallService.install(selectedPackage);
 		}
 
 		@Override
 		public void uninstall(Package selectedPackage) {
-			interactionPanel.uninstall(selectedPackage);
+			installUninstallService.uninstall(selectedPackage);
 		}
 
 		@Override
@@ -147,7 +141,7 @@ public class QuakeInjector {
 
 		@Override
 		public boolean isInstallInProgress(Package aPackage) {
-			return installer != null ? installer.alreadyQueued(aPackage) : false;
+			return installer != null && installer.alreadyQueued(aPackage);
 		}
 
 		@Override
@@ -239,7 +233,7 @@ public class QuakeInjector {
 			int mapListIdx = view.getPackageTable().getRowSorter().convertRowIndexToModel(mapTableRowIdx);
 			Package map = maplist.getPackage(mapListIdx);
 			if(!maplist.isPackageInstalled(map)) {
-				interactionPanel.install(map, false);
+				installUninstallService.install(map, false);
 			}
 			view.selectRowInMainTable(mapTableRowIdx);
 		});
@@ -293,9 +287,11 @@ public class QuakeInjector {
 		                            engineExe,
 		                            getConfig().EngineCommandLine);
 
+		packageLauncher = new PackageLauncher(this.dialogProvider, starter);
+
 		installer = new Installer(getConfig().EnginePath, getConfig().DownloadPath);
 
-		interactionPanel.init(installer,
+		installUninstallService.init(installer,
 				maps,
 				new SaveInstalled(installedMapsFile)
 	    );
@@ -320,161 +316,9 @@ public class QuakeInjector {
 		}
 	}
 
-
 	private void doParseInstalled() {
 		installedMaps.parse(installedMapsFile);
 	}
-
-	private InputStream downloadDatabase(String databaseUrl) throws IOException {
-		//get download stream
-		Download d = Download.create(databaseUrl);
-		d.connect();
-		InputStream dl;
-		//int size = d.getSize();
-		// if (size > 0) {
-		// 	ProgressListener progress =
-		// 	    new SumProgressListener(new PercentageProgressListener(size, this));
-		// 	dl = d.getStream(progress);
-		// }
-		// else {
-		dl = d.getStream(null);
-		//}
-		
-		return dl;
-	}
-
-
-	private List<Requirement> parseDatabase(InputStream database) {
-		final PackageDatabaseParser parser = new PackageDatabaseSolrJsonParser(config);
-
-		return parser.parse(database);
-	}
-
-	/**
-	 * Parse the online database
-	 */
-	private Future<List<Requirement>> doParseDatabase() {
-		
-		final String databaseUrl = getConfig().RepositoryDatabasePath.get();
-		
-		final SwingWorker<List<Requirement>, Void> dbParse
-		    = new SwingWorker<>() {
-			/**
-			 * the stream for the database download
-			 **/
-			private BufferedInputStream downloadStream;
-			/**
-			 * we need to try to download the db to a tmp file first so the old one doesn't get overwritten
-			 */
-			private File tmpFile;
-			/**
-			 * the stream to the temporary file
-			 */
-			private BufferedOutputStream tmpWriteStream;
-			/**
-			 * the cached database file
-			 **/
-			private File cache;
-			/**
-			 * stream from the cached database file, if needed
-			 **/
-			private BufferedInputStream cacheReadStream;
-			/**
-			 * whether the temporary file was populated with a good DB
-			 **/
-			private boolean updateCache = false;
-
-			private BufferedInputStream cachedDatabaseStream() throws IOException {
-				if (cache != null && cache.exists() && cache.canRead()) {
-					try {
-						return new BufferedInputStream(new FileInputStream(cache));
-					} catch (IOException ignored) {
-					}
-				}
-				throw new IOException("cannot download package database or read local cache");
-			}
-
-			@Override
-			public List<Requirement> doInBackground() throws IOException {
-				cache = getConfig().LocalDatabaseFile.get();
-				cache = cache.getAbsoluteFile();
-				InputStream db;
-				try {
-					//download database and dump to file
-					downloadStream = new BufferedInputStream(downloadDatabase(databaseUrl));
-					tmpFile = File.createTempFile(cache.getName(), null, cache.getParentFile());
-					tmpWriteStream = new BufferedOutputStream(new FileOutputStream(tmpFile));
-					db = new DumpInputStream(downloadStream, tmpWriteStream);
-					List<Requirement> parseResult = parseDatabase(db);
-					updateCache = true;
-					return parseResult;
-				} catch (Exception e) {
-					cacheReadStream = cachedDatabaseStream();
-					return parseDatabase(cacheReadStream);
-				}
-			}
-
-			@Override
-			public void done() {
-				try {
-					if (cacheReadStream != null) {
-						cacheReadStream.close();
-					}
-					if (tmpWriteStream != null) {
-						tmpWriteStream.close();
-					}
-					if (downloadStream != null) {
-						downloadStream.close();
-					}
-				} catch (IOException e) {
-				}
-				if (updateCache) {
-					if (cache.exists()) {
-						if (!cache.delete()) {
-							System.err.println("Couldn't delete the real cache file!");
-						}
-					}
-					if (!tmpFile.renameTo(cache)) {
-						System.err.println("Couldn't move the temporary cache file to the real cache file!");
-					}
-				} else {
-					if (tmpFile != null && tmpFile.exists()) {
-						tmpFile.delete();
-					}
-					String msg = "Failed to fetch current database; using previously downloaded info.";
-					JOptionPane.showMessageDialog(view,
-							msg,
-							"Downloading failed!",
-							JOptionPane.WARNING_MESSAGE);
-				}
-			}
-		};
-
-		final ProgressPopup dbpopup = new ProgressPopup("Downloading package database",
-				e -> dbParse.cancel(true),
-		                      view);
-
-		dbParse.addPropertyChangeListener(new PropertyChangeListener() {
-				@Override
-				public void propertyChange(PropertyChangeEvent evt) {
-					if (evt.getPropertyName() == "progress") {
-						int p = (Integer) evt.getNewValue();
-						dbpopup.setProgress(p);
-					}
-					else if (evt.getPropertyName() == "state"
-					    && evt.getNewValue().equals(SwingWorker.StateValue.DONE)) {
-						dbpopup.close();
-					}
-				}
-			});
-		dbParse.execute();
-		dbpopup.pack();
-		dbpopup.setVisible(true);
-
-		return dbParse;
-	}
-
-
 
 	/**
 	 * See what maps are installed
@@ -549,7 +393,7 @@ public class QuakeInjector {
 	}
 
 	private Future<Void> parseDatabaseAndSetList() {
-		final Future<List<Requirement>> dbParse = doParseDatabase();
+		final Future<List<Requirement>> dbParse = packageDatabaseSerice.doParseDatabase();
 
 		SwingWorker<Void,Void> waitForInstalledMapsAndDb = new SwingWorker<Void,Void>() {
 			@Override public Void doInBackground() throws Exception {

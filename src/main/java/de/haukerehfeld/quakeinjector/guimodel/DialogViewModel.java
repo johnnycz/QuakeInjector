@@ -1,12 +1,16 @@
 package de.haukerehfeld.quakeinjector.guimodel;
 
+import de.haukerehfeld.quakeinjector.gui.ProgressPopup;
 import de.haukerehfeld.quakeinjector.model.DialogProvider;
+import de.haukerehfeld.quakeinjector.model.JobTracker;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import java.beans.PropertyChangeEvent;
 import java.io.InputStream;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class DialogViewModel implements DialogProvider {
 
@@ -40,6 +44,12 @@ public class DialogViewModel implements DialogProvider {
 	public List<String> overwritenFiles;
 
 	public boolean engineConfigWindowShown;
+
+	public boolean progressPopupShow;
+	public String progressPopupMessage;
+	public Runnable progressPopupCancelAction;
+	public Integer progress;
+	public Consumer<Integer> progressPopupProgressConsumer;
 
 	public DialogViewModel(ConfigViewModel configViewModel) {
 		this.configViewModel = configViewModel;
@@ -115,4 +125,33 @@ public class DialogViewModel implements DialogProvider {
 		this.engineConfigWindowShown = false;
 	}
 
+	@Override
+	public JobTracker showProgressPopup(String description, Runnable onCancel) {
+		this.progressPopupMessage = description;
+		this.progressPopupCancelAction = onCancel;
+		this.progress = null;
+		return new JobTracker() {
+			public void start() {
+				progressPopupShow = true;
+				notifyChangeListeners();
+			}
+			@Override
+			public void finish(String message) {
+				progressPopupMessage = null;
+				progressPopupShow = false;
+				notifyChangeListeners();
+			}
+
+			@Override
+			public void setProgress(int progress) {
+				DialogViewModel.this.progress = progress;
+				notifyChangeListeners();
+			}
+
+			@Override
+			public void propertyChange(PropertyChangeEvent evt) {
+				notifyChangeListeners();
+			}
+		};
+	}
 }

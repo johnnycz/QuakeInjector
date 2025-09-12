@@ -13,8 +13,9 @@ public class PackageLauncher {
 
 	private EngineStarter starter;
 
-	public PackageLauncher(DialogProvider dialogProvider) {
+	public PackageLauncher(DialogProvider dialogProvider, EngineStarter starter) {
 		this.dialogProvider = dialogProvider;
+		this.starter = starter;
 	}
 
 	private boolean checkPlayRequirements(de.haukerehfeld.quakeinjector.model.Package selectedMap) {

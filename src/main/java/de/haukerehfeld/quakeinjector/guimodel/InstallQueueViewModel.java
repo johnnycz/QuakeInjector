@@ -102,6 +102,10 @@ public class InstallQueueViewModel implements JobTrackerProvider {
 		}
 
 		@Override
+		public void start() {
+		}
+
+		@Override
 		public void finish(String message) {
 			jobs.get(jobId).finish(message);
 		}

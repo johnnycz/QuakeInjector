@@ -31,10 +31,7 @@ import java.util.Map;
 
 import javax.swing.SwingWorker;
 
-/**
- * the panel that shows Info about the selected map
- */
-public class PackageInteractionController {
+public class PackageInstallUninstallService {
 
 	private final JobTrackerProvider jobTrackerProvider;
 	private final DialogProvider dialogProvider;
@@ -45,7 +42,7 @@ public class PackageInteractionController {
 
 	private SaveInstalled installedMaps;
 
-	public PackageInteractionController(JobTrackerProvider jobTrackerProvider, DialogProvider dialogProvider) {
+	public PackageInstallUninstallService(JobTrackerProvider jobTrackerProvider, DialogProvider dialogProvider) {
 		this.jobTrackerProvider = jobTrackerProvider;
 		this.dialogProvider = dialogProvider;
 	}

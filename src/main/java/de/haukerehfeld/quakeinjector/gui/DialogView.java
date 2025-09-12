@@ -11,6 +11,7 @@ public class DialogView implements ChangeListener {
 
 	private final DialogViewModel vm;
 	private final Frame parentComponent;
+	private ProgressPopup progressPopup;
 
 	public DialogView(DialogViewModel vm, Frame parentComponent) {
 		this.vm = vm;
@@ -33,6 +34,7 @@ public class DialogView implements ChangeListener {
 			eod.pack();
 			eod.setLocationRelativeTo(parentComponent);
 			eod.setVisible(true);
+			vm.engineOutput = null;
 		} else if (vm.options != null) {
 			vm.selectedOption = JOptionPane.showOptionDialog(parentComponent,
 					vm.optionsMessage,
@@ -58,6 +60,20 @@ public class DialogView implements ChangeListener {
 			d.pack();
 			d.setLocationRelativeTo(parentComponent);
 			d.setVisible(true);
+		} else if (vm.progressPopupMessage != null) {
+			if (progressPopup == null) {
+				this.progressPopup = new ProgressPopup(vm.progressPopupMessage,
+						ae -> vm.progressPopupCancelAction.run(), parentComponent);
+				progressPopup.pack();
+			}
+			if (vm.progress != null) {
+				progressPopup.setProgress(vm.progress);
+			}
+			if (vm.progressPopupShow && !progressPopup.isVisible()) {
+				progressPopup.setVisible(true);
+			}
+		} else if (vm.progressPopupMessage == null && !vm.progressPopupShow && progressPopup != null) {
+			progressPopup.close();
 		}
 	}
 }
