@@ -27,6 +27,7 @@ import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 import de.haukerehfeld.quakeinjector.utils.RelativePath;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 
+import java.awt.*;
 import java.beans.PropertyChangeListener;
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
@@ -34,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -276,16 +278,7 @@ public class Installer {
 					cancel();
 				}
 			}
-			catch (java.io.FileNotFoundException e) {
-				error = e;
-			}
-			catch (IOException e) {
-				error = e;
-			}
-			catch (java.util.concurrent.CancellationException e) {
-				error = e;
-			}
-			catch (java.lang.InterruptedException e) {
+			catch (InterruptedException | CancellationException | IOException e) {
 				error = e;
 			}
 			catch (java.util.concurrent.ExecutionException e) {
@@ -350,20 +343,8 @@ public class Installer {
 			return files;
 		}
 
-		private List<File> askForOverwrite(final Map<String,File> files) throws
-		    InterruptedException,
-		    InvocationTargetException,
-			ExecutionException {
-			//popup overwrite dialog
-			SwingWorker<List<File>,Void> dialogue = new SwingWorker<List<File>,Void>() {
-				public List<File> doInBackground() {
-					return handler.overwrite(files);
-				}
-			};
-			SwingUtilities.invokeAndWait(dialogue);
-
-			List<File> overwrites = dialogue.get();
-			return overwrites;
+		private List<File> askForOverwrite(final Map<String,File> files) {
+			return handler.overwrite(files);
 		}
 		
 		public void cancel() {

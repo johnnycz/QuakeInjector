@@ -6,6 +6,9 @@ import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import java.awt.*;
+import java.io.File;
+import java.lang.reflect.InvocationTargetException;
+import java.util.concurrent.ExecutionException;
 
 public class DialogView implements ChangeListener {
 
@@ -49,11 +52,32 @@ public class DialogView implements ChangeListener {
 			vm.options = null;
 			vm.defaultOption = null;
 		} else if (vm.filesToOverwrite != null) {
-			PackageOverwriteDialog pod = new PackageOverwriteDialog(parentComponent, vm.filesToOverwrite, vm.filesToWrite);
-			pod.packAndShow();
-			vm.overwritenFiles = pod.getOverwritten();
-			vm.filesToOverwrite = null;
-			vm.filesToWrite = null;
+			if (SwingUtilities.isEventDispatchThread()) {
+				PackageOverwriteDialog pod = new PackageOverwriteDialog(parentComponent, vm.filesToOverwrite, vm.filesToWrite);
+				pod.packAndShow();
+				vm.overwritenFiles = pod.getOverwritten();
+				vm.filesToOverwrite = null;
+				vm.filesToWrite = null;
+			} else {
+				SwingWorker<java.util.List<String>,Void> dialogue = new SwingWorker<>() {
+					public java.util.List<String> doInBackground() {
+						PackageOverwriteDialog pod = new PackageOverwriteDialog(parentComponent, vm.filesToOverwrite, vm.filesToWrite);
+						pod.packAndShow();
+						return pod.getOverwritten();
+					}
+				};
+				try {
+					SwingUtilities.invokeAndWait(dialogue);
+					vm.overwritenFiles = dialogue.get();
+					vm.filesToOverwrite = null;
+					vm.filesToWrite = null;
+				} catch (InterruptedException ignored) {
+				} catch (InvocationTargetException ex) {
+					throw new RuntimeException(ex.getCause());
+				} catch (ExecutionException ex) {
+					throw new RuntimeException(ex.getCause());
+				}
+			}
 		} else if (vm.engineConfigWindowShown) {
 			final EngineConfigDialog d = new EngineConfigDialog(parentComponent, vm.configViewModel);
 

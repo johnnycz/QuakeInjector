@@ -32,8 +32,6 @@ import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableRowSorter;
 
 import de.haukerehfeld.quakeinjector.guimodel.Column;
-import de.haukerehfeld.quakeinjector.guimodel.PackageListModel;
-import de.haukerehfeld.quakeinjector.model.Package;
 
 /**
  * @todo check if dependency on de.haukerehfeld.quakeinjector.packagelist.model.PackageListModel is necessary
@@ -45,12 +43,11 @@ public class PackageTable extends JTable {
 	private static final int CELLPADDING = 2;
 
 	private final EmptyBorder border = new EmptyBorder(0, CELLPADDING, 0, CELLPADDING);
-	                                                           
 
-	public PackageTable(PackageListModel vm) {
+	public PackageTable(PackageTableModel vm) {
 		super(vm);
 		
-		final TableRowSorter<PackageListModel> sorter = new TableRowSorter<PackageListModel>(vm);
+		final TableRowSorter<PackageTableModel> sorter = new TableRowSorter<PackageTableModel>(vm);
 		setRowSorter(sorter);
 		sorter.toggleSortOrder(Column.RELEASEDATE.ordinal());
 		sorter.toggleSortOrder(Column.RELEASEDATE.ordinal());
@@ -72,13 +69,12 @@ public class PackageTable extends JTable {
 				ListSelectionModel lsm = (ListSelectionModel) e.getSource();
 
 				if (!lsm.isSelectionEmpty()) {
-					int selection = convertRowIndexToModel(getSelection(lsm));
-					if (lastSelection == selection) {
+					int modelRowIndex = convertRowIndexToModel(getSelection(lsm));
+					if (lastSelection == modelRowIndex) {
 						return;
 					}
-					Package aPackage = vm.getPackage(selection);
-					vm.selectPackage(aPackage);
-					lastSelection = selection;
+					vm.selectPackageByRowIndex(modelRowIndex);
+					lastSelection = modelRowIndex;
 				}
 			}
 
@@ -138,7 +134,7 @@ public class PackageTable extends JTable {
 	}
 
 	private static boolean isRatingColumn(Component c) {
-		return c instanceof PackageListModel.BarRenderer;
+		return c instanceof PackageTableModel.BarRenderer;
 	}
 
 	/**
@@ -150,8 +146,8 @@ public class PackageTable extends JTable {
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public TableRowSorter<PackageListModel> getRowSorter() {
-		return (TableRowSorter<PackageListModel>) super.getRowSorter();
+	public TableRowSorter<PackageTableModel> getRowSorter() {
+		return (TableRowSorter<PackageTableModel>) super.getRowSorter();
 	}
 
 	/**

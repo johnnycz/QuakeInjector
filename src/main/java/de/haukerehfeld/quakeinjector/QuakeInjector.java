@@ -64,7 +64,7 @@ public class QuakeInjector {
 	private final PackageDatabaseService packageDatabaseSerice;
 	private EngineStarter starter;
 	private final RequirementList maps;
-	private final PackageListModel maplist;
+	private final PackageTableModel maplist;
 	private Installer installer;
 	private final InstalledPackages installedMaps = new InstalledPackages();
 	private final Configuration config;
@@ -102,7 +102,8 @@ public class QuakeInjector {
 		// initialize model, then view model, then view
 
 		PackageInteractionViewModel packageInteractionViewModel = new PackageInteractionViewModel(router);
-		maplist = new PackageListModel(packages, packageInteractionViewModel);
+		PackageListViewModel packageListViewModel = new PackageListViewModel(packageInteractionViewModel);
+		maplist = new PackageTableModel(packageListViewModel, packageInteractionViewModel);
 		var jobTrackerProvider = new InstallQueueViewModel();
 		var configViewModel = new ConfigViewModel(router, getConfig());
 		var dialogVm = new DialogViewModel(configViewModel);
@@ -227,6 +228,8 @@ public class QuakeInjector {
 		addMenuActionListeners();
 
 		view.addRandomMapButtonActionListener((e) -> {
+			// TODO
+			/*
 			// Package list index != current table index, which can change based on the column used to sort the
 			// table. Therefore, it has to be converted.
 			int mapTableRowIdx = new Random().nextInt(maplist.getRowCount());
@@ -236,6 +239,7 @@ public class QuakeInjector {
 				installUninstallService.install(map, false);
 			}
 			view.selectRowInMainTable(mapTableRowIdx);
+			 */
 		});
 
 		view.addShowEngineConfigListener((e) -> showEngineConfig());

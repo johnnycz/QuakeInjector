@@ -149,15 +149,6 @@ public class Utils {
 		return true;
 	}
 
-	public static javax.swing.ImageIcon createImageIcon(String path, String description) throws java.io.IOException {
-		java.net.URL imgURL = Utils.class.getResource(path);
-		if (imgURL != null) {
-			return new javax.swing.ImageIcon(imgURL, description);
-		} else {
-			throw new java.io.IOException("Couldn't find file: " + path);
-		}
-	}
-
 	private static boolean isMacOSX() {
 		return System.getProperty("os.name").startsWith("Mac OS X");
 	}

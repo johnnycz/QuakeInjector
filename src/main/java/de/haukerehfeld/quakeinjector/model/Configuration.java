@@ -19,7 +19,6 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector.model;
 
-import de.haukerehfeld.quakeinjector.gui.DarkLafUIThemeOption;
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 

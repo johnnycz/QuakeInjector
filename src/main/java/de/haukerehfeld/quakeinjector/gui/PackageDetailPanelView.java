@@ -1,7 +1,6 @@
 package de.haukerehfeld.quakeinjector.gui;
 
 import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
-import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import javax.swing.*;
@@ -183,7 +182,7 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 
 
 	private void addImage() {
-		add(imagePanel, new GridBagConstraints() {{
+		content.add(imagePanel, new GridBagConstraints() {{
 			gridy = 1;
 			weightx = 1;
 			weighty = 1;

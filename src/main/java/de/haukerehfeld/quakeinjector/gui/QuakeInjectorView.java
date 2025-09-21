@@ -1,8 +1,6 @@
 package de.haukerehfeld.quakeinjector.gui;
 
-import de.haukerehfeld.quakeinjector.*;
 import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
-import de.haukerehfeld.quakeinjector.guimodel.PackageListModel;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import javax.swing.*;
@@ -27,7 +25,7 @@ public class QuakeInjectorView extends JFrame {
 	private static final int minWidth = 1024;
 	private static final int minHeight = 768;
 
-	private final PackageListModel maplist;
+	private final PackageTableModel maplist;
 	private final Component packageInteractionPanelView;
 	private final Component installQueuePanel;
 
@@ -38,7 +36,7 @@ public class QuakeInjectorView extends JFrame {
 	private final List<ActionListener> showEngineConfigListeners = new ArrayList<>();
 	private PackageDetailPanelView packageDetailPanelView;
 
-	public QuakeInjectorView(PackageListModel maplist, PackageInteractionViewModel packageVm, Component packageInteractionPanelView,
+	public QuakeInjectorView(PackageTableModel maplist, PackageInteractionViewModel packageVm, Component packageInteractionPanelView,
 	                         Component installQueuePanel) {
 		super(applicationName);
 
@@ -226,7 +224,7 @@ public class QuakeInjectorView extends JFrame {
 		for (int size: iconSizes) {
 			String path = iconUrl.replace(sizeToken, Integer.toString(size));
 			try {
-				javax.swing.ImageIcon icon = Utils.createImageIcon(path, "Icon" + size);
+				javax.swing.ImageIcon icon = createImageIcon(path, "Icon" + size);
 				icons.add(icon.getImage());
 			}
 			catch (IOException e) {
@@ -234,6 +232,15 @@ public class QuakeInjectorView extends JFrame {
 			}
 		}
 		return icons;
+	}
+
+	private static javax.swing.ImageIcon createImageIcon(String path, String description) throws java.io.IOException {
+		java.net.URL imgURL = Utils.class.getResource(path);
+		if (imgURL != null) {
+			return new javax.swing.ImageIcon(imgURL, description);
+		} else {
+			throw new java.io.IOException("Couldn't find file: " + path);
+		}
 	}
 
 	/*

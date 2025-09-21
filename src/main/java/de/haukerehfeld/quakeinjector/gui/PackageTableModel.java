@@ -17,7 +17,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
-package de.haukerehfeld.quakeinjector.guimodel;
+package de.haukerehfeld.quakeinjector.gui;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -32,21 +32,15 @@ import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumnModel;
 
-import de.haukerehfeld.quakeinjector.model.CommandHandler;
-import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
-import de.haukerehfeld.quakeinjector.model.PackageList;
-import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.guimodel.Column;
+import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
+import de.haukerehfeld.quakeinjector.guimodel.PackageListViewModel;
 
-public class PackageListModel extends AbstractTableModel implements ChangeListener {
-	private final ChangeListenerList listeners = new ChangeListenerList();
-	private final PackageInteractionViewModel packageInteractionViewModel;
+public class PackageTableModel extends AbstractTableModel implements ChangeListener {
+	private final PackageListViewModel vm;
 
-	private PackageList data;
-
-
-	public PackageListModel(PackageList data, PackageInteractionViewModel packageInteractionViewModel) {
-		this.packageInteractionViewModel = packageInteractionViewModel;
-		setMapList(data);
+	public PackageTableModel(PackageListViewModel vm, PackageInteractionViewModel packageInteractionViewModel) {
+		this.vm = vm;
 	}
 
 	public void size(JTable table) {
@@ -63,79 +57,33 @@ public class PackageListModel extends AbstractTableModel implements ChangeListen
 		m.getColumn(Column.getColumnNumber(Column.SIZE)).setMaxWidth(90);
 		m.getColumn(Column.getColumnNumber(Column.SIZE)).setResizable(true);
 
-		/*
-		m.getColumn(Column.getColumnNumber(Column.NORMALIZEDUSERSRATING)).setMinWidth(90);
-		m.getColumn(Column.getColumnNumber(Column.NORMALIZEDUSERSRATING)).setMaxWidth(90);
-		m.getColumn(Column.getColumnNumber(Column.NORMALIZEDUSERSRATING)).setResizable(true);
-		*/
-
 		m.getColumn(Column.getColumnNumber(Column.RELEASEDATE)).setMinWidth(75);
 		m.getColumn(Column.getColumnNumber(Column.RELEASEDATE)).setPreferredWidth(80);
-		//m.getColumn(Column.getColumnNumber(Column.RELEASEDATE)).setMaxWidth(80);
-
 	}
 	
-//  	public List<Package> getPackageList() {
-//  		return this.data;
-//  	}
-
-
-	public void setMapList(PackageList data) {
-		if (this.data != null) {
-			//remove from all old
-			this.data.removeChangeListener(this);
-			for (Package map: this.data) {
-				map.removeChangeListener(this);
-			}
-		}
-
-		data.sort();
-
-		//add to new
-		this.data = data;
-		data.addChangeListener(this);
-		
-		for (Package map: data) {
-			map.addChangeListener(this);
-		}
-
-		fireTableChanged(new TableModelEvent(this));
-	}
-
-    public int getColumnCount() {
-        return Column.count();
-    }
-
     @Override
 	public String getColumnName(int col) {
         return Column.getColumn(col).header;
     }
 
-	/*
-	 * data
-	 */
 	@Override
     public int getRowCount() {
-        return data.size();
+        return vm.size();
     }
 
-
-	public Object getColumnData(int col, Package info) {
-		return Column.getColumn(col).getData(info);
+	@Override
+	public int getColumnCount() {
+		return Column.count();
 	}
 
-	public boolean isPackageInstalled(Package info){
-		return (boolean) getColumnData(0, info);
-	}
-
-    @Override
+	@Override
 	public Class<? extends Object> getColumnClass(int c) {
 		return Column.getColumn(c).getColumnClass();
     }
 
 	@Override
     public Object getValueAt(int row, int col) {
-        return getColumnData(col, data.get(row));
+        return vm.getColumnData(col, row);
     }
 
     @Override
@@ -143,38 +91,11 @@ public class PackageListModel extends AbstractTableModel implements ChangeListen
 		return false;
     }
 
-	public Package getPackage(int row) {
-		return data.get(row);
-	}
-
-	public void addChangeListener(ChangeListener l) {
-		listeners.addChangeListener(l);
-	}
-
-	public void stateChanged(ChangeEvent e) {
-		if (e.getSource() instanceof PackageList) {
-			setMapList((PackageList) e.getSource());
-			listeners.notifyChangeListeners(e.getSource());
-			return;
-		}
-		
-		if (e.getSource() instanceof Package) {
-			Package r = (Package) e.getSource();
-			listeners.notifyChangeListeners(r);
-			int i = data.indexOf(r);
-			super.fireTableRowsUpdated(i, i);
-			return;
-		}
-
-		throw new RuntimeException("didn't recognise what changed!");
-	}
-
-
-	/** 
+	/**
 	 * Update the row filter regular expression from the expression in
 	 * the text box.
 	 */
-	public RowFilter<PackageListModel, Integer> filter(final String filterText) {
+	public RowFilter<PackageTableModel, Integer> filter(final String filterText) {
 		final int[] columnsToCheck = { Column.getColumnNumber(Column.NAME),
 									   Column.getColumnNumber(Column.AUTHOR),
 		                               Column.getColumnNumber(Column.TITLE),
@@ -193,9 +114,9 @@ public class PackageListModel extends AbstractTableModel implements ChangeListen
 			}
 		}
 
-		RowFilter<PackageListModel, Integer> rf = new RowFilter<PackageListModel,Integer>() {
+		RowFilter<PackageTableModel, Integer> rf = new RowFilter<PackageTableModel,Integer>() {
 			@Override
-			public boolean include(Entry<? extends PackageListModel, ? extends Integer> entry) {
+			public boolean include(Entry<? extends PackageTableModel, ? extends Integer> entry) {
 				//match all patters in at least one column
 				for (Pattern pattern: patterns) {
 					boolean matches = false;
@@ -215,8 +136,17 @@ public class PackageListModel extends AbstractTableModel implements ChangeListen
 		return rf;
 	}
 
-	public void selectPackage(Package aPackage) {
-		packageInteractionViewModel.setSelectedPackage(aPackage);
+	public void selectPackageByRowIndex(int modelRowIndex) {
+		vm.selectPackageByRowIndex(modelRowIndex);
+	}
+
+	@Override
+	public void stateChanged(ChangeEvent e) {
+		if (e.getSource() == null) {
+			fireTableChanged(new TableModelEvent(this));
+		} else if (e.getSource() instanceof Integer rowIndex) {
+			fireTableRowsUpdated(rowIndex, rowIndex);
+		}
 	}
 
 	public static class BarRenderer extends JProgressBar implements TableCellRenderer {

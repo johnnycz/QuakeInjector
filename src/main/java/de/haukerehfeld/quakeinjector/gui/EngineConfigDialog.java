@@ -55,17 +55,6 @@ public class EngineConfigDialog extends JDialog {
 	private final WorkingDirOpts workingDirOpts;
 	private final JComboBox<DarkLafUIThemeOption> uiTheme;
 
-/*
-							  Configuration.EnginePath enginePathDefault,
-							  Configuration.EngineExecutable engineExeDefault,
-							  Configuration.WorkingDirAtExecutable workingDirAtExecutable,
-							  Configuration.DownloadPath downloadPathDefault,
-							  Configuration.EngineCommandLine cmdlineDefault,
-							  Configuration.RogueInstalled rogueInstalled,
-							  Configuration.HipnoticInstalled hipnoticInstalled,
-							  Configuration.UIThemeConfiguration uiThemeConfiguration) {
-
- */
 	public EngineConfigDialog(final Frame frame, ConfigViewModel vm) {
 		super(frame, windowTitle, true);
 
@@ -208,7 +197,11 @@ public class EngineConfigDialog extends JDialog {
 
 		var themeLabel = new JLabel("Theme");
 		uiTheme = new JComboBox<>(DarkLafUIThemeOption.values());
-		uiTheme.setSelectedItem(vm.uiTheme);
+		if (DarkLafUIThemeOption.getByCode(vm.uiTheme) != null) {
+			uiTheme.setSelectedItem(DarkLafUIThemeOption.getByCode(vm.uiTheme));
+		} else {
+			uiTheme.setSelectedItem(DarkLafUIThemeOption.SYSTEM);
+		}
 
 		appearancePanel.add(themeLabel, new LabelConstraints() {{ gridy = 1; ipadx = 10; }});
 		appearancePanel.add(this.uiTheme, new InputConstraints() {{ gridy = 1; }});
