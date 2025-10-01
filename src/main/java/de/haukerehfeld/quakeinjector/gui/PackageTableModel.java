@@ -25,8 +25,8 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 import javax.swing.*;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
+import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
+import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import javax.swing.event.TableModelEvent;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableCellRenderer;

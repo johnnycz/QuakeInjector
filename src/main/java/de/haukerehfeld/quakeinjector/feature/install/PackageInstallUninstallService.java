@@ -118,7 +118,7 @@ public class PackageInstallUninstallService {
 		}
 		description += selectedMap.getId();
 		
-		var job = jobTrackerProvider.addJob(description, e -> installer.cancel(selectedMap));
+		var job = jobTrackerProvider.addJob(description, () -> installer.cancel(selectedMap));
 
 		installer.install(selectedMap,
 		                  selectedMap.getDownloadUrls().get(0), // TODO give user the option to choose the URL
@@ -233,7 +233,7 @@ public class PackageInstallUninstallService {
 	private void uninstall(final de.haukerehfeld.quakeinjector.model.Package map, PackageFileList files) {
 		String description = "Uninstalling " + files.getId();
 		
-		var job = jobTrackerProvider.addJob(description, e -> {});
+		var job = jobTrackerProvider.addJob(description, () -> {});
 
 		installer.uninstall(files,
 		                    new Installer.UninstallErrorHandler() {

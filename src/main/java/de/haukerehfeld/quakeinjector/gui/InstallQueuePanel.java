@@ -30,8 +30,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.Scrollable;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
+import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
+import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 
 
 public class InstallQueuePanel extends JPanel implements Scrollable, ChangeListener {
@@ -131,7 +131,7 @@ public class InstallQueuePanel extends JPanel implements Scrollable, ChangeListe
 			progressBar.setStringPainted(true);
 			
 			cancelButton = new JButton("Cancel");
-			cancelButton.addActionListener(jobVm);
+			cancelButton.addActionListener((e) -> jobVm.cancel());
 
 			finishedLabel = new JLabel();
 

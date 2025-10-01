@@ -3,8 +3,8 @@ package de.haukerehfeld.quakeinjector.gui;
 import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
 
 import javax.swing.*;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
+import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
+import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import java.awt.*;
 
 public class PackageInteractionPanelView extends JPanel implements ChangeListener {

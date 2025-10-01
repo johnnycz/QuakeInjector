@@ -5,8 +5,8 @@ import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 import de.haukerehfeld.quakeinjector.model.Package;
 
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
+import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
+import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import java.net.URI;
 import java.util.Collections;
 import java.util.Date;

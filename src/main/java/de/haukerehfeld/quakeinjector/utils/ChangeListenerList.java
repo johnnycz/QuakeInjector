@@ -21,8 +21,6 @@ package de.haukerehfeld.quakeinjector.utils;
 
 import java.util.ArrayList;
 
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 
 
 /**

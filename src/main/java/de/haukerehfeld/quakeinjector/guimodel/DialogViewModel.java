@@ -5,8 +5,8 @@ import de.haukerehfeld.quakeinjector.model.DialogProvider;
 import de.haukerehfeld.quakeinjector.model.JobTracker;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
+import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
+import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import java.beans.PropertyChangeEvent;
 import java.io.InputStream;
 import java.util.List;

@@ -262,18 +262,10 @@ public class EngineConfigDialog extends JDialog {
 				}
 			});
 		//change basepath of the exe when quakedir changes
-		enginePath.addChangeListener(new ChangeListener() {
-				public void stateChanged(ChangeEvent e) {
-					engineExecutable.setBasePath(enginePath.getPath());
-				}
-			});
+		enginePath.addChangeListener( e -> engineExecutable.setBasePath(enginePath.getPath()));
 		//(un)set working dir opt visibility as appropriate
-		enginePath.addChangeListener(new ChangeListener() {
-				public void stateChanged(ChangeEvent e) {
-					workingDirOpts.checkDisplay();
-				}
-			});
-		enginePath.addChangeListener(enableOkay);
+		enginePath.addChangeListener(e -> workingDirOpts.checkDisplay());
+		enginePath.addChangeListener(e -> enableOkay.stateChanged(null));
 
 		engineExecutable.addErrorListener(new ErrorListener() {
 				public void errorOccured(ErrorEvent e) {
@@ -282,14 +274,10 @@ public class EngineConfigDialog extends JDialog {
 				}
 			});
 		//(un)set working dir opt visibility as appropriate
-		engineExecutable.addChangeListener(new ChangeListener() {
-				public void stateChanged(ChangeEvent e) {
-					workingDirOpts.checkDisplay();
-				}
-			});
-		engineExecutable.addChangeListener(enableOkay);
+		engineExecutable.addChangeListener(e -> workingDirOpts.checkDisplay());
+		engineExecutable.addChangeListener(e -> enableOkay.stateChanged(null));
 
-		downloadPath.addChangeListener(enableOkay);
+		downloadPath.addChangeListener(e -> enableOkay.stateChanged(null));
 
 		rogue.addChangeListener(enableOkay);
 		hipnotic.addChangeListener(enableOkay);

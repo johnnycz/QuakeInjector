@@ -1,6 +1,7 @@
 package de.haukerehfeld.quakeinjector.model;
 
-import javax.swing.event.ChangeListener;
+import de.haukerehfeld.quakeinjector.utils.ChangeListener;
+
 
 /**
  * A requirement that doesn't have a package available and thus can't be installed (like the quake mission packs)

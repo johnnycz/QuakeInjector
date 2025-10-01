@@ -39,13 +39,13 @@ public class ArchitectureTest {
 				.layer("swing").definedBy(swingWithoutUtils)
 				.layer("swingutils").definedBy(new SwingUtilPredicate())
 
-				.whereLayer("gui").mayOnlyAccessLayers("guimodel", "utils", "swing", "swingutils")
-				.whereLayer("guimodel").mayOnlyAccessLayers("model", "utils", "swingutils")
-				.whereLayer("model").mayOnlyAccessLayers("utils", "swingutils")
-				.whereLayer("feature.play").mayOnlyAccessLayers("model", "utils", "swingutils")
-				.whereLayer("feature.install").mayOnlyAccessLayers("model", "utils", "swingutils")
-				.whereLayer("feature.list").mayOnlyAccessLayers("model", "utils", "swingutils")
-				.whereLayer("utils").mayOnlyAccessLayers("swingutils")
+				.whereLayer("gui").mayOnlyAccessLayers("guimodel", "utils", "swing")
+				.whereLayer("guimodel").mayOnlyAccessLayers("model", "utils")
+				.whereLayer("model").mayOnlyAccessLayers("utils")
+				.whereLayer("feature.play").mayOnlyAccessLayers("model", "utils")
+				.whereLayer("feature.install").mayOnlyAccessLayers("model", "utils")
+				.whereLayer("feature.list").mayOnlyAccessLayers("model", "utils")
+				.whereLayer("utils").mayNotAccessAnyLayer()
 		;
 
 
@@ -61,10 +61,6 @@ public class ArchitectureTest {
 			String fullName = javaClass.getFullName();
 			return
 					fullName.startsWith("javax.swing.SwingWorker")
-							|| fullName.equals("javax.swing.event.ChangeListener")
-							|| fullName.equals("javax.swing.event.ChangeEvent")
-							|| fullName.equals("java.awt.event.ActionEvent")
-							|| fullName.equals("java.awt.event.ActionListener")
 					;
 		}
 

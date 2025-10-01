@@ -4,8 +4,8 @@ import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageList;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
+import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
+import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import javax.swing.event.TableModelEvent;
 
 public class PackageListViewModel implements ChangeListener {

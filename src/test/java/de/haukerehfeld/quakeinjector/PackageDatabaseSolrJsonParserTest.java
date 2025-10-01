@@ -18,13 +18,13 @@ public class PackageDatabaseSolrJsonParserTest {
 
     @Test
     public void importsAllEntries() {
-        var result = parser.parse(testResource("/solr.json"));
+        var result = parser.parse(testResource("/solr2pp.json"));
         assertEquals(28, result.size());
     }
 
     @Test
     public void readsNonNullValues() {
-        var result = parser.parse(testResource("/solr.json"));
+        var result = parser.parse(testResource("/solr2pp.json"));
         for (Requirement r : result) {
             assertNotNull(r);
 
@@ -45,7 +45,7 @@ public class PackageDatabaseSolrJsonParserTest {
 
 	@Test
 	public void reordersStartMaps() {
-		var result = parser.parse(testResource("/solr.json"));
+		var result = parser.parse(testResource("/solr2pp.json"));
 		for (Requirement r : result) {
 			de.haukerehfeld.quakeinjector.model.Package p = (Package) r;
 			if (p.getSha256().equals("7ad993da6c760c446ca31fad71e9f5b6c9eee99b6354f161aa746b572fe70a7d")) {

@@ -1,6 +1,6 @@
 package de.haukerehfeld.quakeinjector.model;
 
-import javax.swing.event.ChangeListener;
+import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 
 /**
  * Base class for everything that might ever be referenced as a package.

@@ -4,8 +4,8 @@ import de.haukerehfeld.quakeinjector.model.JobTracker;
 import de.haukerehfeld.quakeinjector.model.JobTrackerProvider;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
+import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
+import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
@@ -33,15 +33,15 @@ public class InstallQueueViewModel implements JobTrackerProvider {
 
 	private AtomicInteger jobCounter = new AtomicInteger(0);
 
-	public class JobVm implements PropertyChangeListener, ActionListener {
+	public class JobVm implements PropertyChangeListener {
 		private final int id;
 		private final String description;
-		private final ActionListener cancelAction;
+		private final Runnable cancelAction;
 		private boolean finished = false;
 		private int progress = 0;
 		private String finishedMessage;
 
-		public JobVm(int id, ActionListener cancelAction, String description) {
+		public JobVm(int id, Runnable cancelAction, String description) {
 			this.id = id;
 			this.description = description;
 			this.cancelAction = cancelAction;
@@ -81,9 +81,8 @@ public class InstallQueueViewModel implements JobTrackerProvider {
 			return progress;
 		}
 
-		@Override
-		public void actionPerformed(ActionEvent e) {
-			cancelAction.actionPerformed(e);
+		public void cancel() {
+			cancelAction.run();
 		}
 
 		public String getFinishedMessage() {
@@ -121,7 +120,7 @@ public class InstallQueueViewModel implements JobTrackerProvider {
 		}
 	}
 
-	public synchronized JobTracker addJob(String description, ActionListener cancelAction) {
+	public synchronized JobTracker addJob(String description, Runnable cancelAction) {
 		int jobId = jobCounter.getAndIncrement();
 		if (jobs.size() != jobId) {
 			throw new IllegalStateException("Job list size and job counter out of sync");
