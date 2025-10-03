@@ -1,7 +1,6 @@
 package de.haukerehfeld.quakeinjector.feature.list;
 
 import de.haukerehfeld.quakeinjector.model.Configuration;
-import de.haukerehfeld.quakeinjector.gui.QuakeInjectorView;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.ProgressListener;

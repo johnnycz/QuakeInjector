@@ -49,7 +49,7 @@ public class PackageListViewModel implements ChangeListener {
 			map.addChangeListener(this);
 		}
 
-		notifyChangeListeners(null);
+		notifyChangeListeners(-1);
 	}
 
 	public void stateChanged(ChangeEvent e) {

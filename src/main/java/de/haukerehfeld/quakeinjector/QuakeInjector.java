@@ -103,6 +103,7 @@ public class QuakeInjector {
 
 		PackageInteractionViewModel packageInteractionViewModel = new PackageInteractionViewModel(router);
 		PackageListViewModel packageListViewModel = new PackageListViewModel(packageInteractionViewModel);
+		packageListViewModel.setMapList(packages);
 		maplist = new PackageTableModel(packageListViewModel, packageInteractionViewModel);
 		var jobTrackerProvider = new InstallQueueViewModel();
 		var configViewModel = new ConfigViewModel(router, getConfig());

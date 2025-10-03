@@ -142,10 +142,12 @@ public class PackageTableModel extends AbstractTableModel implements ChangeListe
 
 	@Override
 	public void stateChanged(ChangeEvent e) {
-		if (e.getSource() == null) {
-			fireTableChanged(new TableModelEvent(this));
-		} else if (e.getSource() instanceof Integer rowIndex) {
-			fireTableRowsUpdated(rowIndex, rowIndex);
+		if (e.getSource() instanceof Integer rowIndex) {
+			if (rowIndex >= 0) {
+				fireTableRowsUpdated(rowIndex, rowIndex);
+			} else {
+				fireTableChanged(new TableModelEvent(this));
+			}
 		}
 	}
 
