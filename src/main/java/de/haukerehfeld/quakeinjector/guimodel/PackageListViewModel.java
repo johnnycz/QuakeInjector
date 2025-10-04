@@ -20,7 +20,7 @@ public class PackageListViewModel implements ChangeListener {
 	}
 
 	private void notifyChangeListeners(Integer rowIndex) {
-		listeners.notifyChangeListeners(new ChangeEvent(rowIndex));
+		listeners.notifyChangeListeners(rowIndex);
 	}
 
 	private final PackageInteractionViewModel packageInteractionViewModel;

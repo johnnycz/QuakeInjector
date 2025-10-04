@@ -41,6 +41,7 @@ public class PackageTableModel extends AbstractTableModel implements ChangeListe
 
 	public PackageTableModel(PackageListViewModel vm, PackageInteractionViewModel packageInteractionViewModel) {
 		this.vm = vm;
+		vm.addChangeListener(this);
 	}
 
 	public void size(JTable table) {
