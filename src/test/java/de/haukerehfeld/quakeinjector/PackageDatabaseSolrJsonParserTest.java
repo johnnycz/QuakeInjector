@@ -40,6 +40,7 @@ public class PackageDatabaseSolrJsonParserTest {
             assertNotNull(entry.getStartmaps().get(0));
 			assertNotNull(entry.getSupposedFileList());
 	        assertFalse(entry.getSupposedFileList().isEmpty());
+	        assertTrue(entry.getSupposedFileList().iterator().next().getSize() > 0);
         }
     }
 

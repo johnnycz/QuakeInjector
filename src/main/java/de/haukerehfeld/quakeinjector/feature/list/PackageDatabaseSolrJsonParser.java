@@ -53,12 +53,11 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
         public List<String> notes;
         public Install install;
         public String description;
-		public List<JsonPackageFile> files;
+		public Map<String, JsonPackageFile> files;
     }
 
 	private static class JsonPackageFile {
 		public long bytes;
-		public String path;
 		public String sha256;
 		public String timestamp;
 	}
@@ -164,10 +163,10 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
 		if (jsonPackage.files == null) {
 			return list;
 		}
-		for (var jsonFile: jsonPackage.files) {
+		for (Map.Entry<String, JsonPackageFile> jsonFile: jsonPackage.files.entrySet()) {
 			String path;
 			try {
-				path = pkg.getExtractMapping().remap(jsonFile.path);
+				path = pkg.getExtractMapping().remap(jsonFile.getKey());
 			} catch (Exception e) {
 				System.err.println(e);
 				throw e;
@@ -175,7 +174,7 @@ public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
 			if (path == null) {
 				continue;
 			}
-			var file = new FileInfo(path, 0, jsonFile.bytes);
+			var file = new FileInfo(path, 0, jsonFile.getValue().bytes);
 			list.add(file);
 		}
 
