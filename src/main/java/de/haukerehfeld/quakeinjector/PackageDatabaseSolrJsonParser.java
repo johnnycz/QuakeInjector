@@ -28,47 +28,29 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
- * Parses the output of <a href="https://api.quaddicted.com/jsons">https://api.quaddicted.com/jsons</a>
- * which is the new Quaddicted API introduced in 2024
- *
- * <p>https://github.com/hrehfeld/QuakeInjector/issues/152</p>
- *
- * <p>The main differences from the old API (besides being JSON instead of XML):</p>
- * <ul>
- *     <li>Rating is not present</li>
- *     <li>User rating is not present </li>
- *     <li>Old identifier is not present (might not be needed, but see below)</li>
- *     <li>Dependency references are identifiers like this: "ad_v1_80p1final", however this identifier is not present
- *     in the actual dependency. Closest we get is filename: "ad_v1_80p1final.zip" which works fine, just a bit sketchy</li>
- *     <li>Contains significantly more data (10x) and takes longer to download (10x)</li>
- * </ul>
+ * Parses the output of <a href="https://www.quaddicted.com/api/v1/">https://www.quaddicted.com/api/v1/</a>
+ * which is a slightly updated API for Quaddicted website, superseding the previous "jsons". It is
+ * also commonly referred to as Solr
  */
-public class PackageDatabaseJsonParser implements PackageDatabaseParser {
+public class PackageDatabaseSolrJsonParser implements PackageDatabaseParser {
 
     private final SimpleDateFormat dateParser = new SimpleDateFormat("yyyy-MM-dd");
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final Configuration configuration;
 
-    public PackageDatabaseJsonParser(Configuration configuration) {
+    public PackageDatabaseSolrJsonParser(Configuration configuration) {
         this.configuration = configuration;
     }
 
     private static class JsonPackage {
         public String sha256;
-        public Metadata metadata;
-    }
-
-    private static class Metadata {
         public List<String> tags;
         public List<String> urls;
         public long bytes;
         public List<String> notes;
-        public String title;
-        public List<String> authors;
         public Install install;
         public String description;
-        public String release_date;
     }
 
     private static class Install {
@@ -77,12 +59,15 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
     }
 
     private static class ProcessedTags {
+        public String release_date;
+        public String title;
         public String filename;
         public List<String> dependencies = new ArrayList<>();
         public String commandLine;
         public List<String> startMaps = new ArrayList<>();
         public String zipbasedir;
         public List<String> links = new ArrayList<>();
+        public List<String> authors = new ArrayList<>();
     }
 
     @Override
@@ -97,9 +82,15 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
             Package pkg;
             try {
                 pkg = getPackage(jsonPackage, unresolvedRequirements);
+            } catch (PackageDatabaseParseException e) {
+                System.err.printf("Cannot process package %s:%n%s%n%n",
+                        jsonPackage.sha256, e.getMessage());
+
+                continue;
             } catch (Exception e) {
-                System.err.printf("Cannot process package %s (%s):%n%s%n%n",
-                        jsonPackage.metadata.title, jsonPackage.sha256, e.getMessage());
+                System.err.printf("Cannot process package %s:%n%s%n%n",
+                        jsonPackage.sha256, e.getMessage());
+                e.printStackTrace();
                 continue;
             }
             result.add(pkg);
@@ -112,16 +103,16 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
     }
 
     private Package getPackage(JsonPackage jsonPackage, Map<Package,List<String>> unresolvedRequirements) {
+        var processedTags = processTags(jsonPackage.tags);
+
         Date releaseDate = null;
         try {
-            releaseDate = dateParser.parse(jsonPackage.metadata.release_date);
+            releaseDate = dateParser.parse(processedTags.release_date);
         } catch (ParseException e) {
-            throw new PackageDatabaseParseException("Cannot parse date '" + jsonPackage.metadata.release_date + "': " + e.getMessage());
+            throw new PackageDatabaseParseException("Cannot parse date '" + processedTags.release_date + "': " + e.getMessage());
         }
 
-        var processedTags = processTags(jsonPackage.metadata.tags);
-
-        var extractMapping = getExtractMapping(jsonPackage, processedTags);
+         var extractMapping = getExtractMapping(jsonPackage, processedTags);
 
         StringBuilder description = getDescription(jsonPackage, processedTags);
 
@@ -140,9 +131,9 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
                 jsonPackage.sha256,
                 processedTags.filename,
                 urls,
-                String.join(", ", jsonPackage.metadata.authors),
-                jsonPackage.metadata.title,
-                (int) (jsonPackage.metadata.bytes/1000L),
+                String.join(", ", processedTags.authors),
+                processedTags.title,
+                (int) (jsonPackage.bytes/1000L),
                 releaseDate,
                 false,
                 (float) Math.random()*5, // TODO
@@ -156,51 +147,51 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
         return pkg;
     }
 
-    /**
-     * Move maps that contain the word "start" to the beginning of the list
-     */
-    private List<String> reorderStartMaps(List<String> startMaps) {
-        List<String> preferredStartMaps = new ArrayList<>(startMaps.size());
-        List<String> otherStartMaps = new ArrayList<>(startMaps.size());
+	/**
+	 * Move maps that contain the word "start" to the beginning of the list
+	 */
+	private List<String> reorderStartMaps(List<String> startMaps) {
+		List<String> preferredStartMaps = new ArrayList<>(startMaps.size());
+		List<String> otherStartMaps = new ArrayList<>(startMaps.size());
 
-        for (String map: startMaps) {
-            if (map.contains("start")) {
-                preferredStartMaps.add(map);
-            } else {
-                otherStartMaps.add(map);
-            }
-        }
+		for (String map: startMaps) {
+			if (map.contains("start")) {
+				preferredStartMaps.add(map);
+			} else {
+				otherStartMaps.add(map);
+			}
+		}
 
-        List<String> result = new ArrayList<>(preferredStartMaps.size() + otherStartMaps.size());
-        result.addAll(preferredStartMaps);
-        result.addAll(otherStartMaps);
-        return result;
-    }
+		List<String> result = new ArrayList<>(preferredStartMaps.size() + otherStartMaps.size());
+		result.addAll(preferredStartMaps);
+		result.addAll(otherStartMaps);
+		return result;
+	}
 
-    private ExtractMapping getExtractMapping(JsonPackage jsonPackage, ProcessedTags processedTags) {
-        ExtractMapping mapping = new ExtractMapping();
+	private ExtractMapping getExtractMapping(JsonPackage jsonPackage, ProcessedTags processedTags) {
+		ExtractMapping mapping = new ExtractMapping();
 
-        if (processedTags.zipbasedir != null) {
-            mapping.addMapping("/", processedTags.zipbasedir);
-        }
+		if (processedTags.zipbasedir != null) {
+			mapping.addMapping("/", processedTags.zipbasedir);
+		}
 
-        Install install = jsonPackage.metadata.install;
-        if (install != null) {
-            if (install.extract != null) {
-                mapping.addMapping("/", install.extract);
-            }
-            if (install.extractmapping != null) {
-                for (Map.Entry<String, String> entry : install.extractmapping.entrySet()) {
-                    mapping.addMapping(entry.getKey(), entry.getValue());
-                }
-            }
-        }
+		Install install = jsonPackage.install;
+		if (install != null) {
+			if (install.extract != null) {
+				mapping.addMapping("/", install.extract);
+			}
+			if (install.extractmapping != null) {
+				for (Map.Entry<String, String> entry : install.extractmapping.entrySet()) {
+					mapping.addMapping(entry.getKey(), entry.getValue());
+				}
+			}
+		}
 
-        return mapping;
-    }
+		return mapping;
+	}
 
     private List<String> getDownloadUrls(JsonPackage jsonPackage, ProcessedTags processedTags) {
-        List<String> urls = jsonPackage.metadata.urls;
+        List<String> urls = jsonPackage.urls;
         if (urls == null || urls.isEmpty()) {
             urls = Collections.singletonList(configuration.RepositoryBasePath.getRepositoryUrl(processedTags.filename, jsonPackage.sha256));
         }
@@ -208,10 +199,10 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
     }
 
     private StringBuilder getDescription(JsonPackage jsonPackage, ProcessedTags processedTags) {
-        StringBuilder description = new StringBuilder(jsonPackage.metadata.description);
-        if (jsonPackage.metadata.notes != null && !jsonPackage.metadata.notes.isEmpty()) {
+        StringBuilder description = new StringBuilder(jsonPackage.description);
+        if (jsonPackage.notes != null && !jsonPackage.notes.isEmpty()) {
             description.append("<br /><br />Notes:<br />");
-            description.append(String.join("<br /><br />", jsonPackage.metadata.notes));
+            description.append(String.join("<br /><br />", jsonPackage.notes));
         }
         description.append("<br /><br />Links:<ul>");
         description.append("<li><a href=\"")
@@ -276,6 +267,15 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
             }
             if (tag.startsWith("link=")) {
                 processed.links.add(tag.substring("link=".length()));
+            }
+            if (tag.startsWith("title=")) {
+                processed.title = tag.substring("title=".length());
+            }
+            if (tag.startsWith("author=")) {
+                processed.authors.add(tag.substring("author=".length()));
+            }
+            if (tag.startsWith("release_date")) {
+                processed.release_date = tag.substring("release_date=".length());
             }
         }
         return processed;

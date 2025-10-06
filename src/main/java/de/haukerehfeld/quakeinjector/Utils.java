@@ -80,7 +80,7 @@ public class Utils {
 	 */
 	public static long writeFile(InputStream in, File file, ProgressListener progress)
 		throws IOException {
-		return writeFile(in, file, 2048, progress);
+		return writeFile(in, file, 1024*1024, progress);
 	}
 
 	/**

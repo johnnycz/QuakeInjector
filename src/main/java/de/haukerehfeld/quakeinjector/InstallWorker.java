@@ -19,14 +19,18 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
-import java.io.BufferedInputStream;
+import de.haukerehfeld.quakeinjector.repackage.ExtractMapping;
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.ArchiveException;
+import org.apache.commons.compress.archivers.ArchiveInputStream;
+import org.apache.commons.compress.archivers.ArchiveStreamFactory;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 import javax.swing.SwingWorker;
 
@@ -37,20 +41,19 @@ import javax.swing.SwingWorker;
 public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 																	  ProgressListener,
 																	  Cancelable {
-	private final static int BUFFERSIZE = 1024;
-	
-	private File baseDirectory;
-	private String unzipDirectory;
-	private Package map;
-	private InputStream input;
-	private List<File> overwrites;
+
+	private final File baseDirectory;
+	private final ExtractMapping extractMapping;
+	private final Package map;
+	private final InputStream input;
+	private final List<File> overwrites;
 
 	private long downloadSize = 0;
 
 	/**
 	 * files that got installed
 	 */
-	private PackageFileList files;
+	private final PackageFileList files;
 
 	/**
 	 * @param inputSize size of the input stream in bytes, for progress reporting
@@ -61,26 +64,25 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 	                     long inputSize,
 	                     Package map,
 	                     File baseDirectory,
-	                     String unzipDirectory,
+	                     ExtractMapping extractMapping,
 	                     List<File> overwrites) {
 		this.map = map;
 		this.input = input;
 		this.downloadSize = inputSize;
 		this.baseDirectory = baseDirectory;
-		this.unzipDirectory = unzipDirectory;
+		this.extractMapping = extractMapping;
 		this.files = new PackageFileList(map.getId());
 		this.overwrites = overwrites;
 	}
 
 	@Override
 	public PackageFileList doInBackground() throws IOException,
-	    FileNotFoundException,
-	    Installer.CancelledException {
+            FileNotFoundException,
+            Installer.CancelledException, ArchiveException {
 		System.out.println("Installing " + map.getId());
 
 		unzip(input,
 		      baseDirectory,
-		      unzipDirectory,
 		      map.getId(),
 		      overwrites);
 		
@@ -94,61 +96,66 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 	 */
 	public void unzip(InputStream in,
 	                            File basedir,
-	                            String unzipdir,
 	                            String mapid,
 	                            List<File> overwrites)
-	    throws IOException, FileNotFoundException, Installer.CancelledException {
+            throws IOException, FileNotFoundException, Installer.CancelledException, ArchiveException {
 		//build progress filter chain
 		ProgressListener progress =
 			    new SumProgressListener(
 					new PercentageProgressListener(downloadSize,
 					                               new CheckCanceledProgressListener(this,
 					                                                                 this)));
-		
 
-		ZipInputStream zis = new ZipInputStream(new BufferedInputStream(in));
-		ZipEntry entry;
+		ArchiveInputStream<? extends ArchiveEntry> archiveStream = new ArchiveStreamFactory()
+				.createArchiveInputStream(in);
+		ArchiveEntry sourceEntry;
 
 		boolean extracted = false;
-		while((entry = zis.getNextEntry()) != null) {
-			File f = new File(unzipdir + File.separator + entry.getName());
-			String filename = RelativePath.getRelativePath(basedir, f).toString();
-			
-			if (overwrites != null && overwrites.indexOf(f) < 0) {
+		while((sourceEntry = archiveStream.getNextEntry()) != null) {
+			File targetWritable = getTargetFile(sourceEntry);
+            if (targetWritable == null) {
+                continue;
+            }
+			String filename = RelativePath.getRelativePath(basedir, targetWritable).toString();
+
+			if (overwrites != null && overwrites.indexOf(targetWritable) < 0) {
 				System.out.println("Skipping " + filename + ", because it isn't supposed to be overwritten.");
 				continue;
 			}
 
 			//create dirs
-			List<File> createdDirs = Utils.mkdirs(f);
+			List<File> createdDirs = Utils.mkdirs(targetWritable);
 
 			//do nothing for directories other than creating them
-			if (!entry.isDirectory()) {
-				File original = f;
-				if (f.exists()) {
+			if (!sourceEntry.isDirectory()) {
+				File overwrittenFile = targetWritable;
+				if (targetWritable.exists()) {
 					//create Temp file and rename later
-					f = File.createTempFile("quakeinjector", ".tmp", f.getParentFile());
-					System.out.println("create Temp file " + f);
+					targetWritable = File.createTempFile("quakeinjector", ".tmp", targetWritable.getParentFile());
+					System.out.println("create Temp file " + targetWritable);
 				}
 
-				System.out.println("Writing " + filename + " (" + entry.getCompressedSize() + "b)");
+				System.out.println("Writing " + filename + " (" + sourceEntry.getSize() + " B)");
 
 				long crc;
 				try {
-					crc = Utils.writeFile(zis,
-					                      f,
-					                      new CompressedProgressListener(entry.getCompressedSize()
-					                                                     / (double) entry.getSize(),
+					crc = Utils.writeFile(archiveStream,
+					                      targetWritable,
+					                      new CompressedProgressListener(sourceEntry.getSize()
+					                                                     / (double) sourceEntry.getSize(),
 					                                                     progress));
 				}
 				catch (FileNotFoundException e) {
 					throw new FileNotWritableException(e.getMessage());
 				}
 
-				if (crc != entry.getCrc()) {
-					System.err.println("Crc32 didn't match on extraction of " + original + ", removing...");
-					f.delete();
-					continue;
+				if (sourceEntry instanceof ZipArchiveEntry zipEntry) {
+					var zipCrc = zipEntry.getCrc();
+					if (zipCrc != -1 && zipCrc != crc) {
+						System.err.println("Crc32 didn't match on extraction of " + overwrittenFile + ", removing...");
+						targetWritable.delete();
+						continue;
+					}
 				}
 
 				/** @todo 2009-12-19 03:03 hrehfeld    add crc calculation */
@@ -162,10 +169,10 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 				}
 
 				//if we extracted to temp, rename
-				if (!f.equals(original)) {
-					original.delete();
-					System.out.println("moving Temp file to " + original);
-					f.renameTo(original);
+				if (!targetWritable.equals(overwrittenFile)) {
+					overwrittenFile.delete();
+					System.out.println("moving Temp file to " + overwrittenFile);
+					targetWritable.renameTo(overwrittenFile);
 				}
 
 				extracted = true;
@@ -175,7 +182,16 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 		if (!extracted) {
 			throw new java.util.zip.ZipException("No files extracted from zip, is it an empty file?");
 		}
-		zis.close();
+		archiveStream.close(); //FIXME close with try-finally
+	}
+
+	private File getTargetFile(ArchiveEntry sourceEntry) {
+		String extractPath = extractMapping.remap(sourceEntry.getName());
+        if (extractPath != null) {
+            return new File(baseDirectory, extractPath);
+        } else {
+            return null;
+        }
 	}
 
 	public void publish(long progress) {

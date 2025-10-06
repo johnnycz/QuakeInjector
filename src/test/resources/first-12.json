@@ -197,7 +197,10 @@
         "Whitewind (+Bengt Jardrup)"
       ],
       "install":{
-        "extract":"{base}/id1/maps/"
+        "extractmapping":  {
+          "/": "{base}/id1/maps/",
+          "/Readme1st.txt": null
+        }
       },
       "version":"2.0",
       "provides":{

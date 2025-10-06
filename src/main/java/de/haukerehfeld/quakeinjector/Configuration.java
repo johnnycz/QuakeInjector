@@ -19,6 +19,8 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.gui.UIThemeOption;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -37,13 +39,14 @@ public class Configuration {
 	public static class EnginePath extends FileValue {
 		private EnginePath() { super("enginePath", null); }
 		
-		public File getUnzipDir(Package map) {
-			String relativedir = map.getRelativeBaseDir();
-			String unzipdir = get().getAbsolutePath();
-			if (relativedir != null) {
-				unzipdir += File.separator + relativedir;
+		public File getUnzipFile(Package map, String entryName) {
+			String relativePath = map.getExtractMapping().remap(entryName);
+			String baseDir = get().getAbsolutePath();
+			if (relativePath != null) {
+				return new File(baseDir + File.separator + relativePath);
+			} else {
+                return null;
 			}
-			return new File(unzipdir);
 		}
 	}
 	public final EnginePath EnginePath = new EnginePath();
@@ -100,8 +103,7 @@ public class Configuration {
 
 	public static class RepositoryDatabasePath extends StringValue {
 		private RepositoryDatabasePath() { super("repositoryDatabase",
-				"https://api.quaddicted.com/jsons"); }
-				//"https://www.quaddicted.com/reviews/quaddicted_database.xml"); }
+				"https://www.quaddicted.com/api/v1/?q=*"); }
 	}
 	public final RepositoryDatabasePath RepositoryDatabasePath = new RepositoryDatabasePath();
 	
@@ -166,6 +168,11 @@ public class Configuration {
 	}
 	public final MainWindowHeight MainWindowHeight = new MainWindowHeight();
 
+	public class MainWindowState extends IntegerValue {
+		private MainWindowState() { super("mainWindowState", null); }
+	}
+	public final MainWindowState MainWindowState = new MainWindowState();
+
 	public static class RepositoryBasePath extends StringValue {
 		private final static String onlineRepositoryExtension = ".zip";
 		
@@ -184,6 +191,23 @@ public class Configuration {
 		private MapWebpageBaseUrl() { super("mapWebpageBaseUrl", "https://www.quaddicted.com/db/v1/maps/"); }
 	}
 	public final MapWebpageBaseUrl mapWebpageBaseUrl = new MapWebpageBaseUrl();
+
+	public static class UIThemeConfiguration extends AbstractValue<UIThemeOption> {
+		private UIThemeConfiguration() {
+			super("uiTheme", UIThemeOption.SYSTEM);
+		}
+
+		@Override
+		public UIThemeOption stringToValue(String v) {
+			return UIThemeOption.getByCode(v);
+		}
+
+		@Override
+		public String toString() {
+			return get().getCode();
+		}
+	}
+	public final UIThemeConfiguration uiTheme = new UIThemeConfiguration();
 
 	public final Map<String,Value<?>> All = new HashMap<String,Value<?>>();
 	

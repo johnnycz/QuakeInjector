@@ -19,12 +19,10 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
+import org.apache.commons.compress.archivers.ArchiveEntry;
+
 import java.beans.PropertyChangeListener;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.List;
@@ -33,7 +31,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.zip.ZipEntry;
 
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
@@ -44,15 +41,15 @@ public class Installer {
 	private static final int simultanousInspectors = 1;
 	private static final int simultanousWaiters = 15;
 
-	private Configuration.EnginePath installDirectory;
-	private Configuration.DownloadPath downloadDirectory;
+	private final Configuration.EnginePath installDirectory;
+	private final Configuration.DownloadPath downloadDirectory;
 	
-	private ExecutorService activeDownloaders = Executors.newFixedThreadPool(simultanousDownloads);
-	private ExecutorService activeInspectors = Executors.newFixedThreadPool(simultanousInspectors);
-	private ExecutorService activeInstallers = Executors.newFixedThreadPool(simultanousInstalls);
-	private ExecutorService activeWaiters = Executors.newFixedThreadPool(simultanousWaiters);
+	private final ExecutorService activeDownloaders = Executors.newFixedThreadPool(simultanousDownloads);
+	private final ExecutorService activeInspectors = Executors.newFixedThreadPool(simultanousInspectors);
+	private final ExecutorService activeInstallers = Executors.newFixedThreadPool(simultanousInstalls);
+	private final ExecutorService activeWaiters = Executors.newFixedThreadPool(simultanousWaiters);
 
-	private Map<Package,Worker> queue = new HashMap<Package,Worker>();
+	private final Map<Package,Worker> queue = new HashMap<Package,Worker>();
 
 	public Installer(Configuration.EnginePath installDirectory, Configuration.DownloadPath downloadDirectory) {
 		this.installDirectory = installDirectory;
@@ -186,16 +183,16 @@ public class Installer {
 		private Throwable error;
 
 		private final String url;
-		private final Package map;
+		private final Package installedPackage;
 		private final InstallErrorHandler handler;
 		private final PropertyChangeListener downloadProgressListener;
 
 		public Worker(String url,
-		              Package map,
+		              Package installedPackage,
 		              InstallErrorHandler handler,
 		              PropertyChangeListener downloadProgressListener) {
 			this.url = url;
-			this.map = map;
+			this.installedPackage = installedPackage;
 			this.handler = handler;
 			this.downloadProgressListener = downloadProgressListener;
 		}
@@ -203,7 +200,7 @@ public class Installer {
 		@Override
 		    public Void doInBackground() {
 			try {
-				final File downloadFile = new File(downloadDirectory.get().getAbsolutePath() + File.separator + map.getId() + ".zip");
+				final File downloadFile = new File(downloadDirectory.get().getAbsolutePath() + File.separator + installedPackage.getId() + ".zip");
 				System.out.println("Downloading to " + downloadFile);
 
 				long downloadSize;
@@ -233,9 +230,10 @@ public class Installer {
 				}
 
 				System.out.println("Inspecting downloaded archive..." + downloadFile);
-				FileInputStream in = new FileInputStream(downloadFile);
-				Map<String,File> existingFiles = inspect(in);
-				in.close();
+				Map<String, File> existingFiles;
+				try (BufferedInputStream inspectStream = new BufferedInputStream(new FileInputStream(downloadFile))) {
+					existingFiles = findExistingFiles(inspectStream);
+				}
 				System.out.println("done.");
 
 				List<File> overwrites = null;
@@ -248,13 +246,12 @@ public class Installer {
 				if (overwrites == null || !overwrites.isEmpty()) {
 					//and start install
 					System.out.println("Starting install");
-					String mapDir = installDirectory.getUnzipDir(map).getAbsolutePath();
-					in = new FileInputStream(downloadFile);
+					BufferedInputStream in = new BufferedInputStream(new FileInputStream(downloadFile));
 					installer = new InstallWorker(in,
 					                              downloadSize,
-					                              map,
+						                          installedPackage,
 					                              installDirectory.get(),
-					                              mapDir,
+							                      installedPackage.getExtractMapping(),
 					                              overwrites);
 					synchronized (activeInstallers) { activeInstallers.submit(installer); }
 					//make sure file streams get closed
@@ -311,7 +308,7 @@ public class Installer {
 			return downloader.get();
 		}
 
-		private Map<String,File> inspect(final InputStream in) throws
+		private Map<String,File> findExistingFiles(final InputStream in) throws
 		    IOException,
 		    InterruptedException,
 			ExecutionException  {
@@ -321,16 +318,19 @@ public class Installer {
 			synchronized (activeInspectors) { activeInspectors.submit(inspector); }
 
 			System.out.println("Waiting for inspection...");
-			final List<ZipEntry> entries = inspector.get();
+			final List<ArchiveEntry> entries = inspector.get();
 			
 			//check files
 			final Map<String,File> files = new HashMap<String,File>();
 			boolean existingFile = false;
-			for (ZipEntry z: entries) {
+			for (ArchiveEntry z: entries) {
 				if (z.isDirectory()) {
 					continue;
 				}
-				File f = new File(installDirectory.getUnzipDir(map).getAbsolutePath() + File.separator + z.getName());
+				File f = installDirectory.getUnzipFile(installedPackage, z.getName());
+                if (f == null) {
+                    continue;
+                }
 				String name
 				    = RelativePath.getRelativePath(installDirectory.get(), f).toString();
 				files.put(name, f);
@@ -373,7 +373,7 @@ public class Installer {
 				files = installer.getInstalledFiles();
 			}
 			else {
-				files = new PackageFileList(map.getId());
+				files = new PackageFileList(installedPackage.getId());
 			}
 			
 			//see if there was an error
@@ -410,7 +410,7 @@ public class Installer {
 			}
 
 			System.out.println("Done saving installedmaps");
-			synchronized (queue) { queue.remove(map); }
+			synchronized (queue) { queue.remove(installedPackage); }
 
 		}
 	}	

@@ -19,6 +19,8 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.repackage.ExtractMapping;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -56,7 +58,7 @@ public class Package extends SortableRequirement implements Requirement {
 
 	private Date date;
 
-	private String relativeBaseDir;
+	private final ExtractMapping extractMapping;
 
 	private String commandline;
 
@@ -76,9 +78,9 @@ public class Package extends SortableRequirement implements Requirement {
 				   int size,
 				   Date date,
 				   boolean isInstalled,
-	               float normalizedUsersRating,
-	               String description,
-				   String relativeBaseDir,
+				   float normalizedUsersRating,
+				   String description,
+				   ExtractMapping extractMapping, // TODO mapping
 				   String commandline,
 				   List<String> startmaps,
 				   List<Requirement> requirements) {
@@ -93,7 +95,7 @@ public class Package extends SortableRequirement implements Requirement {
 		super.setInstalled(isInstalled);
 		this.normalizedUsersRating = normalizedUsersRating;
 		this.description = description;
-		this.relativeBaseDir = relativeBaseDir;
+		this.extractMapping = extractMapping;
 		this.commandline = commandline;
 		this.startmaps = startmaps;
 		this.requirements = requirements;
@@ -144,8 +146,8 @@ public class Package extends SortableRequirement implements Requirement {
 	public String getDescription() { return description; }
 	
 
-	public String getRelativeBaseDir() {
-		return relativeBaseDir;
+	public ExtractMapping getExtractMapping() {
+		return extractMapping;
 	}
 
 	public String getCommandline() {

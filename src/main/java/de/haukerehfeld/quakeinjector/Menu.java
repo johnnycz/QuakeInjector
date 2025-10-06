@@ -20,15 +20,13 @@
 package de.haukerehfeld.quakeinjector;
 
 //import java.awt.*;
+import de.haukerehfeld.quakeinjector.gui.UIThemeOption;
+
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 
-import javax.swing.JMenu;
-import javax.swing.JMenuBar;
-import javax.swing.JMenuItem;
-import javax.swing.JCheckBoxMenuItem;
-import javax.swing.KeyStroke;
+import javax.swing.*;
 
 public class Menu extends JMenuBar {
 		private JCheckBoxMenuItem enableOfflineMode;
@@ -55,7 +53,10 @@ public class Menu extends JMenuBar {
 				enableOfflineMode = new JCheckBoxMenuItem("Offline Mode");
 				checkInstalled.addActionListener(offlineAction);
 				fileMenu.add(enableOfflineMode);
-				
+
+				JMenuItem engine = new JMenuItem("Settings...");
+				fileMenu.add(engine);
+				engine.addActionListener(showEngineConfig);
 
 				JMenuItem quit = new JMenuItem("Quit", KeyEvent.VK_T);
 				quit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1, ActionEvent.ALT_MASK));
@@ -63,12 +64,6 @@ public class Menu extends JMenuBar {
 				quit.addActionListener(quitter);
 				fileMenu.add(quit);
 
-				JMenu configM = new JMenu("Configuration");
-				add(configM);
-
-				JMenuItem engine = new JMenuItem("Engine Configuration");
-				configM.add(engine);
-				engine.addActionListener(showEngineConfig);
 		}
 
 		public void setOfflineMode(boolean offline) {
