@@ -23,12 +23,7 @@ package de.haukerehfeld.quakeinjector.utils;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLConnection;
+import java.net.*;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
@@ -39,19 +34,24 @@ public class Download {
 	private URLConnection connection;
 
 	public static Download create(String urlString) throws IOException {
-		URL cleanUrl;
+		return new Download(urlEncode(urlString));
+	}
+
+	public static URL urlEncode(String urlString) {
 		try {
-			// URLs with spaces in the path need escaping to %20, not +. We can't use built in URLEncoder
 			URL url= new URL(urlString);
+
 			URI uri = new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
 
-			cleanUrl = new URL(uri.toASCIIString());
+			// URI does not encode '+' because that character is a "Reserved Character" with special purpose, so it assumes it needs to stay as is.
+			// But in our case we want to pass the actual '+' as a regular character into the API, so we need to encode it ourselves explicitly.
+			// Alternative approaches would be to assume the urlString is already encoded and can be used as is, or change the API to not use '+' as a special character.
+			return new URL(uri.toASCIIString().replace("+", "%2B"));
 		}
 		catch (MalformedURLException | URISyntaxException e) {
 			throw new RuntimeException("Something is wrong with the way we construct URLs: "
 			                           + e.getMessage());
 		}
-		return new Download(cleanUrl);
 	}
 
 	public Download(URL url) throws IOException {

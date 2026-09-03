@@ -104,7 +104,7 @@ public class Configuration {
 
 	public static class RepositoryDatabasePath extends StringValue {
 		private RepositoryDatabasePath() { super("repositoryDatabase",
-				"https://www.quaddicted.com/api/v1/?q=*"); }
+				"https://www.quaddicted.com/api/v1/?q=+tags:\"game_mode=singleplayer\" +tags:\"game=quake\""); }
 	}
 	public final RepositoryDatabasePath RepositoryDatabasePath = new RepositoryDatabasePath();
 	
