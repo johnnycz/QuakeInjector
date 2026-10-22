@@ -19,6 +19,7 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector.feature.install;
 
+import de.haukerehfeld.quakeinjector.utils.AsyncTask;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
@@ -27,24 +28,21 @@ import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
 import java.util.ArrayList;
-
-import javax.swing.SwingWorker;
+import java.util.List;
 
 /**
- * Inspect the archive and gather all entries
+ * Inspect an archive and gather all entries.
  */
-public class InspectZipWorker extends SwingWorker<List<ArchiveEntry>, Void> {
+public class InspectZipTask implements AsyncTask<List<ArchiveEntry>> {
 	private final InputStream input;
 
-	public InspectZipWorker(InputStream input) {
+	public InspectZipTask(InputStream input) {
 		this.input = input;
 	}
 
 	@Override
-	public List<ArchiveEntry> doInBackground() throws IOException,
-            FileNotFoundException, ArchiveException {
+	public List<ArchiveEntry> execute() throws IOException, FileNotFoundException, ArchiveException {
 		try (ArchiveInputStream<? extends ArchiveEntry> archiveStream = new ArchiveStreamFactory()
 				.createArchiveInputStream(input)) {
 			List<ArchiveEntry> entries = new ArrayList<>();
@@ -52,7 +50,6 @@ public class InspectZipWorker extends SwingWorker<List<ArchiveEntry>, Void> {
 			ArchiveEntry entry;
 			while ((entry = archiveStream.getNextEntry()) != null) {
 				entries.add(entry);
-
 			}
 
 			return entries;

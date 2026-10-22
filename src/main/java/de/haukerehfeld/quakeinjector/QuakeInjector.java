@@ -29,6 +29,8 @@ import de.haukerehfeld.quakeinjector.gui.Menu;
 import de.haukerehfeld.quakeinjector.guimodel.*;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.utils.AsyncTask;
+import de.haukerehfeld.quakeinjector.utils.AsyncListener;
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
 import de.haukerehfeld.quakeinjector.utils.RuntimeExecutionException;
 
@@ -269,7 +271,7 @@ public class QuakeInjector {
 	private void init() {
 		doParseInstalled();
 
-		final Future<Void> requirementsListUpdater = parseDatabaseAndSetList();
+		parseDatabaseAndSetList();
 
 		Configuration.EnginePath enginePath = getConfig().EnginePath;
 		boolean workingDirAtExecutable = false;
@@ -308,22 +310,9 @@ public class QuakeInjector {
 	    );
 
 		if (!installer.checkInstallDirectory()) {
-			//wait until database was loaded, then pop up config
-			new SwingWorker<Void,Void>() {
-				@Override
-			    public Void doInBackground() {
-					try {
-						requirementsListUpdater.get();
-					}
-					catch (java.lang.InterruptedException e) {}
-					catch (java.util.concurrent.ExecutionException e) {}
-					return null;
-				}
-				@Override
-			    public void done() {
-					view.enginePathNotSetDialogue();
-				}
-			}.execute();
+			// Engine path not set - show config dialog
+			// Database will load asynchronously in the background
+			view.enginePathNotSetDialogue();
 		}
 	}
 
@@ -403,76 +392,58 @@ public class QuakeInjector {
 		
 	}
 
-	private Future<Void> parseDatabaseAndSetList() {
-		final Future<List<Requirement>> dbParse = packageDatabaseSerice.doParseDatabase();
+	private void parseDatabaseAndSetList() {
+		AsyncTask<List<Requirement>> dbParseTask = packageDatabaseSerice.createParseDatabaseTask();
 
-		SwingWorker<Void,Void> waitForInstalledMapsAndDb = new SwingWorker<Void,Void>() {
-			@Override public Void doInBackground() throws Exception {
-				//just wait
-				installedMaps.get();
-				dbParse.get();
+		// Wrap with SwingWorkerAdapter to handle threading and callbacks
+		SwingWorkerAdapter<List<Requirement>> adapter = new SwingWorkerAdapter<>(
+			dbParseTask,
+			new AsyncListener<List<Requirement>>() {
+				@Override
+				public void onSuccess(List<Requirement> packages) {
+					maps.setRequirements(packages);
+					System.out.println("Setting Requirements");
 
-				return null;
-			}
-
-			public void done() {
-				List<Requirement> packages = null;
-				try {
-					packages = dbParse.get();
-				}
-				catch (InterruptedException e) {
-					throw new RuntimeExecutionException("parsing database", e);
-				}
-				catch (ExecutionException e) {
-					String ERROR_MESSAGE = "Database parsing failed!";
-					Throwable err = e.getCause();
-					String msg = err.getMessage();
 					try {
-						throw err;
+						setInstalledStatus(installedMaps.get());
+					} catch (InterruptedException e) {
+						System.err.println("Interrupted while getting installed maps" + e);
+						e.printStackTrace();
+					} catch (ExecutionException err) {
+						maps.notifyChangeListeners();
+
+						try {
+							throw err.getCause();
+						} catch (InstalledPackages.NoInstalledPackagesFileException e) {
+							System.err.println(e.getMessage());
+						} catch (Throwable e) {
+							String ERROR_MESSAGE = "Reading installed maps failed!";
+							JOptionPane.showMessageDialog(view,
+								ERROR_MESSAGE + " " + e.getMessage(),
+								ERROR_MESSAGE,
+								JOptionPane.ERROR_MESSAGE);
+						}
 					}
-					catch (java.net.UnknownHostException exc) {
-						msg = "Couldn't establish connection to the server (" + err.getMessage() + ").";
+				}
+
+				@Override
+				public void onFailure(Exception exception) {
+					String ERROR_MESSAGE = "Database parsing failed!";
+					String msg = exception.getMessage();
+
+					if (exception.getCause() instanceof java.net.UnknownHostException) {
+						msg = "Couldn't establish connection to the server (" + exception.getCause().getMessage() + ").";
 					}
-					catch (Throwable any) { /*do nothing*/; }
 
 					JOptionPane.showMessageDialog(view,
-					                              ERROR_MESSAGE + " " + msg,
-					                              ERROR_MESSAGE,
-					                              JOptionPane.ERROR_MESSAGE);
-					return;
-				}
-
-				maps.setRequirements(packages);
-				System.out.println("Setting Requirements");
-
-				try {
-					setInstalledStatus(installedMaps.get());
-				}
-				catch (InterruptedException e) {
-					System.err.println("Interrupted while getting installed maps" + e);
-					e.printStackTrace();
-				}
-				catch (ExecutionException err) {
-					maps.notifyChangeListeners();
-					
-					try {
-						throw err.getCause();
-					}
-					catch (InstalledPackages.NoInstalledPackagesFileException e) {
-						System.err.println(e.getMessage());
-					}
-					catch (Throwable e) {
-						String ERROR_MESSAGE = "Reading installed maps failed!";
-						JOptionPane.showMessageDialog(view,
-						                              ERROR_MESSAGE + " " + e.getMessage(),
-						                              ERROR_MESSAGE,
-						                              JOptionPane.ERROR_MESSAGE);
-					}
+						ERROR_MESSAGE + " " + msg,
+						ERROR_MESSAGE,
+						JOptionPane.ERROR_MESSAGE);
 				}
 			}
-		};
-		waitForInstalledMapsAndDb.execute();
-		return waitForInstalledMapsAndDb;
+		);
+
+		adapter.execute();
 	}
 
 	private void showEngineConfig() {

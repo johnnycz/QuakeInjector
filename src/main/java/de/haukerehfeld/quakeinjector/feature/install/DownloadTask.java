@@ -19,75 +19,77 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector.feature.install;
 
-import de.haukerehfeld.quakeinjector.utils.SumProgressListener;
+import de.haukerehfeld.quakeinjector.utils.AsyncTask;
+import de.haukerehfeld.quakeinjector.utils.AsyncProgressListener;
 import de.haukerehfeld.quakeinjector.utils.Download;
 import de.haukerehfeld.quakeinjector.utils.PercentageProgressListener;
 import de.haukerehfeld.quakeinjector.utils.ProgressListener;
+import de.haukerehfeld.quakeinjector.utils.SumProgressListener;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import javax.swing.SwingWorker;
 
 /**
- * Install maps in a worker thread
- * Init once and let swing start it - don't reuse
+ * Download a file from a URL to an output stream.
  */
-public class DownloadWorker extends SwingWorker<Long, Void> implements ProgressListener, Cancelable {
-	private final static int BUFFERSIZE = 1024;
-	
+public class DownloadTask implements AsyncTask<Long> {
+	private static final int BUFFER_SIZE = 1024;
+
 	private final Download download;
 	private final OutputStream out;
+	private final AsyncProgressListener progressListener;
 
-	public DownloadWorker(final Download download,
-	                      final OutputStream out) {
+	private volatile boolean cancelled = false;
+
+	public DownloadTask(Download download, OutputStream out) {
+		this(download, out, null);
+	}
+
+	public DownloadTask(Download download, OutputStream out, AsyncProgressListener progressListener) {
 		this.download = download;
 		this.out = out;
+		this.progressListener = progressListener;
 	}
 
 	@Override
-	public Long doInBackground() throws
-	    IOException,
-	    FileNotFoundException,
-	    Installer.CancelledException {
-		
+	public Long execute() throws IOException, FileNotFoundException, Installer.CancelledException {
 		System.out.println("Downloading " + download);
 
-		
 		download.connect();
 
-		//build progress filter chain
-		final ProgressListener progress =
-		    new SumProgressListener(
-				new PercentageProgressListener(download.getSize(),
-				                               new CheckCanceledProgressListener(this,
-				                                                                 this)));
-		
+		// Build progress filter chain
+		final ProgressListener progress = new SumProgressListener(
+			new PercentageProgressListener(download.getSize(), this::reportProgress));
 
 		final InputStream in = download.getStream();
-		final byte data[] = new byte[BUFFERSIZE];
+		final byte[] data = new byte[BUFFER_SIZE];
 		long downloadSize = 0;
 		int readcount;
-		while ((readcount = in.read(data, 0, BUFFERSIZE)) != -1) {
+
+		while ((readcount = in.read(data, 0, BUFFER_SIZE)) != -1) {
+			if (cancelled) {
+				System.out.println("Download cancelled");
+				throw new Installer.CancelledException();
+			}
+
 			progress.publish(readcount);
 			out.write(data, 0, readcount);
 			downloadSize += readcount;
-		}			
+		}
+
 		out.flush();
 		return downloadSize;
 	}
 
-	public void publish(long progress) {
-		if (progress <= 100) {
-			setProgress((int) progress);
+	private void reportProgress(long percentage) {
+		if (progressListener != null && percentage <= 100) {
+			progressListener.onProgress(percentage, 100);
 		}
 	}
 
-	public void checkCancelled() throws Installer.CancelledException {
-		if (isCancelled()) {
-			System.out.println("canceling...");
-			throw new Installer.CancelledException();
-		}
+	public void cancel() {
+		this.cancelled = true;
 	}
 }

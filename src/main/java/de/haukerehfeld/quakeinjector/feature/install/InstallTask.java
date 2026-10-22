@@ -35,106 +35,112 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-
-import javax.swing.SwingWorker;
+import java.util.zip.ZipException;
 
 /**
- * Install maps in a worker thread
- * Init once and let swing start it - don't reuse
+ * Install a package by extracting files from an archive.
  */
-public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
-		ProgressListener,
-		Cancelable {
-
+public class InstallTask implements AsyncTask<PackageFileList> {
 	private final File baseDirectory;
 	private final ExtractMapping extractMapping;
-	private final de.haukerehfeld.quakeinjector.model.Package map;
+	private final Package map;
 	private final InputStream input;
 	private final List<File> overwrites;
+	private final long downloadSize;
+	private final AsyncProgressListener progressListener;
 
-	private long downloadSize = 0;
-
-	/**
-	 * files that got installed
-	 */
 	private final PackageFileList files;
+	private volatile boolean cancelled = false;
 
 	/**
+	 * @param input the package archive input stream
 	 * @param inputSize size of the input stream in bytes, for progress reporting
-	 * @param overwrites a list of files that we should overwrite, or
-	 * null if everything should be overwritten
+	 * @param map the package being installed
+	 * @param baseDirectory the installation base directory
+	 * @param extractMapping rules for remapping archive paths
+	 * @param overwrites a list of files that are allowed to be overwritten,
+	 *                   or null if everything should be overwritten
 	 */
-	public InstallWorker(InputStream input,
-	                     long inputSize,
-	                     Package map,
-	                     File baseDirectory,
-	                     ExtractMapping extractMapping,
-	                     List<File> overwrites) {
+	public InstallTask(InputStream input, long inputSize, Package map,
+	                    File baseDirectory, ExtractMapping extractMapping,
+	                    List<File> overwrites) {
+		this(input, inputSize, map, baseDirectory, extractMapping, overwrites, null);
+	}
+
+	/**
+	 * @param input the package archive input stream
+	 * @param inputSize size of the input stream in bytes, for progress reporting
+	 * @param map the package being installed
+	 * @param baseDirectory the installation base directory
+	 * @param extractMapping rules for remapping archive paths
+	 * @param overwrites a list of files that are allowed to be overwritten,
+	 *                   or null if everything should be overwritten
+	 * @param progressListener optional listener for progress updates
+	 */
+	public InstallTask(InputStream input, long inputSize, Package map,
+	                    File baseDirectory, ExtractMapping extractMapping,
+	                    List<File> overwrites, AsyncProgressListener progressListener) {
 		this.map = map;
 		this.input = input;
 		this.downloadSize = inputSize;
 		this.baseDirectory = baseDirectory;
 		this.extractMapping = extractMapping;
-		this.files = new PackageFileList(map.getId());
 		this.overwrites = overwrites;
+		this.progressListener = progressListener;
+		this.files = new PackageFileList(map.getId());
 	}
 
 	@Override
-	public PackageFileList doInBackground() throws IOException,
-            FileNotFoundException,
-            Installer.CancelledException, ArchiveException {
+	public PackageFileList execute() throws IOException, FileNotFoundException,
+	                                         Installer.CancelledException, ArchiveException {
 		System.out.println("Installing " + map.getId());
 
-		unzip(input,
-		      baseDirectory,
-		      map.getId(),
-		      overwrites);
-		
+		unzip(input, baseDirectory, map.getId(), overwrites);
+
 		map.setInstalled(true);
 		return files;
 	}
 
-
 	/**
-	 * Unzip from the inputstream to the quake base dir
+	 * Unzip from the input stream to the quake base directory.
 	 */
-	public void unzip(InputStream in,
-	                            File basedir,
-	                            String mapid,
-	                            List<File> overwrites)
-            throws IOException, FileNotFoundException, Installer.CancelledException, ArchiveException {
-		//build progress filter chain
-		ProgressListener progress =
-			    new SumProgressListener(
-					new PercentageProgressListener(downloadSize,
-					                               new CheckCanceledProgressListener(this,
-					                                                                 this)));
+	private void unzip(InputStream in, File basedir, String mapid, List<File> overwrites)
+	        throws IOException, FileNotFoundException, Installer.CancelledException, ArchiveException {
+		// Build progress filter chain
+		ProgressListener progress = new SumProgressListener(
+			new PercentageProgressListener(downloadSize, this::reportProgress));
 
 		ArchiveInputStream<? extends ArchiveEntry> archiveStream = new ArchiveStreamFactory()
-				.createArchiveInputStream(in);
+			.createArchiveInputStream(in);
 		ArchiveEntry sourceEntry;
 
 		boolean extracted = false;
-		while((sourceEntry = archiveStream.getNextEntry()) != null) {
+		while ((sourceEntry = archiveStream.getNextEntry()) != null) {
+			if (cancelled) {
+				System.out.println("Installation cancelled");
+				throw new Installer.CancelledException();
+			}
+
 			File targetWritable = getTargetFile(sourceEntry);
-            if (targetWritable == null) {
-                continue;
-            }
+			if (targetWritable == null) {
+				continue;
+			}
+
 			String filename = RelativePath.getRelativePath(basedir, targetWritable).toString();
 
-			if (overwrites != null && overwrites.indexOf(targetWritable) < 0) {
+			if (overwrites != null && !overwrites.contains(targetWritable)) {
 				System.out.println("Skipping " + filename + ", because it isn't supposed to be overwritten.");
 				continue;
 			}
 
-			//create dirs
+			// Create directories
 			List<File> createdDirs = Utils.mkdirs(targetWritable);
 
-			//do nothing for directories other than creating them
+			// Do nothing for directories other than creating them
 			if (!sourceEntry.isDirectory()) {
 				File overwrittenFile = targetWritable;
 				if (targetWritable.exists()) {
-					//create Temp file and rename later
+					// Create temp file and rename later
 					targetWritable = File.createTempFile("quakeinjector", ".tmp", targetWritable.getParentFile());
 					System.out.println("create Temp file " + targetWritable);
 				}
@@ -143,13 +149,10 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 
 				long crc;
 				try {
-					crc = Utils.writeFile(archiveStream,
-					                      targetWritable,
-					                      new CompressedProgressListener(sourceEntry.getSize()
-					                                                     / (double) sourceEntry.getSize(),
-					                                                     progress));
-				}
-				catch (FileNotFoundException e) {
+					crc = Utils.writeFile(archiveStream, targetWritable,
+						new CompressedProgressListener(sourceEntry.getSize() / (double) sourceEntry.getSize(),
+							progress));
+				} catch (FileNotFoundException e) {
 					throw new FileNotWritableException(e.getMessage());
 				}
 
@@ -162,17 +165,15 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 					}
 				}
 
-				/** @todo 2009-12-19 03:03 hrehfeld    add crc calculation */
 				FileInfo info = new FileInfo(filename, crc, targetWritable.length());
 				files.add(info);
 
-
-				for (File dirname: createdDirs) {
-					//save relative paths to files so we can delete dirs later
+				for (File dirname : createdDirs) {
+					// Save relative paths to files so we can delete dirs later
 					files.add(new FileInfo(RelativePath.getRelativePath(basedir, dirname).toString(), 0));
 				}
 
-				//if we extracted to temp, rename
+				// If we extracted to temp, rename
 				if (!targetWritable.equals(overwrittenFile)) {
 					overwrittenFile.delete();
 					System.out.println("moving Temp file to " + overwrittenFile);
@@ -184,31 +185,28 @@ public class InstallWorker extends SwingWorker<PackageFileList, Void> implements
 		}
 
 		if (!extracted) {
-			throw new java.util.zip.ZipException("No files extracted from zip, is it an empty file?");
+			throw new ZipException("No files extracted from zip, is it an empty file?");
 		}
-		archiveStream.close(); //FIXME close with try-finally
+
+		archiveStream.close();
 	}
 
 	private File getTargetFile(ArchiveEntry sourceEntry) {
 		String extractPath = extractMapping.remap(sourceEntry.getName());
-        if (extractPath != null) {
-            return new File(baseDirectory, extractPath);
-        } else {
-            return null;
-        }
+		if (extractPath != null) {
+			return new File(baseDirectory, extractPath);
+		}
+		return null;
 	}
 
-	public void publish(long progress) {
-		if (progress <= 100) {
-			setProgress((int) progress);
+	private void reportProgress(long percentage) {
+		if (progressListener != null && percentage <= 100) {
+			progressListener.onProgress(percentage, 100);
 		}
 	}
 
-	public void checkCancelled() throws Installer.CancelledException {
-		if (isCancelled()) {
-			System.out.println("canceling...");
-			throw new Installer.CancelledException();
-		}
+	public void cancel() {
+		this.cancelled = true;
 	}
 
 	public PackageFileList getInstalledFiles() {

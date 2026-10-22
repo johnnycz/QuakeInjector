@@ -21,6 +21,7 @@ package de.haukerehfeld.quakeinjector.feature.install;
 
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.utils.AsyncTask;
 import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
@@ -28,8 +29,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import javax.swing.SwingWorker;
 
 public class PackageInstallUninstallService {
 
@@ -232,7 +231,7 @@ public class PackageInstallUninstallService {
 
 	private void uninstall(final de.haukerehfeld.quakeinjector.model.Package map, PackageFileList files) {
 		String description = "Uninstalling " + files.getId();
-		
+
 		var job = jobTrackerProvider.addJob(description, () -> {});
 
 		installer.uninstall(files,
@@ -244,22 +243,15 @@ public class PackageInstallUninstallService {
 									synchronized (map) {
 										map.setInstalled(false);
 									}
-									
-									SwingWorker<Void,Void> saveInstalled
-									    = new SwingWorker<>() {
-										@Override
-										public Void doInBackground() {
-											
-											try {
-												installedMaps.write(requirements);
-											}
-											catch (java.io.IOException e) {
-												System.out.println("Couldn't write installed Maps file!" + e.getMessage());
-											}
-											return null;
-										}
-									};
-									saveInstalled.execute();
+
+									// Create a task to save installed maps
+									AsyncTask<Void> saveTask = createSaveInstalledTask();
+									// Execute it (GUI will wrap this with SwingWorkerAdapter)
+									try {
+										saveTask.execute();
+									} catch (Exception e) {
+										System.out.println("Couldn't write installed Maps file! " + e.getMessage());
+									}
 								}
 
 								@Override
@@ -271,6 +263,19 @@ public class PackageInstallUninstallService {
 							},
 		                    job
 		    );
+	}
+
+	/**
+	 * Create a task that saves the installed packages to disk.
+	 */
+	private AsyncTask<Void> createSaveInstalledTask() {
+		return new AsyncTask<Void>() {
+			@Override
+			public Void execute() throws Exception {
+				installedMaps.write(requirements);
+				return null;
+			}
+		};
 	}
 
 }
