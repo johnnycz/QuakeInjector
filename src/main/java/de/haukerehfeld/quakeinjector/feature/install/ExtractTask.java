@@ -48,10 +48,10 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 	private final InputStream input;
 	private final List<File> overwrites;
 	private final long downloadSize;
+	private final CancellationToken token;
 	private final AsyncProgressListener progressListener;
 
 	private final PackageFileList files;
-	private volatile boolean cancelled = false;
 
 	/**
 	 * @param input the package archive input stream
@@ -61,11 +61,12 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 	 * @param extractMapping rules for remapping archive paths
 	 * @param overwrites a list of files that are allowed to be overwritten,
 	 *                   or null if everything should be overwritten
+	 * @param token cancel signal, checked between entries and between written chunks
 	 */
 	public ExtractTask(InputStream input, long inputSize, Package map,
 	                   File baseDirectory, ExtractMapping extractMapping,
-	                   List<File> overwrites) {
-		this(input, inputSize, map, baseDirectory, extractMapping, overwrites, null);
+	                   List<File> overwrites, CancellationToken token) {
+		this(input, inputSize, map, baseDirectory, extractMapping, overwrites, token, null);
 	}
 
 	/**
@@ -76,12 +77,15 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 	 * @param extractMapping rules for remapping archive paths
 	 * @param overwrites a list of files that are allowed to be overwritten,
 	 *                   or null if everything should be overwritten
+	 * @param token cancel signal, checked between entries and between written chunks
 	 * @param progressListener optional listener for progress updates
 	 */
 	public ExtractTask(InputStream input, long inputSize, Package map,
 	                   File baseDirectory, ExtractMapping extractMapping,
-	                   List<File> overwrites, AsyncProgressListener progressListener) {
+	                   List<File> overwrites, CancellationToken token,
+	                   AsyncProgressListener progressListener) {
 		this.map = map;
+		this.token = token;
 		this.input = input;
 		this.downloadSize = inputSize;
 		this.baseDirectory = baseDirectory;
@@ -93,7 +97,7 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 
 	@Override
 	public PackageFileList execute() throws IOException, FileNotFoundException,
-	                                         Installer.CancelledException, ArchiveException {
+	                                         CancelledException, ArchiveException {
 		System.out.println("Extracting " + map.getId());
 
 		unzip(input, baseDirectory, map.getId(), overwrites);
@@ -106,10 +110,14 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 	 * Unzip from the input stream to the quake base directory.
 	 */
 	private void unzip(InputStream in, File basedir, String mapid, List<File> overwrites)
-	        throws IOException, FileNotFoundException, Installer.CancelledException, ArchiveException {
-		// Build progress filter chain
-		ProgressListener progress = new SumProgressListener(
+	        throws IOException, FileNotFoundException, CancelledException, ArchiveException {
+		// Build progress filter chain; check for cancel before each chunk gets written
+		ProgressListener percentage = new SumProgressListener(
 			new PercentageProgressListener(downloadSize, this::reportProgress));
+		ProgressListener progress = writtenBytes -> {
+			token.throwIfCancelled();
+			percentage.publish(writtenBytes);
+		};
 
 		ArchiveInputStream<? extends ArchiveEntry> archiveStream = new ArchiveStreamFactory()
 			.createArchiveInputStream(in);
@@ -117,9 +125,9 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 
 		boolean extracted = false;
 		while ((sourceEntry = archiveStream.getNextEntry()) != null) {
-			if (cancelled) {
-				System.out.println("Installation cancelled");
-				throw new Installer.CancelledException();
+			if (token.isCancelled()) {
+				System.out.println("Extraction cancelled");
+				throw new CancelledException();
 			}
 
 			File targetWritable = getTargetFile(sourceEntry);
@@ -155,6 +163,14 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 							progress));
 				} catch (FileNotFoundException e) {
 					throw new FileNotWritableException(e.getMessage());
+				} catch (CancelledException e) {
+					// Don't leave a half-written file behind; record created dirs so cleanup removes them
+					System.out.println("Extraction cancelled, removing partially written " + targetWritable);
+					targetWritable.delete();
+					for (File dirname : createdDirs) {
+						files.add(new FileInfo(RelativePath.getRelativePath(basedir, dirname).toString(), 0));
+					}
+					throw e;
 				}
 
 				if (sourceEntry instanceof ZipArchiveEntry zipEntry) {
@@ -206,11 +222,11 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 		}
 	}
 
-	public void cancel() {
-		this.cancelled = true;
-	}
-
-	public PackageFileList getInstalledFiles() {
+	/**
+	 * Files and directories written so far. After a failed or cancelled {@link #execute()}, this is
+	 * what needs cleaning up. Only read it after {@code execute()} has returned or thrown.
+	 */
+	public PackageFileList getExtractedFiles() {
 		return files;
 	}
 }

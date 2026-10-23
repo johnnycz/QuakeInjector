@@ -20,12 +20,13 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 package de.haukerehfeld.quakeinjector.feature.install;
 
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
+import de.haukerehfeld.quakeinjector.utils.CancellationToken;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -36,19 +37,23 @@ import java.util.List;
  */
 public class InspectZipTask implements AsyncTask<List<ArchiveEntry>> {
 	private final InputStream input;
+	private final CancellationToken token;
 
-	public InspectZipTask(InputStream input) {
+	public InspectZipTask(InputStream input, CancellationToken token) {
 		this.input = input;
+		this.token = token;
 	}
 
 	@Override
-	public List<ArchiveEntry> execute() throws IOException, FileNotFoundException, ArchiveException {
+	public List<ArchiveEntry> execute() throws IOException, ArchiveException, CancelledException {
+		token.throwIfCancelled();
 		try (ArchiveInputStream<? extends ArchiveEntry> archiveStream = new ArchiveStreamFactory()
 				.createArchiveInputStream(input)) {
 			List<ArchiveEntry> entries = new ArrayList<>();
 
 			ArchiveEntry entry;
 			while ((entry = archiveStream.getNextEntry()) != null) {
+				token.throwIfCancelled();
 				entries.add(entry);
 			}
 

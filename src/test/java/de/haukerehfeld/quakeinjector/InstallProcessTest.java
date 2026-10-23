@@ -7,6 +7,7 @@ import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import static de.haukerehfeld.quakeinjector.TestZip.names;
@@ -105,7 +107,26 @@ public class InstallProcessTest {
 		String url = remoteZip(new TestZip().file("maps/a.bsp", "NEW").file("maps/b.bsp", "B"));
 		handler.overwriteAnswer = existing -> List.of();
 
-		assertThrows(Installer.CancelledException.class, () -> task(url).execute());
+		assertThrows(CancelledException.class, () -> task(url).execute());
+
+		assertEquals(List.of("overwrite", "cancelled"), handler.calls);
+		assertEquals("OLD", read(engineDir.resolve("maps/a.bsp")));
+		assertFalse(Files.exists(engineDir.resolve("maps/b.bsp")));
+	}
+
+	@Test
+	public void cancelWhileOverwriteQuestionIsOpenStopsInstall() throws Exception {
+		Files.createDirectories(engineDir.resolve("maps"));
+		Files.writeString(engineDir.resolve("maps/a.bsp"), "OLD");
+		String url = remoteZip(new TestZip().file("maps/a.bsp", "NEW").file("maps/b.bsp", "B"));
+		AtomicReference<PackageInstallOrchestrationTask> task = new AtomicReference<>(task(url));
+		// user presses Cancel in the install queue, then answers the dialog with "overwrite all"
+		handler.overwriteAnswer = existing -> {
+			task.get().cancel();
+			return new ArrayList<>(existing.values());
+		};
+
+		assertThrows(CancelledException.class, () -> task.get().execute());
 
 		assertEquals(List.of("overwrite", "cancelled"), handler.calls);
 		assertEquals("OLD", read(engineDir.resolve("maps/a.bsp")));
@@ -165,7 +186,7 @@ public class InstallProcessTest {
 		}
 
 		@Override
-		public void handle(Installer.CancelledException error, PackageFileList alreadyInstalledFiles) {
+		public void handle(CancelledException error, PackageFileList alreadyInstalledFiles) {
 			calls.add("cancelled");
 			filesOnFailure = alreadyInstalledFiles;
 		}

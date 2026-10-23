@@ -22,6 +22,7 @@ package de.haukerehfeld.quakeinjector.feature.install;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
@@ -203,7 +204,7 @@ public class PackageInstallUninstallService {
 								  dialogProvider.showError(msg, "Download failed!");
 							  }
 							  
-							  public void handle(Installer.CancelledException error,
+							  public void handle(CancelledException error,
 							                     PackageFileList alreadyInstalledFiles) {
 								  cleanup(alreadyInstalledFiles, "Canceled");
 							  }

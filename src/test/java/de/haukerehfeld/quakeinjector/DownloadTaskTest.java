@@ -1,6 +1,8 @@
 package de.haukerehfeld.quakeinjector;
 
 import de.haukerehfeld.quakeinjector.feature.install.DownloadTask;
+import de.haukerehfeld.quakeinjector.utils.CancellationToken;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.Download;
 import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 import org.junit.jupiter.api.Test;
@@ -35,7 +37,7 @@ public class DownloadTaskTest {
 		Path source = Files.write(tmp.resolve("source.zip"), data);
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-		long size = new DownloadTask(Download.create(url(source)), out).execute();
+		long size = new DownloadTask(Download.create(url(source)), out, new CancellationToken()).execute();
 
 		assertEquals(data.length, size);
 		assertArrayEquals(data, out.toByteArray());
@@ -46,7 +48,7 @@ public class DownloadTaskTest {
 		Path source = Files.write(tmp.resolve("source.zip"), randomBytes(10_000));
 		List<Long> progress = new ArrayList<>();
 
-		new DownloadTask(Download.create(url(source)), new ByteArrayOutputStream(),
+		new DownloadTask(Download.create(url(source)), new ByteArrayOutputStream(), new CancellationToken(),
 			(current, total) -> progress.add(current)).execute();
 
 		assertFalse(progress.isEmpty());
@@ -58,6 +60,37 @@ public class DownloadTaskTest {
 		Path missing = tmp.resolve("missing.zip");
 
 		assertThrows(OnlineFileNotFoundException.class,
-			() -> new DownloadTask(Download.create(url(missing)), new ByteArrayOutputStream()).execute());
+			() -> new DownloadTask(Download.create(url(missing)), new ByteArrayOutputStream(),
+				new CancellationToken()).execute());
+	}
+
+	@Test
+	public void alreadyCancelledTokenDownloadsNothing() throws Exception {
+		Path source = Files.write(tmp.resolve("source.zip"), randomBytes(10_000));
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		CancellationToken token = new CancellationToken();
+		token.cancel();
+
+		assertThrows(CancelledException.class,
+			() -> new DownloadTask(Download.create(url(source)), out, token).execute());
+
+		assertEquals(0, out.size());
+	}
+
+	@Test
+	public void cancelStopsARunningDownload() throws Exception {
+		byte[] data = randomBytes(200_000); // many 1 KB reads
+		Path source = Files.write(tmp.resolve("source.zip"), data);
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		CancellationToken token = new CancellationToken();
+
+		// cancel from inside the download, as the UI thread would while a download is running
+		assertThrows(CancelledException.class,
+			() -> new DownloadTask(Download.create(url(source)), out, token,
+				(current, total) -> token.cancel()).execute());
+
+		assertTrue(out.size() < data.length, "download should stop early, wrote " + out.size());
+		// the source stream must be closed again: on Windows an open stream would keep the file locked
+		Files.delete(source);
 	}
 }

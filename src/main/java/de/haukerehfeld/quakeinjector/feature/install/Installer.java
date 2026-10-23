@@ -23,10 +23,8 @@ import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
-import de.haukerehfeld.quakeinjector.utils.Download;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
-import de.haukerehfeld.quakeinjector.utils.RelativePath;
-import org.apache.commons.compress.archivers.ArchiveEntry;
 
 import java.beans.PropertyChangeListener;
 import java.io.*;
@@ -92,45 +90,6 @@ public class Installer {
 
 	public boolean alreadyQueued(final de.haukerehfeld.quakeinjector.model.Package map) {
 		return queue.get(map) != null;
-	}
-
-	/**
-	 * Create a task to download a file from a URL.
-	 * The task will download to the specified output stream.
-	 *
-	 * @param url the URL to download from
-	 * @param out the output stream to write to
-	 * @return an AsyncTask that performs the download
-	 * @throws IOException if creating the download connection fails
-	 */
-	public AsyncTask<Long> createDownloadTask(String url, OutputStream out) throws IOException {
-		Download download = Download.create(url);
-		return new DownloadTask(download, out);
-	}
-
-	/**
-	 * Create a task to inspect a ZIP archive and list all entries.
-	 *
-	 * @param input the input stream of the archive
-	 * @return an AsyncTask that inspects the archive
-	 */
-	public AsyncTask<List<ArchiveEntry>> createInspectTask(InputStream input) {
-		return new InspectZipTask(input);
-	}
-
-	/**
-	 * Create a task to extract a package's files from an archive.
-	 *
-	 * @param input the archive input stream
-	 * @param inputSize size of the archive for progress reporting
-	 * @param map the package being installed
-	 * @param overwrites list of files allowed to overwrite (null = all)
-	 * @return an AsyncTask that performs the extraction
-	 */
-	public AsyncTask<PackageFileList> createExtractTask(InputStream input, long inputSize,
-	                                                     Package map, List<File> overwrites) {
-		return new ExtractTask(input, inputSize, map, installDirectory.get(),
-			map.getExtractMapping(), overwrites);
 	}
 
 	/**
@@ -207,7 +166,6 @@ public class Installer {
 		public void error(Exception e);
 	}
 
-	public static class CancelledException extends RuntimeException {}
 
 	/**
 	 * Executes package installation orchestration asynchronously.

@@ -4,6 +4,10 @@ import de.haukerehfeld.quakeinjector.feature.install.ExtractTask;
 import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.utils.AsyncProgressListener;
+import de.haukerehfeld.quakeinjector.utils.CancellationToken;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -12,7 +16,9 @@ import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.stream.Stream;
 import java.util.zip.ZipException;
 
@@ -30,9 +36,24 @@ public class ExtractTaskTest {
 	}
 
 	private PackageFileList extract(Path zip, ExtractMapping mapping, List<File> overwrites) throws Exception {
+		return extractTask(zip, mapping, overwrites, new CancellationToken(), null).execute();
+	}
+
+	/** The task reads from a stream that stays open until the test ends (closed by {@link #closeStreams}). */
+	private ExtractTask extractTask(Path zip, ExtractMapping mapping, List<File> overwrites,
+	                                CancellationToken token, AsyncProgressListener progress) throws Exception {
 		Package pkg = TestZip.testPackage("testmap", mapping, "unused");
-		try (InputStream in = new BufferedInputStream(Files.newInputStream(zip))) {
-			return new ExtractTask(in, Files.size(zip), pkg, engineDir().toFile(), mapping, overwrites).execute();
+		InputStream in = new BufferedInputStream(Files.newInputStream(zip));
+		openStreams.add(in);
+		return new ExtractTask(in, Files.size(zip), pkg, engineDir().toFile(), mapping, overwrites, token, progress);
+	}
+
+	private final List<InputStream> openStreams = new ArrayList<>();
+
+	@AfterEach
+	public void closeStreams() throws Exception {
+		for (InputStream in : openStreams) {
+			in.close();
 		}
 	}
 
@@ -108,6 +129,65 @@ public class ExtractTaskTest {
 		Path zip = new TestZip().directory("maps").writeTo(tmp.resolve("in.zip"));
 
 		assertThrows(ZipException.class, () -> extract(zip, new ExtractMapping(), null));
+	}
+
+	@Test
+	public void alreadyCancelledTokenWritesNothing() throws Exception {
+		Path zip = new TestZip().file("maps/a.bsp", "A").writeTo(tmp.resolve("in.zip"));
+		CancellationToken token = new CancellationToken();
+		token.cancel();
+
+		assertThrows(CancelledException.class,
+			() -> extractTask(zip, new ExtractMapping(), null, token, null).execute());
+
+		assertFalse(Files.exists(engineDir().resolve("maps")));
+	}
+
+	@Test
+	public void cancelStopsBeforeTheNextEntry() throws Exception {
+		Path zip = new TestZip().file("maps/a.bsp", "A").file("maps/b.bsp", "B").writeTo(tmp.resolve("in.zip"));
+		CancellationToken token = new CancellationToken();
+		// a.bsp is a single chunk, so it completes; the cancel takes effect before b.bsp
+		ExtractTask task = extractTask(zip, new ExtractMapping(), null, token, (current, total) -> token.cancel());
+
+		assertThrows(CancelledException.class, task::execute);
+
+		assertEquals("A", read(engineDir().resolve("maps/a.bsp")));
+		assertFalse(Files.exists(engineDir().resolve("maps/b.bsp")));
+		assertTrue(names(task.getExtractedFiles()).containsAll(List.of(rel("maps", "a.bsp"), rel("maps"))),
+			"files written before the cancel must be reported for cleanup: " + names(task.getExtractedFiles()));
+	}
+
+	@Test
+	public void cancelDuringALargeFileRemovesThePartialFile() throws Exception {
+		byte[] big = new byte[3 * 1024 * 1024]; // several 1 MB write chunks
+		new Random(1).nextBytes(big);
+		Path zip = new TestZip().file("maps/big.pak", big).writeTo(tmp.resolve("in.zip"));
+		CancellationToken token = new CancellationToken();
+		ExtractTask task = extractTask(zip, new ExtractMapping(), null, token, (current, total) -> token.cancel());
+
+		assertThrows(CancelledException.class, task::execute);
+
+		assertFalse(Files.exists(engineDir().resolve("maps/big.pak")), "partial file must be deleted");
+		assertEquals(List.of(), tempFiles());
+		assertEquals(List.of(rel("maps")), names(task.getExtractedFiles()),
+			"the created directory must be reported for cleanup");
+	}
+
+	@Test
+	public void cancelWhileReplacingAFileKeepsTheOriginal() throws Exception {
+		Files.createDirectories(engineDir().resolve("maps"));
+		Files.writeString(engineDir().resolve("maps/big.pak"), "OLD");
+		byte[] big = new byte[3 * 1024 * 1024];
+		new Random(2).nextBytes(big); // incompressible, so progress (measured on the zip size) stays <= 100%
+		Path zip = new TestZip().file("maps/big.pak", big).writeTo(tmp.resolve("in.zip"));
+		CancellationToken token = new CancellationToken();
+		ExtractTask task = extractTask(zip, new ExtractMapping(), null, token, (current, total) -> token.cancel());
+
+		assertThrows(CancelledException.class, task::execute);
+
+		assertEquals("OLD", read(engineDir().resolve("maps/big.pak")));
+		assertEquals(List.of(), tempFiles());
 	}
 
 	private List<Path> tempFiles() throws Exception {

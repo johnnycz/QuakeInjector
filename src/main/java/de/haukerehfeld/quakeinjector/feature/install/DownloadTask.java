@@ -21,12 +21,13 @@ package de.haukerehfeld.quakeinjector.feature.install;
 
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
 import de.haukerehfeld.quakeinjector.utils.AsyncProgressListener;
+import de.haukerehfeld.quakeinjector.utils.CancellationToken;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.Download;
 import de.haukerehfeld.quakeinjector.utils.PercentageProgressListener;
 import de.haukerehfeld.quakeinjector.utils.ProgressListener;
 import de.haukerehfeld.quakeinjector.utils.SumProgressListener;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -39,23 +40,25 @@ public class DownloadTask implements AsyncTask<Long> {
 
 	private final Download download;
 	private final OutputStream out;
+	private final CancellationToken token;
 	private final AsyncProgressListener progressListener;
 
-	private volatile boolean cancelled = false;
-
-	public DownloadTask(Download download, OutputStream out) {
-		this(download, out, null);
+	public DownloadTask(Download download, OutputStream out, CancellationToken token) {
+		this(download, out, token, null);
 	}
 
-	public DownloadTask(Download download, OutputStream out, AsyncProgressListener progressListener) {
+	public DownloadTask(Download download, OutputStream out, CancellationToken token,
+	                    AsyncProgressListener progressListener) {
 		this.download = download;
 		this.out = out;
+		this.token = token;
 		this.progressListener = progressListener;
 	}
 
 	@Override
-	public Long execute() throws IOException, FileNotFoundException, Installer.CancelledException {
+	public Long execute() throws IOException, CancelledException {
 		System.out.println("Downloading " + download);
+		token.throwIfCancelled();
 
 		download.connect();
 
@@ -63,17 +66,15 @@ public class DownloadTask implements AsyncTask<Long> {
 		final ProgressListener progress = new SumProgressListener(
 			new PercentageProgressListener(download.getSize(), this::reportProgress));
 
-		// close the stream when done, otherwise the connection (or local file) stays open
-		try (InputStream in = download.getStream()) {
+		final InputStream in = download.getStream();
+		// Closing the stream on cancel wakes up a read() that is blocked on the network
+		try (in; CancellationToken.Registration ignored = token.onCancel(() -> closeQuietly(in))) {
 			final byte[] data = new byte[BUFFER_SIZE];
 			long downloadSize = 0;
 			int readcount;
 
 			while ((readcount = in.read(data, 0, BUFFER_SIZE)) != -1) {
-				if (cancelled) {
-					System.out.println("Download cancelled");
-					throw new Installer.CancelledException();
-				}
+				token.throwIfCancelled();
 
 				progress.publish(readcount);
 				out.write(data, 0, readcount);
@@ -83,6 +84,14 @@ public class DownloadTask implements AsyncTask<Long> {
 			out.flush();
 			return downloadSize;
 		}
+		catch (IOException e) {
+			if (token.isCancelled()) {
+				// The stream was closed by cancel(), so this is a cancellation, not an I/O error
+				System.out.println("Download cancelled");
+				throw new CancelledException();
+			}
+			throw e;
+		}
 	}
 
 	private void reportProgress(long percentage) {
@@ -91,7 +100,12 @@ public class DownloadTask implements AsyncTask<Long> {
 		}
 	}
 
-	public void cancel() {
-		this.cancelled = true;
+	private static void closeQuietly(InputStream in) {
+		try {
+			in.close();
+		}
+		catch (IOException e) {
+			System.err.println("Couldn't close download stream: " + e.getMessage());
+		}
 	}
 }

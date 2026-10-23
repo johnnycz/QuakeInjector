@@ -23,6 +23,8 @@ import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
+import de.haukerehfeld.quakeinjector.utils.CancellationToken;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.Download;
 import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 import de.haukerehfeld.quakeinjector.utils.RelativePath;
@@ -34,7 +36,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Orchestrates the complete installation workflow: download, inspect, ask for overwrites, install.
+ * Orchestrates the complete install process: download, inspect, ask for overwrites, extract.
+ * One {@link CancellationToken} is shared by all stages, so {@link #cancel()} stops whichever stage is running.
  */
 public class PackageInstallOrchestrationTask implements AsyncTask<PackageFileList> {
 	private final String url;
@@ -43,7 +46,7 @@ public class PackageInstallOrchestrationTask implements AsyncTask<PackageFileLis
 	private final Configuration.DownloadPath downloadDirectory;
 	private final Configuration.EnginePath installDirectory;
 
-	private volatile boolean cancelled = false;
+	private final CancellationToken token = new CancellationToken();
 
 	public PackageInstallOrchestrationTask(String url, Package installedPackage,
 	                                        Installer.InstallErrorHandler handler,
@@ -59,6 +62,7 @@ public class PackageInstallOrchestrationTask implements AsyncTask<PackageFileLis
 	@Override
 	public PackageFileList execute() throws Exception {
 		PackageFileList installedFiles = new PackageFileList(installedPackage.getId());
+		ExtractTask extractTask = null;
 
 		try {
 			final File downloadFile = new File(downloadDirectory.get().getAbsolutePath() + File.separator +
@@ -84,18 +88,22 @@ public class PackageInstallOrchestrationTask implements AsyncTask<PackageFileLis
 				overwrites = handler.overwrite(existingFiles);
 			}
 
+			// The user may have pressed cancel while the overwrite question was open
+			checkCancelled();
+
 			// Extract phase
 			if (overwrites == null || !overwrites.isEmpty()) {
 				System.out.println("Starting extraction");
 				BufferedInputStream in = new BufferedInputStream(new FileInputStream(downloadFile));
 
 				try {
-					AsyncTask<PackageFileList> extractTask = new ExtractTask(in,
+					extractTask = new ExtractTask(in,
 						downloadSize,
 						installedPackage,
 						installDirectory.get(),
 						installedPackage.getExtractMapping(),
-						overwrites);
+						overwrites,
+						token);
 
 					installedFiles = extractTask.execute();
 				} finally {
@@ -103,27 +111,35 @@ public class PackageInstallOrchestrationTask implements AsyncTask<PackageFileLis
 				}
 			} else {
 				System.out.println("Canceling install");
-				throw new Installer.CancelledException();
+				throw new CancelledException();
 			}
 
 		} catch (OnlineFileNotFoundException e) {
 			handler.handle(e);
 			throw e;
 		} catch (FileNotWritableException e) {
-			handler.handle(e, installedFiles);
+			handler.handle(e, extractedSoFar(extractTask, installedFiles));
 			throw e;
 		} catch (java.net.SocketException e) {
-			handler.handle(e, installedFiles);
+			handler.handle(e, extractedSoFar(extractTask, installedFiles));
 			throw e;
 		} catch (IOException e) {
-			handler.handle(e, installedFiles);
+			handler.handle(e, extractedSoFar(extractTask, installedFiles));
 			throw e;
-		} catch (Installer.CancelledException e) {
-			handler.handle(e, installedFiles);
+		} catch (CancelledException e) {
+			handler.handle(e, extractedSoFar(extractTask, installedFiles));
 			throw e;
 		}
 
 		return installedFiles;
+	}
+
+	/**
+	 * Files the extract stage wrote before it failed, so the error handler can clean them up.
+	 * Safe to read here: the extract stage ran on this thread and has already stopped.
+	 */
+	private static PackageFileList extractedSoFar(ExtractTask extractTask, PackageFileList fallback) {
+		return extractTask != null ? extractTask.getExtractedFiles() : fallback;
 	}
 
 	private long performDownload(File downloadFile) throws Exception {
@@ -132,7 +148,7 @@ public class PackageInstallOrchestrationTask implements AsyncTask<PackageFileLis
 			downloadFile.getParentFile().mkdirs();
 			FileOutputStream out = new FileOutputStream(downloadFile);
 			try {
-				AsyncTask<Long> downloadTask = new DownloadTask(Download.create(url), out);
+				AsyncTask<Long> downloadTask = new DownloadTask(Download.create(url), out, token);
 				downloadSize = downloadTask.execute();
 				out.flush();
 				out.close();
@@ -154,7 +170,7 @@ public class PackageInstallOrchestrationTask implements AsyncTask<PackageFileLis
 
 	private Map<String, File> findExistingFiles(final InputStream in) throws Exception {
 		// Create inspect task
-		AsyncTask<List<ArchiveEntry>> inspectTask = new InspectZipTask(in);
+		AsyncTask<List<ArchiveEntry>> inspectTask = new InspectZipTask(in, token);
 		System.out.println("Waiting for inspection...");
 		List<ArchiveEntry> entries = inspectTask.execute();
 
@@ -181,14 +197,15 @@ public class PackageInstallOrchestrationTask implements AsyncTask<PackageFileLis
 		return files;
 	}
 
+	/** Stop the install. Safe to call from any thread; the running stage stops at its next check. */
 	public void cancel() {
-		this.cancelled = true;
+		token.cancel();
 	}
 
-	private void checkCancelled() throws Installer.CancelledException {
-		if (cancelled) {
-			System.out.println("Installation cancelled");
-			throw new Installer.CancelledException();
+	private void checkCancelled() throws CancelledException {
+		if (token.isCancelled()) {
+			System.out.println("Install cancelled");
+			throw new CancelledException();
 		}
 	}
 }
