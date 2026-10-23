@@ -167,7 +167,6 @@ public class InstallerTest {
 
 		assertEquals(List.of("success on " + TestThreads.UI), calls);
 		assertFalse(Files.exists(engineDir.resolve("maps/a.bsp")));
-		// Not checked: the now empty "maps" dir is left behind, because UninstallTask deletes dirs
-		// before their files (FileInfo sorts in reverse, so descendingIterator() is ascending).
+		assertFalse(Files.exists(engineDir.resolve("maps")), "the emptied dir must be removed too");
 	}
 }

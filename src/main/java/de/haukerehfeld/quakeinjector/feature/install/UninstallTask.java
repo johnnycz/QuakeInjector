@@ -29,7 +29,10 @@ import java.io.File;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 
 /**
  * Uninstall a package by removing all its files.
@@ -56,11 +59,16 @@ public class UninstallTask implements AsyncTask<Void> {
 	}
 
 	private void uninstall(PackageFileList files) {
-		// Rely on the descending order of paths in the file list
-		// (directories must be deleted last)
+		// Delete files before the directories that contain them, otherwise deleting a directory fails
+		// because it isn't empty yet. A path always sorts after its parent ("maps" < "maps/a.bsp"),
+		// so going through the names in reverse order deletes children first.
+		List<FileInfo> ordered = new ArrayList<>();
+		files.forEach(ordered::add);
+		ordered.sort(Comparator.comparing(FileInfo::getName).reversed());
+
 		final int fileCount = files.size();
 		int i = 1;
-		Iterator<FileInfo> it = files.descendingIterator();
+		Iterator<FileInfo> it = ordered.iterator();
 
 		while (it.hasNext()) {
 			FileInfo file = it.next();

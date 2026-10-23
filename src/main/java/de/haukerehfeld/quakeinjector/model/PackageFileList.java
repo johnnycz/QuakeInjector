@@ -53,12 +53,17 @@ public class PackageFileList implements Iterable<FileInfo>, Comparable<PackageFi
 	}
 
 	/**
-	 * iterate the files in ascending order by their filename
+	 * Iterate the files in <em>descending</em> order by their filename
+	 * ({@link FileInfo#compareTo} sorts in reverse).
 	 */
 	public Iterator<FileInfo> iterator() {
 		return files.iterator();
 	}
 
+	/**
+	 * Iterate the files in <em>ascending</em> order by their filename
+	 * ({@link FileInfo#compareTo} sorts in reverse).
+	 */
 	public Iterator<FileInfo> descendingIterator() {
 		return files.descendingIterator();
 	}

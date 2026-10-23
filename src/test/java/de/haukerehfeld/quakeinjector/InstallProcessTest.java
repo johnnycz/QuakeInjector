@@ -99,6 +99,7 @@ public class InstallProcessTest {
 		assertTrue(names(listener.failure.getPartialFiles()).containsAll(List.of(rel("maps", "a.bsp"), rel("maps"))),
 			"the failure lists what was written (and removed): " + names(listener.failure.getPartialFiles()));
 		assertEquals("not a directory", read(engineDir.resolve("blocker")), "files not written by the install stay");
+		assertFalse(Files.exists(engineDir.resolve("maps")), "the dir the install created must be removed too");
 		assertFalse(pkg.isInstalled());
 	}
 
