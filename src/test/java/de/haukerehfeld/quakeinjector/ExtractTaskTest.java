@@ -1,0 +1,118 @@
+package de.haukerehfeld.quakeinjector;
+
+import de.haukerehfeld.quakeinjector.feature.install.ExtractTask;
+import de.haukerehfeld.quakeinjector.model.ExtractMapping;
+import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
+import java.util.zip.ZipException;
+
+import static de.haukerehfeld.quakeinjector.TestZip.names;
+import static de.haukerehfeld.quakeinjector.TestZip.read;
+import static de.haukerehfeld.quakeinjector.TestZip.rel;
+import static org.junit.jupiter.api.Assertions.*;
+
+public class ExtractTaskTest {
+	@TempDir
+	Path tmp;
+
+	private Path engineDir() throws Exception {
+		return Files.createDirectories(tmp.resolve("quake"));
+	}
+
+	private PackageFileList extract(Path zip, ExtractMapping mapping, List<File> overwrites) throws Exception {
+		Package pkg = TestZip.testPackage("testmap", mapping, "unused");
+		try (InputStream in = new BufferedInputStream(Files.newInputStream(zip))) {
+			return new ExtractTask(in, Files.size(zip), pkg, engineDir().toFile(), mapping, overwrites).execute();
+		}
+	}
+
+	@Test
+	public void extractsAllEntriesWhenOverwritesIsNull() throws Exception {
+		Path zip = new TestZip().file("maps/a.bsp", "A").file("maps/b.bsp", "B").writeTo(tmp.resolve("in.zip"));
+
+		PackageFileList files = extract(zip, new ExtractMapping(), null);
+
+		assertEquals("A", read(engineDir().resolve("maps/a.bsp")));
+		assertEquals("B", read(engineDir().resolve("maps/b.bsp")));
+		assertTrue(names(files).containsAll(List.of(rel("maps", "a.bsp"), rel("maps", "b.bsp"), rel("maps"))),
+			"file list should contain both files and the created directory: " + names(files));
+	}
+
+	@Test
+	public void appliesExtractMapping() throws Exception {
+		ExtractMapping mapping = new ExtractMapping();
+		mapping.addMapping("", "{base}/id1/");
+		mapping.addMapping("readme.txt", null);
+		Path zip = new TestZip().file("maps/a.bsp", "A").file("readme.txt", "R").writeTo(tmp.resolve("in.zip"));
+
+		PackageFileList files = extract(zip, mapping, null);
+
+		assertEquals("A", read(engineDir().resolve("id1/maps/a.bsp")));
+		assertFalse(Files.exists(engineDir().resolve("readme.txt")));
+		assertFalse(Files.exists(engineDir().resolve("id1/readme.txt")));
+		assertFalse(names(files).contains(rel("readme.txt")));
+	}
+
+	@Test
+	public void writesOnlyListedFilesWhenOverwritesIsGiven() throws Exception {
+		Files.createDirectories(engineDir().resolve("maps"));
+		Files.writeString(engineDir().resolve("maps/a.bsp"), "OLD");
+		Path zip = new TestZip().file("maps/a.bsp", "A").file("maps/b.bsp", "B").writeTo(tmp.resolve("in.zip"));
+
+		PackageFileList files = extract(zip, new ExtractMapping(),
+			List.of(engineDir().resolve("maps/b.bsp").toFile()));
+
+		assertEquals("OLD", read(engineDir().resolve("maps/a.bsp")));
+		assertEquals("B", read(engineDir().resolve("maps/b.bsp")));
+		assertFalse(names(files).contains(rel("maps", "a.bsp")));
+	}
+
+	@Test
+	public void replacesExistingFileWithoutLeavingTempFiles() throws Exception {
+		Files.createDirectories(engineDir().resolve("maps"));
+		Files.writeString(engineDir().resolve("maps/a.bsp"), "OLD");
+		Path zip = new TestZip().file("maps/a.bsp", "NEW").writeTo(tmp.resolve("in.zip"));
+
+		extract(zip, new ExtractMapping(), null);
+
+		assertEquals("NEW", read(engineDir().resolve("maps/a.bsp")));
+		assertEquals(List.of(), tempFiles());
+	}
+
+	@Test
+	public void dropsFileWithWrongCrc() throws Exception {
+		Path zip = new TestZip()
+			.storedFile("maps/bad.bsp", "GOODDATA")
+			.file("maps/ok.bsp", "OK")
+			.writeCorrupted(tmp.resolve("in.zip"), "GOODDATA", "BADDATA!");
+
+		PackageFileList files = extract(zip, new ExtractMapping(), null);
+
+		assertFalse(Files.exists(engineDir().resolve("maps/bad.bsp")));
+		assertFalse(names(files).contains(rel("maps", "bad.bsp")));
+		assertEquals("OK", read(engineDir().resolve("maps/ok.bsp")));
+	}
+
+	@Test
+	public void failsWhenNothingWasExtracted() throws Exception {
+		Path zip = new TestZip().directory("maps").writeTo(tmp.resolve("in.zip"));
+
+		assertThrows(ZipException.class, () -> extract(zip, new ExtractMapping(), null));
+	}
+
+	private List<Path> tempFiles() throws Exception {
+		try (Stream<Path> walk = Files.walk(engineDir())) {
+			return walk.filter(p -> p.getFileName().toString().endsWith(".tmp")).toList();
+		}
+	}
+}

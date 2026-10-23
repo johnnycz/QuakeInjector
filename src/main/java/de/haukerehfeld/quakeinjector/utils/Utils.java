@@ -91,13 +91,10 @@ public class Utils {
 	                       final File file,
 	                       final int BUFFERSIZE,
 	                       final ProgressListener progress) throws IOException {
-		final BufferedOutputStream dest = new BufferedOutputStream(new FileOutputStream(file),
-		                                                           BUFFERSIZE);
-
-		long crc = copy(in, dest, BUFFERSIZE, progress);
-		dest.close();
-
-		return crc;
+		// close the file even if copying fails, so a partial file can be deleted (Windows locks open files)
+		try (BufferedOutputStream dest = new BufferedOutputStream(new FileOutputStream(file), BUFFERSIZE)) {
+			return copy(in, dest, BUFFERSIZE, progress);
+		}
 	}
 
 	public static long copy(final InputStream in,

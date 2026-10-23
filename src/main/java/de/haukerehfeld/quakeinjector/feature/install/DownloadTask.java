@@ -63,24 +63,26 @@ public class DownloadTask implements AsyncTask<Long> {
 		final ProgressListener progress = new SumProgressListener(
 			new PercentageProgressListener(download.getSize(), this::reportProgress));
 
-		final InputStream in = download.getStream();
-		final byte[] data = new byte[BUFFER_SIZE];
-		long downloadSize = 0;
-		int readcount;
+		// close the stream when done, otherwise the connection (or local file) stays open
+		try (InputStream in = download.getStream()) {
+			final byte[] data = new byte[BUFFER_SIZE];
+			long downloadSize = 0;
+			int readcount;
 
-		while ((readcount = in.read(data, 0, BUFFER_SIZE)) != -1) {
-			if (cancelled) {
-				System.out.println("Download cancelled");
-				throw new Installer.CancelledException();
+			while ((readcount = in.read(data, 0, BUFFER_SIZE)) != -1) {
+				if (cancelled) {
+					System.out.println("Download cancelled");
+					throw new Installer.CancelledException();
+				}
+
+				progress.publish(readcount);
+				out.write(data, 0, readcount);
+				downloadSize += readcount;
 			}
 
-			progress.publish(readcount);
-			out.write(data, 0, readcount);
-			downloadSize += readcount;
+			out.flush();
+			return downloadSize;
 		}
-
-		out.flush();
-		return downloadSize;
 	}
 
 	private void reportProgress(long percentage) {
