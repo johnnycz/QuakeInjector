@@ -1,0 +1,47 @@
+package de.haukerehfeld.quakeinjector;
+
+import de.haukerehfeld.quakeinjector.feature.install.InstallFailure;
+import de.haukerehfeld.quakeinjector.feature.install.InstallListener;
+import de.haukerehfeld.quakeinjector.model.PackageFileList;
+
+import java.io.File;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Function;
+
+/**
+ * Records which listener calls were made, in order, and on which thread.
+ */
+public class RecordingInstallListener implements InstallListener {
+	public final List<String> calls = new CopyOnWriteArrayList<>();
+	public final List<String> threads = new CopyOnWriteArrayList<>();
+	public Function<Map<String, File>, List<File>> overwriteAnswer = existing -> null;
+	public volatile Map<String, File> askedAbout;
+	public volatile PackageFileList succeededWith;
+	public volatile InstallFailure failure;
+
+	private void record(String call) {
+		threads.add(Thread.currentThread().getName());
+		calls.add(call);
+	}
+
+	@Override
+	public List<File> chooseOverwrites(Map<String, File> existingFiles) {
+		record("overwrite");
+		askedAbout = existingFiles;
+		return overwriteAnswer.apply(existingFiles);
+	}
+
+	@Override
+	public void succeeded(PackageFileList installedFiles) {
+		record("succeeded");
+		succeededWith = installedFiles;
+	}
+
+	@Override
+	public void failed(InstallFailure failure) {
+		record("failed:" + failure.getKind());
+		this.failure = failure;
+	}
+}

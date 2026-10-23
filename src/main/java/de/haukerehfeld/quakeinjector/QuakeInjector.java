@@ -302,7 +302,8 @@ public class QuakeInjector {
 
 		packageLauncher = new PackageLauncher(this.dialogProvider, starter);
 
-		installer = new Installer(getConfig().EnginePath, getConfig().DownloadPath);
+		installer = new Installer(getConfig().EnginePath, getConfig().DownloadPath,
+			javax.swing.SwingUtilities::invokeLater);
 
 		installUninstallService.init(installer,
 				maps,

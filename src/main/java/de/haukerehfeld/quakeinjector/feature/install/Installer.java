@@ -22,38 +22,60 @@ package de.haukerehfeld.quakeinjector.feature.install;
 import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
-import de.haukerehfeld.quakeinjector.utils.AsyncTask;
-import de.haukerehfeld.quakeinjector.utils.CancelledException;
-import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 
 import java.beans.PropertyChangeListener;
-import java.io.*;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class Installer {
-	private static final int simultanousDownloads = 1;
-	private static final int simultanousExtractions = 1;
-	private static final int simultanousInspectors = 1;
-	private static final int simultanousWaiters = 15;
+import static de.haukerehfeld.quakeinjector.feature.install.Futures.unchecked;
 
+/**
+ * Runs package installs and uninstalls in the background.
+ * <p>
+ * Threads:
+ * <ul>
+ * <li>one network thread: downloads run one at a time</li>
+ * <li>one disk thread: inspecting, extracting and uninstalling run one at a time, so cleanup
+ *     never overlaps with an extraction</li>
+ * <li>the UI executor passed in: overwrite questions and all listener / handler callbacks</li>
+ * </ul>
+ */
+public class Installer {
 	private final Configuration.EnginePath installDirectory;
 	private final Configuration.DownloadPath downloadDirectory;
-	
-	private final ExecutorService activeDownloaders = Executors.newFixedThreadPool(simultanousDownloads);
-	private final ExecutorService activeInspectors = Executors.newFixedThreadPool(simultanousInspectors);
-	private final ExecutorService activeExtractors = Executors.newFixedThreadPool(simultanousExtractions);
-	private final ExecutorService activeWaiters = Executors.newFixedThreadPool(simultanousWaiters);
+	private final InstallPipeline.Executors executors;
 
-	private final Map<de.haukerehfeld.quakeinjector.model.Package,Worker> queue = new HashMap<de.haukerehfeld.quakeinjector.model.Package,Worker>();
+	private final Map<Package, InstallPipeline> queue = new HashMap<>(); // guarded by itself
 
-	public Installer(Configuration.EnginePath installDirectory, Configuration.DownloadPath downloadDirectory) {
+	/**
+	 * @param uiExecutor runs callbacks on the UI thread, e.g. {@code SwingUtilities::invokeLater}
+	 */
+	public Installer(Configuration.EnginePath installDirectory, Configuration.DownloadPath downloadDirectory,
+	                 Executor uiExecutor) {
+		this(installDirectory, downloadDirectory, new InstallPipeline.Executors(
+			singleThread("quakeinjector-network"), singleThread("quakeinjector-disk"), uiExecutor));
+	}
+
+	public Installer(Configuration.EnginePath installDirectory, Configuration.DownloadPath downloadDirectory,
+	                 InstallPipeline.Executors executors) {
 		this.installDirectory = installDirectory;
 		this.downloadDirectory = downloadDirectory;
+		this.executors = executors;
+	}
+
+	/** Daemon thread, so a running download doesn't keep the app from exiting. */
+	private static ExecutorService singleThread(String name) {
+		return Executors.newSingleThreadExecutor(runnable -> {
+			Thread thread = new Thread(runnable, name);
+			thread.setDaemon(true);
+			return thread;
+		});
 	}
 
 	public boolean checkInstallDirectory() {
@@ -71,161 +93,103 @@ public class Installer {
 	}
 
 	public void cancelAll() {
+		Set<Package> queued;
 		synchronized (queue) {
-			for (de.haukerehfeld.quakeinjector.model.Package inQueue: new java.util.HashSet<de.haukerehfeld.quakeinjector.model.Package>(getQueue())) {
-				cancel(inQueue);
-				System.out.println("Canceling " + inQueue);
-			}
+			queued = new HashSet<>(queue.keySet());
+		}
+		for (Package inQueue : queued) {
+			System.out.println("Canceling " + inQueue);
+			cancel(inQueue);
 		}
 	}
-	
 
 	public boolean working() {
-		return !queue.isEmpty();
+		synchronized (queue) {
+			return !queue.isEmpty();
+		}
 	}
 
-	public Set<de.haukerehfeld.quakeinjector.model.Package> getQueue() {
-		return queue.keySet();
+	public Set<Package> getQueue() {
+		synchronized (queue) {
+			return new HashSet<>(queue.keySet());
+		}
 	}
 
-	public boolean alreadyQueued(final de.haukerehfeld.quakeinjector.model.Package map) {
-		return queue.get(map) != null;
+	public boolean alreadyQueued(final Package map) {
+		synchronized (queue) {
+			return queue.containsKey(map);
+		}
 	}
 
 	/**
-	 * Create a task to uninstall a package.
+	 * Install a package in the background. All listener calls happen on the UI executor.
 	 *
-	 * @param files the files to uninstall
-	 * @return an AsyncTask that performs the uninstallation
+	 * @return completes after the listener was told the outcome and the package left the queue;
+	 *         an already finished future if the package is already being installed
 	 */
-	public AsyncTask<Void> createUninstallTask(PackageFileList files) {
-		return new UninstallTask(files, installDirectory.get().getAbsolutePath());
-	}
-
-	public void install(final de.haukerehfeld.quakeinjector.model.Package selectedMap,
-	                    final String url,
-						final InstallErrorHandler errorHandler,
-						final PropertyChangeListener downloadProgressListener) {
-		if (alreadyQueued(selectedMap)) {
-			return;
+	public CompletableFuture<Void> install(final Package selectedMap,
+	                                       final String url,
+	                                       final InstallListener listener,
+	                                       final PropertyChangeListener downloadProgressListener) {
+		InstallPipeline pipeline = new InstallPipeline(
+			url, selectedMap, listener, downloadDirectory, installDirectory, executors);
+		synchronized (queue) {
+			if (queue.containsKey(selectedMap)) {
+				return CompletableFuture.completedFuture(null);
+			}
+			queue.put(selectedMap, pipeline);
 		}
 
-		// Create and execute the install orchestration task
-		PackageInstallOrchestrationTask orchestrationTask = new PackageInstallOrchestrationTask(
-			url, selectedMap, errorHandler, downloadDirectory, installDirectory);
-
-		Worker orchestrator = new Worker(url, selectedMap, errorHandler, downloadProgressListener, orchestrationTask);
-		synchronized (queue) { queue.put(selectedMap, orchestrator); }
-		synchronized (activeWaiters) { activeWaiters.submit(orchestrator); }
-	}
-
-	public void cancel(de.haukerehfeld.quakeinjector.model.Package installerMap) {
-		Worker w;
-		synchronized (queue) { w = queue.get(installerMap); }
-		if (w != null) {
-			w.cancel();
-		}
-	}
-
-
-	public void uninstall(PackageFileList map,
-	                      final UninstallErrorHandler errorHandler,
-	                      PropertyChangeListener progressListener) {
-		UninstallTask uninstallTask = new UninstallTask(map, installDirectory.get().getAbsolutePath());
-
-		// Execute asynchronously via executor service
-		synchronized (activeWaiters) {
-			activeWaiters.submit(() -> {
-				try {
-					uninstallTask.execute();
-					errorHandler.success();
-				} catch (Exception e) {
-					errorHandler.error(e);
+		return pipeline.start()
+			.whenComplete((ignored, error) -> {
+				if (error != null) {
+					System.err.println("Install listener failed for " + selectedMap.getId() + ": " + error);
+					error.printStackTrace();
+				}
+				synchronized (queue) {
+					queue.remove(selectedMap);
 				}
 			});
+	}
+
+	/** Cancel a queued install. The listener hears about it once the running stage has stopped. */
+	public void cancel(Package installerMap) {
+		InstallPipeline pipeline;
+		synchronized (queue) {
+			pipeline = queue.get(installerMap);
+		}
+		if (pipeline != null) {
+			pipeline.cancel();
 		}
 	}
 
-	public interface InstallErrorHandler {
-		/**
-		 * Decide which files in the package should be overwritten
-		 * @param existingFiles in the package
-		 * @return all the files that should be overwritten or an empty list to overwrite no files and cancel install
-		 */
-		public List<File> overwrite(Map<String,File> existingFiles);
-		public void success(PackageFileList installedFiles);
-		public void handle(OnlineFileNotFoundException error);
-		public void handle(FileNotWritableException error, PackageFileList alreadyInstalledFiles);
-		public void handle(IOException error, PackageFileList alreadyInstalledFiles);
-		public void handle(java.net.SocketException error, PackageFileList alreadyInstalledFiles);
-		public void handle(CancelledException error, PackageFileList alreadyInstalledFiles);
+	/**
+	 * Delete a package's files on the disk thread. The handler is called on the UI executor.
+	 *
+	 * @return completes after the handler was called
+	 */
+	public CompletableFuture<Void> uninstall(PackageFileList map,
+	                                         final UninstallErrorHandler errorHandler,
+	                                         PropertyChangeListener progressListener) {
+		UninstallTask uninstallTask = new UninstallTask(map, installDirectory.get().getAbsolutePath());
+
+		return CompletableFuture
+			.runAsync(() -> unchecked(uninstallTask::execute), executors.disk())
+			.handleAsync((ignored, error) -> {
+				if (error == null) {
+					errorHandler.success();
+				}
+				else {
+					Throwable cause = Futures.unwrap(error);
+					errorHandler.error(cause instanceof Exception e ? e : new Exception(cause));
+				}
+				return null;
+			}, executors.ui());
 	}
 
+	/** Callbacks of {@link #uninstall}, called on the UI executor. */
 	public interface UninstallErrorHandler {
 		public void success();
 		public void error(Exception e);
 	}
-
-
-	/**
-	 * Executes package installation orchestration asynchronously.
-	 */
-	private class Worker implements Runnable {
-		private final String url;
-		private final Package installedPackage;
-		private final InstallErrorHandler handler;
-		private final PropertyChangeListener downloadProgressListener;
-		private final PackageInstallOrchestrationTask task;
-		private volatile boolean cancelled = false;
-
-		public Worker(String url, Package installedPackage,
-		              InstallErrorHandler handler,
-		              PropertyChangeListener downloadProgressListener,
-		              PackageInstallOrchestrationTask task) {
-			this.url = url;
-			this.installedPackage = installedPackage;
-			this.handler = handler;
-			this.downloadProgressListener = downloadProgressListener;
-			this.task = task;
-		}
-
-		@Override
-		public void run() {
-			try {
-				// Execute the orchestration task (created in constructor)
-				PackageFileList files = task.execute();
-				System.out.println("Success installing");
-				handler.success(files);
-
-			} catch (OnlineFileNotFoundException e) {
-				// Already handled by task
-				System.out.println("File not found during installation");
-			} catch (java.net.SocketException e) {
-				// Already handled by task
-				System.out.println("Socket error during installation");
-			} catch (FileNotWritableException e) {
-				// Already handled by task
-				System.out.println("File write error during installation");
-			} catch (IOException e) {
-				// Already handled by task
-				System.out.println("IO error during installation");
-			} catch (CancelledException e) {
-				// Already handled by task
-				System.out.println("Installation cancelled");
-			} catch (Exception e) {
-				System.err.println("Unexpected error during installation: " + e);
-				e.printStackTrace();
-			} finally {
-				System.out.println("Done with installation");
-				synchronized (queue) { queue.remove(installedPackage); }
-			}
-		}
-
-		public void cancel() {
-			cancelled = true;
-			if (task != null) {
-				task.cancel();
-			}
-		}
-	}	
 }

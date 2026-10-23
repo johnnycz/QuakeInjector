@@ -1,28 +1,21 @@
 package de.haukerehfeld.quakeinjector;
 
-import de.haukerehfeld.quakeinjector.feature.install.FileNotWritableException;
-import de.haukerehfeld.quakeinjector.feature.install.Installer;
-import de.haukerehfeld.quakeinjector.feature.install.PackageInstallOrchestrationTask;
+import de.haukerehfeld.quakeinjector.feature.install.InstallFailure;
+import de.haukerehfeld.quakeinjector.feature.install.InstallPipeline;
 import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 import de.haukerehfeld.quakeinjector.model.Package;
-import de.haukerehfeld.quakeinjector.model.PackageFileList;
-import de.haukerehfeld.quakeinjector.utils.CancelledException;
-import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.SocketException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 import static de.haukerehfeld.quakeinjector.TestZip.names;
 import static de.haukerehfeld.quakeinjector.TestZip.read;
@@ -31,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * End-to-end tests of the install process (download, inspect, ask about overwrites, extract)
- * using file:// URLs and real directories.
+ * using file:// URLs, real directories and real threads.
  */
 public class InstallProcessTest {
 	@TempDir
@@ -41,7 +34,11 @@ public class InstallProcessTest {
 	private Path downloadDir;
 	private Path remoteDir;
 	private Configuration config;
-	private final RecordingHandler handler = new RecordingHandler();
+	private final TestThreads threads = new TestThreads();
+	private final RecordingInstallListener listener = new RecordingInstallListener();
+
+	/** The package of the most recently created pipeline. */
+	private Package pkg;
 
 	@BeforeEach
 	public void setUp() throws Exception {
@@ -53,12 +50,21 @@ public class InstallProcessTest {
 		config.DownloadPath.set(downloadDir.toFile());
 	}
 
-	/** The package of the most recently created task. */
-	private Package pkg;
+	@AfterEach
+	public void tearDown() throws Exception {
+		threads.close();
+		// every listener call must happen on the UI thread
+		assertTrue(listener.threads.stream().allMatch(TestThreads.UI::equals),
+			"listener called on " + listener.threads);
+	}
 
-	private PackageInstallOrchestrationTask task(String url) {
+	private InstallPipeline pipeline(String url) {
 		pkg = TestZip.testPackage("testmap", new ExtractMapping(), url);
-		return new PackageInstallOrchestrationTask(url, pkg, handler, config.DownloadPath, config.EnginePath);
+		return new InstallPipeline(url, pkg, listener, config.DownloadPath, config.EnginePath, threads.executors());
+	}
+
+	private void run(InstallPipeline pipeline) throws Exception {
+		pipeline.start().get(10, TimeUnit.SECONDS);
 	}
 
 	private String remoteZip(TestZip zip) throws Exception {
@@ -69,13 +75,13 @@ public class InstallProcessTest {
 	public void installsPackage() throws Exception {
 		String url = remoteZip(new TestZip().file("maps/a.bsp", "A"));
 
-		PackageFileList files = task(url).execute();
+		run(pipeline(url));
 
+		assertEquals(List.of("succeeded"), listener.calls);
 		assertEquals("A", read(engineDir.resolve("maps/a.bsp")));
-		assertTrue(names(files).contains(rel("maps", "a.bsp")));
+		assertTrue(names(listener.succeededWith).contains(rel("maps", "a.bsp")));
 		assertTrue(Files.exists(downloadDir.resolve("testmap.zip")), "download should be cached");
-		assertEquals(List.of(), handler.calls, "no handler calls on a plain install");
-		assertFalse(pkg.isInstalled(), "marking the package installed is the success handler's job");
+		assertFalse(pkg.isInstalled(), "marking the package installed is the listener's job");
 	}
 
 	@Test
@@ -84,11 +90,12 @@ public class InstallProcessTest {
 		Files.writeString(engineDir.resolve("blocker"), "not a directory");
 		String url = remoteZip(new TestZip().file("maps/a.bsp", "A").file("blocker/x.bsp", "X"));
 
-		assertThrows(FileNotWritableException.class, () -> task(url).execute());
+		run(pipeline(url));
 
-		assertEquals(List.of("notWritable"), handler.calls);
-		assertTrue(names(handler.filesOnFailure).containsAll(List.of(rel("maps", "a.bsp"), rel("maps"))),
-			"the handler needs the files extracted before the failure: " + names(handler.filesOnFailure));
+		assertEquals(List.of("failed:NOT_WRITABLE"), listener.calls);
+		assertTrue(names(listener.failure.getPartialFiles()).containsAll(List.of(rel("maps", "a.bsp"), rel("maps"))),
+			"the listener needs the files extracted before the failure: "
+			+ names(listener.failure.getPartialFiles()));
 		assertFalse(pkg.isInstalled());
 	}
 
@@ -97,8 +104,9 @@ public class InstallProcessTest {
 		new TestZip().file("maps/a.bsp", "A").writeTo(downloadDir.resolve("testmap.zip"));
 		String missingUrl = remoteDir.resolve("does-not-exist.zip").toUri().toURL().toString();
 
-		task(missingUrl).execute();
+		run(pipeline(missingUrl));
 
+		assertEquals(List.of("succeeded"), listener.calls);
 		assertEquals("A", read(engineDir.resolve("maps/a.bsp")));
 	}
 
@@ -107,13 +115,13 @@ public class InstallProcessTest {
 		Files.createDirectories(engineDir.resolve("maps"));
 		Files.writeString(engineDir.resolve("maps/a.bsp"), "OLD");
 		String url = remoteZip(new TestZip().file("maps/a.bsp", "NEW").file("maps/b.bsp", "B"));
-		handler.overwriteAnswer = existing -> new ArrayList<>(existing.values());
+		listener.overwriteAnswer = existing -> new ArrayList<>(existing.values());
 
-		task(url).execute();
+		run(pipeline(url));
 
-		assertEquals(List.of("overwrite"), handler.calls);
-		assertTrue(handler.askedAbout.containsValue(engineDir.resolve("maps/a.bsp").toFile()),
-			"should ask about the existing file: " + handler.askedAbout);
+		assertEquals(List.of("overwrite", "succeeded"), listener.calls);
+		assertTrue(listener.askedAbout.containsValue(engineDir.resolve("maps/a.bsp").toFile()),
+			"should ask about the existing file: " + listener.askedAbout);
 		assertEquals("NEW", read(engineDir.resolve("maps/a.bsp")));
 		assertEquals("B", read(engineDir.resolve("maps/b.bsp")));
 	}
@@ -123,11 +131,11 @@ public class InstallProcessTest {
 		Files.createDirectories(engineDir.resolve("maps"));
 		Files.writeString(engineDir.resolve("maps/a.bsp"), "OLD");
 		String url = remoteZip(new TestZip().file("maps/a.bsp", "NEW").file("maps/b.bsp", "B"));
-		handler.overwriteAnswer = existing -> List.of();
+		listener.overwriteAnswer = existing -> List.of();
 
-		assertThrows(CancelledException.class, () -> task(url).execute());
+		run(pipeline(url));
 
-		assertEquals(List.of("overwrite", "cancelled"), handler.calls);
+		assertEquals(List.of("overwrite", "failed:CANCELLED"), listener.calls);
 		assertEquals("OLD", read(engineDir.resolve("maps/a.bsp")));
 		assertFalse(Files.exists(engineDir.resolve("maps/b.bsp")));
 	}
@@ -137,76 +145,50 @@ public class InstallProcessTest {
 		Files.createDirectories(engineDir.resolve("maps"));
 		Files.writeString(engineDir.resolve("maps/a.bsp"), "OLD");
 		String url = remoteZip(new TestZip().file("maps/a.bsp", "NEW").file("maps/b.bsp", "B"));
-		AtomicReference<PackageInstallOrchestrationTask> task = new AtomicReference<>(task(url));
+		AtomicReference<InstallPipeline> pipeline = new AtomicReference<>(pipeline(url));
 		// user presses Cancel in the install queue, then answers the dialog with "overwrite all"
-		handler.overwriteAnswer = existing -> {
-			task.get().cancel();
+		listener.overwriteAnswer = existing -> {
+			pipeline.get().cancel();
 			return new ArrayList<>(existing.values());
 		};
 
-		assertThrows(CancelledException.class, () -> task.get().execute());
+		run(pipeline.get());
 
-		assertEquals(List.of("overwrite", "cancelled"), handler.calls);
+		assertEquals(List.of("overwrite", "failed:CANCELLED"), listener.calls);
 		assertEquals("OLD", read(engineDir.resolve("maps/a.bsp")));
 		assertFalse(Files.exists(engineDir.resolve("maps/b.bsp")));
+	}
+
+	@Test
+	public void cancelBeforeStartDoesNothing() throws Exception {
+		String url = remoteZip(new TestZip().file("maps/a.bsp", "A"));
+		InstallPipeline pipeline = pipeline(url);
+		pipeline.cancel();
+
+		run(pipeline);
+
+		assertEquals(List.of("failed:CANCELLED"), listener.calls);
+		assertFalse(Files.exists(downloadDir.resolve("testmap.zip")));
+		assertFalse(Files.exists(engineDir.resolve("maps")));
 	}
 
 	@Test
 	public void missingDownloadIsReportedAsNotFound() throws Exception {
 		String missingUrl = remoteDir.resolve("does-not-exist.zip").toUri().toURL().toString();
 
-		assertThrows(OnlineFileNotFoundException.class, () -> task(missingUrl).execute());
+		run(pipeline(missingUrl));
 
-		assertEquals(List.of("notFound"), handler.calls);
+		assertEquals(List.of("failed:NOT_FOUND"), listener.calls);
 		assertFalse(Files.exists(downloadDir.resolve("testmap.zip")), "failed download must not be cached");
 	}
 
-	/** Records which handler callbacks were made, in order. */
-	static class RecordingHandler implements Installer.InstallErrorHandler {
-		final List<String> calls = new ArrayList<>();
-		Function<Map<String, File>, List<File>> overwriteAnswer = existing -> null;
-		Map<String, File> askedAbout;
-		PackageFileList filesOnFailure;
+	@Test
+	public void brokenArchiveIsReportedAsIoError() throws Exception {
+		Files.writeString(downloadDir.resolve("testmap.zip"), "this is not a zip file");
 
-		@Override
-		public List<File> overwrite(Map<String, File> existingFiles) {
-			calls.add("overwrite");
-			askedAbout = existingFiles;
-			return overwriteAnswer.apply(existingFiles);
-		}
+		run(pipeline("unused"));
 
-		@Override
-		public void success(PackageFileList installedFiles) {
-			calls.add("success");
-		}
-
-		@Override
-		public void handle(OnlineFileNotFoundException error) {
-			calls.add("notFound");
-		}
-
-		@Override
-		public void handle(FileNotWritableException error, PackageFileList alreadyInstalledFiles) {
-			calls.add("notWritable");
-			filesOnFailure = alreadyInstalledFiles;
-		}
-
-		@Override
-		public void handle(IOException error, PackageFileList alreadyInstalledFiles) {
-			calls.add("io");
-			filesOnFailure = alreadyInstalledFiles;
-		}
-
-		@Override
-		public void handle(SocketException error, PackageFileList alreadyInstalledFiles) {
-			calls.add("network");
-			filesOnFailure = alreadyInstalledFiles;
-		}
-
-		@Override
-		public void handle(CancelledException error, PackageFileList alreadyInstalledFiles) {
-			calls.add("cancelled");
-			filesOnFailure = alreadyInstalledFiles;
-		}
+		assertEquals(List.of("failed:IO"), listener.calls);
+		assertEquals(InstallFailure.Kind.IO, listener.failure.getKind());
 	}
 }

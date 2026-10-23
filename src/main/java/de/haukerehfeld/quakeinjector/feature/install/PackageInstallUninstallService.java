@@ -22,8 +22,6 @@ package de.haukerehfeld.quakeinjector.feature.install;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
-import de.haukerehfeld.quakeinjector.utils.CancelledException;
-import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import java.io.File;
@@ -120,18 +118,12 @@ public class PackageInstallUninstallService {
 		
 		var job = jobTrackerProvider.addJob(description, () -> installer.cancel(selectedMap));
 
+		// All listener methods run on the UI thread
 		installer.install(selectedMap,
 		                  selectedMap.getDownloadUrls().get(0), // TODO give user the option to choose the URL
-		                  new Installer.InstallErrorHandler() {
-							  public void handle(OnlineFileNotFoundException error) {
-								  job.finish("File not found");
-								  
-								  String msg = "The file couldn't be found in the online"
-								      + " repository";
-								  dialogProvider.showWarning(msg, "File not found (404)");
-							  }
-
-							  public List<File> overwrite(Map<String,File> files) {
+		                  new InstallListener() {
+							  @Override
+							  public List<File> chooseOverwrites(Map<String,File> files) {
 								  List<String> overwriteList = new ArrayList<>();
 								  List<String> alwaysWriteList = new ArrayList<>();
 								  for (Map.Entry<String,File> e: files.entrySet()) {
@@ -158,7 +150,8 @@ public class PackageInstallUninstallService {
 								  return overwriteFiles;
 							  }
 							  
-							  public void success(PackageFileList installedFiles) {
+							  @Override
+							  public void succeeded(PackageFileList installedFiles) {
 								  Requirement r = requirements.get(installedFiles.getId());
 								  r.setInstalled(true);
 								  if (!(r instanceof de.haukerehfeld.quakeinjector.model.Package)) {
@@ -178,35 +171,36 @@ public class PackageInstallUninstallService {
 								  job.setProgress(100);
 								  job.finish("Success");
 							  }
-							  public void handle(FileNotWritableException error,
-							                     PackageFileList alreadyInstalledFiles) {
-								  cleanup(alreadyInstalledFiles,
-								          "Couldn't write");
 
-								  String msg = "Couldn't write to harddisk! "
-								      + error.getMessage();
-								  dialogProvider.showError(msg, "Couldn't write to harddisk");
-							  }
-							  public void handle(java.io.IOException error,
-							                     PackageFileList alreadyInstalledFiles) {
-								  cleanup(alreadyInstalledFiles, "File Error");
-
-								  String msg = "Couldn't open file! "
-								      + error.getMessage();
-								  dialogProvider.showError(msg,"Couldn't open file!");
-							  }
-
-							  public void handle(java.net.SocketException error,
-							                     PackageFileList alreadyInstalledFiles) {
-								  cleanup(alreadyInstalledFiles, "Network Error");
-
-								  String msg = "Download failed! " + error.getMessage();
-								  dialogProvider.showError(msg, "Download failed!");
-							  }
-							  
-							  public void handle(CancelledException error,
-							                     PackageFileList alreadyInstalledFiles) {
-								  cleanup(alreadyInstalledFiles, "Canceled");
+							  @Override
+							  public void failed(InstallFailure failure) {
+								  PackageFileList written = failure.getPartialFiles();
+								  String reason = failure.getCause().getMessage();
+								  switch (failure.getKind()) {
+									  case NOT_FOUND -> {
+										  job.finish("File not found");
+										  dialogProvider.showWarning("The file couldn't be found in the online"
+										      + " repository", "File not found (404)");
+									  }
+									  case NOT_WRITABLE -> {
+										  cleanup(written, "Couldn't write");
+										  dialogProvider.showError("Couldn't write to harddisk! " + reason,
+										      "Couldn't write to harddisk");
+									  }
+									  case IO -> {
+										  cleanup(written, "File Error");
+										  dialogProvider.showError("Couldn't open file! " + reason, "Couldn't open file!");
+									  }
+									  case NETWORK -> {
+										  cleanup(written, "Network Error");
+										  dialogProvider.showError("Download failed! " + reason, "Download failed!");
+									  }
+									  case CANCELLED -> cleanup(written, "Canceled");
+									  case UNEXPECTED -> {
+										  cleanup(written, "Error");
+										  dialogProvider.showError("Install failed! " + failure.getCause(), "Install failed");
+									  }
+								  }
 							  }
 
 							  private void cleanup(PackageFileList alreadyInstalledFiles,
