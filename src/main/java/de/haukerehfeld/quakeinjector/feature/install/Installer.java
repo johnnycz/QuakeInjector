@@ -91,13 +91,6 @@ public class Installer {
 		return installDirectory.get().canWrite();
 	}
 
-	public boolean checkDownloadDirectory() {
-		if (!downloadDirectory.existsOrDefault()) {
-			return false;
-		}
-		return downloadDirectory.get().canWrite();
-	}
-
 	public void cancelAll() {
 		for (Package inQueue : getQueue()) {
 			System.out.println("Canceling " + inQueue);

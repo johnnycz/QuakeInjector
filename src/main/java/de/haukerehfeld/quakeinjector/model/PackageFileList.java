@@ -60,14 +60,6 @@ public class PackageFileList implements Iterable<FileInfo>, Comparable<PackageFi
 		return files.iterator();
 	}
 
-	/**
-	 * Iterate the files in <em>ascending</em> order by their filename
-	 * ({@link FileInfo#compareTo} sorts in reverse).
-	 */
-	public Iterator<FileInfo> descendingIterator() {
-		return files.descendingIterator();
-	}
-	
 	public String getId() {
 		return id;
 	}

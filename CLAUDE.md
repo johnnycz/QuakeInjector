@@ -40,13 +40,13 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - `Package`, `Requirement`, `Configuration`, `InstalledPackages`
   - Immutable where possible; change-event notification via listeners
   - `CommandHandler` — central router for async operations
-  - `JobTracker` — tracks pending operations to prevent concurrent conflicts
+  - `JobTracker` — one row in the install queue (or the progress popup): `start`, `setProgress`, `finish`; call it on the EDT
 
 - **`feature/`** — Feature-specific implementations organized by user-facing workflows
   - **`feature.list/`** — Package database fetching, parsing, and search
     - `PackageDatabaseService` — main entry point; manages fetching and parsing
     - `PackageDatabaseJsonParser` / `PackageDatabaseSolrJsonParser` — API parsers
-    - `PackageDatabaseParserWorker` — SwingWorker for async parsing
+    - `PackageDatabaseCacheTask` — downloads and parses the database, falling back to the offline cache; `LoadedPackageDatabase.fromCache` says which was used
   - **`feature.install/`** — Download, unzip, and dependency resolution
     - `PackageInstallUninstallService` — main entry point
     - `InstallPipeline` — the install process as a `CompletableFuture` chain: download (network thread) → inspect (disk thread) → ask about overwrites (UI thread) → extract (disk thread) → report to `InstallListener` (UI thread)
@@ -70,10 +70,17 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
 - This is validated by `ArchitectureTest` using ArchUnit
 
 **Threading**
-- All UI updates must occur on the Event Dispatch Thread (EDT)
-- Long-running operations (downloads, parsing, extraction) must run off-EDT
-- Currently using SwingWorker; refactoring may change this pattern, but EDT constraint remains
-- `JobTracker` prevents concurrent operations on the same resource to avoid corruption
+- All UI updates happen on the Event Dispatch Thread (EDT). `guimodel` classes are only called on the EDT and notify their views on it, synchronously (see `guimodel/package-info.java`).
+- Views call `gui.Edt.check(...)` in `stateChanged`; off the EDT it logs an `[EDT violation]` stack trace once per view. It only logs: dialog methods such as `DialogViewModel.showOptions` return the user's answer, so the caller has to be on the EDT already.
+- Long-running work runs off the EDT. `feature/*` must not use Swing, so it gets a UI `Executor` injected (`SwingUtilities::invokeLater`, passed in by `QuakeInjector`) and reports back through it.
+- Installs and uninstalls (`feature.install`):
+  - `Installer` owns two single-thread daemon executors: **network** (downloads, one at a time) and **disk** (inspect, extract, uninstall, cleanup and saving the installed list, one at a time, so they never touch the same files concurrently)
+  - `InstallPipeline` chains the stages with `CompletableFuture`; no thread blocks waiting for another. The overwrite question and every `InstallListener` / `UninstallErrorHandler` callback (including progress) run on the UI executor.
+  - Cancelling: one `utils.CancellationToken` per install, checked by every stage (before each zip entry and each written chunk; a download's stream is closed on cancel). Never cancel the future itself. After a failure or cancel, the pipeline deletes the partially written files on the disk thread *before* it reports, and the package stays in the install queue until then.
+  - `Installer` sends queue change events on the UI executor; `PackageInteractionViewModel` listens to refresh the Install button.
+  - Progress reaches the UI only when the whole percent changes (`UiProgress`).
+  - The installed-packages file is snapshotted on the EDT (`SaveInstalled.snapshot`) and written on the disk thread.
+- Package database loading and the installed-maps check still use `SwingWorker` (see Known Issues). `gui.SwingWorkerAdapter` runs an `AsyncTask` and reports success, failure or cancel (`CancelledException`) on the EDT.
 
 **Immutability**
 - `Package`, `Requirement`, and other model objects are immutable (or should be treated as such)
@@ -103,7 +110,15 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 ### Unit Tests
 - Parser tests (`PackageDatabaseJsonParserTest`, `PackageDatabaseSolrJsonParserTest`) validate data transformation
 - Path tests (`RelativePathTest`) verify file operations on different OS
+- Install tests: `ExtractTaskTest`, `DownloadTaskTest`, `UninstallTaskTest` per stage; `InstallProcessTest` (whole `InstallPipeline`) and `InstallerTest` (queue, cancel, uninstall) end to end
 - Prefer focused, single-concern tests over integration suites
+
+### Test helpers
+- `TestZip` builds real zip files (also stored or corrupted entries); downloads use `file://` URLs, so no server or mocking is needed
+- `TestThreads` provides named single-thread executors standing in for the network, disk and UI threads; install tests assert that every listener call runs on the "UI" one
+- `RecordingInstallListener` records install callbacks, their order and threads
+- GUI tests (`InstallQueuePanelTest`) build real Swing components on the EDT with `SwingUtilities.invokeAndWait`; they need no window, so they run headless (modal dialogs can't be tested this way)
+- Files and Windows: close every stream (also on failure), otherwise the `@TempDir` can't be deleted and the test fails
 
 ### No Mocking
 - Tests use real files, real objects; integration testing is preferred
@@ -139,6 +154,8 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 
 ## Known Issues and TODOs
 
-- **SwingWorker usage** — Current refactoring is moving away from direct SwingWorker instantiation toward a more testable pattern; some cleanup remains (see recent commits "simplify arch unit test, tbd SwingWorker dependency")
+- **SwingWorker usage** — `feature.install` no longer uses Swing. `feature.list.CheckInstalled` and `model.InstalledPackages` still extend `SwingWorker`; these are the 4 violations that currently make `ArchitectureTest` fail.
+- **Prerequisites** — `PackageInstallUninstallService.installRequirements` queues prerequisites as separate installs that don't wait for each other; the main package doesn't wait for them, and a failed prerequisite doesn't stop it
+- **SpotBugs** — reports `EQ_UNUSUAL` for Java records; false positives of the old SpotBugs 4.2.2
 - **Case-sensitive filesystems** — Linux/macOS cases aren't fully handled; many Quake maps are packed with mixed-case filenames
 - **Legacy engine limits** — Some modern maps exceed original Quake engine constraints; users may need a modern engine like QuakeSpasm or vkQuake

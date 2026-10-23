@@ -8,7 +8,6 @@ import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import java.io.InputStream;
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  * Asks {@link de.haukerehfeld.quakeinjector.gui.DialogView} to show dialogs.
@@ -55,7 +54,6 @@ public class DialogViewModel implements DialogProvider {
 	public String progressPopupMessage;
 	public Runnable progressPopupCancelAction;
 	public Integer progress;
-	public Consumer<Integer> progressPopupProgressConsumer;
 
 	public DialogViewModel(ConfigViewModel configViewModel) {
 		this.configViewModel = configViewModel;

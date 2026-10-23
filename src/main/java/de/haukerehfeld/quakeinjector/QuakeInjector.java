@@ -115,7 +115,7 @@ public class QuakeInjector {
 		var dialogVm = new DialogViewModel(configViewModel);
 		this.dialogProvider = dialogVm;
 		this.installUninstallService = new PackageInstallUninstallService(jobTrackerProvider, dialogVm);
-		this.packageDatabaseSerice = new PackageDatabaseService(getConfig(), dialogVm);
+		this.packageDatabaseSerice = new PackageDatabaseService(getConfig());
 
 		view = new QuakeInjectorView(maplist, packageInteractionViewModel, new PackageInteractionPanelView(packageInteractionViewModel), new InstallQueuePanel(jobTrackerProvider));
 
