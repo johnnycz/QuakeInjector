@@ -49,7 +49,7 @@ public class PackageDatabaseService {
 	 * Create an async task to parse the online database.
 	 * The task will download the database with caching fallback.
 	 */
-	public AsyncTask<List<Requirement>> createParseDatabaseTask() {
+	public AsyncTask<LoadedPackageDatabase> createParseDatabaseTask() {
 		return new PackageDatabaseCacheTask(config);
 	}
 

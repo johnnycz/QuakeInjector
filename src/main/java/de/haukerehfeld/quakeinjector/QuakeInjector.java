@@ -21,6 +21,7 @@ package de.haukerehfeld.quakeinjector;
 
 import de.haukerehfeld.quakeinjector.feature.install.*;
 import de.haukerehfeld.quakeinjector.feature.list.CheckInstalled;
+import de.haukerehfeld.quakeinjector.feature.list.LoadedPackageDatabase;
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseService;
 import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
 import de.haukerehfeld.quakeinjector.feature.play.PackageLauncher;
@@ -398,20 +399,24 @@ public class QuakeInjector {
 	}
 
 	private void parseDatabaseAndSetList() {
-		AsyncTask<List<Requirement>> dbParseTask = packageDatabaseSerice.createParseDatabaseTask();
+		AsyncTask<LoadedPackageDatabase> dbParseTask = packageDatabaseSerice.createParseDatabaseTask();
 		// set below, once the adapter it cancels exists
 		final JobTracker[] popup = new JobTracker[1];
 
 		// Wrap with SwingWorkerAdapter to handle threading and callbacks
-		SwingWorkerAdapter<List<Requirement>> adapter = new SwingWorkerAdapter<>(
+		SwingWorkerAdapter<LoadedPackageDatabase> adapter = new SwingWorkerAdapter<>(
 			dbParseTask,
-			new AsyncListener<List<Requirement>>() {
+			new AsyncListener<LoadedPackageDatabase>() {
 				@Override
-				public void onSuccess(List<Requirement> packages) {
+				public void onSuccess(LoadedPackageDatabase database) {
 					// close the popup first, so other dialogs don't open behind it
 					popup[0].finish("Done");
-					maps.setRequirements(packages);
+					maps.setRequirements(database.packages());
 					System.out.println("Setting Requirements");
+					if (database.fromCache()) {
+						dialogProvider.showWarning("Failed to fetch current database; using previously downloaded info.",
+							"Downloading failed");
+					}
 
 					try {
 						setInstalledStatus(installedMaps.get());

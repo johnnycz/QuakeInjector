@@ -29,9 +29,9 @@ import java.util.List;
 
 /**
  * Fetch and parse the package database with local caching fallback.
- * If download fails, attempts to use previously cached database.
+ * If download fails, attempts to use previously cached database, and says so in the result.
  */
-public class PackageDatabaseCacheTask implements AsyncTask<List<Requirement>> {
+public class PackageDatabaseCacheTask implements AsyncTask<LoadedPackageDatabase> {
 	private final Configuration config;
 
 	public PackageDatabaseCacheTask(Configuration config) {
@@ -39,7 +39,7 @@ public class PackageDatabaseCacheTask implements AsyncTask<List<Requirement>> {
 	}
 
 	@Override
-	public List<Requirement> execute() throws IOException {
+	public LoadedPackageDatabase execute() throws IOException {
 		final String databaseUrl = config.RepositoryDatabasePath.get();
 		File cache = config.LocalDatabaseFile.get().getAbsoluteFile();
 		File tmpFile = null;
@@ -61,7 +61,7 @@ public class PackageDatabaseCacheTask implements AsyncTask<List<Requirement>> {
 			closeStreams(downloadStream, tmpWriteStream, cacheReadStream);
 			updateCacheFile(cache, tmpFile);
 
-			return parseResult;
+			return new LoadedPackageDatabase(parseResult, false);
 		} catch (Exception e) {
 			// Download failed, try to use cached version
 			System.err.println("Failed to download database: " + e.getMessage());
@@ -71,7 +71,7 @@ public class PackageDatabaseCacheTask implements AsyncTask<List<Requirement>> {
 				cacheReadStream = getCachedDatabaseStream(cache);
 				List<Requirement> parseResult = parseDatabase(cacheReadStream);
 				closeStreams(null, null, cacheReadStream);
-				return parseResult;
+				return new LoadedPackageDatabase(parseResult, true);
 			} catch (IOException cacheError) {
 				closeStreams(null, null, cacheReadStream);
 				// Neither download nor cache available
