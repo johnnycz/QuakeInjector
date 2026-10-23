@@ -91,6 +91,7 @@ public class InstallQueuePanel extends JPanel implements Scrollable, ChangeListe
 
 	@Override
 	public void stateChanged(ChangeEvent e) {
+		Edt.check("InstallQueuePanel");
 		Object sourceObject = e.getSource();
 		if (sourceObject instanceof JobVm job) {
 			updateJob(job);

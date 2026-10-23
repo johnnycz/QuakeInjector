@@ -290,6 +290,7 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 
 	@Override
 	public void stateChanged(ChangeEvent e) {
+		Edt.check("PackageDetailPanelView");
 		refreshUi();
 	}
 }

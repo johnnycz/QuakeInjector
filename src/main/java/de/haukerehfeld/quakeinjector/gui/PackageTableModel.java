@@ -143,6 +143,7 @@ public class PackageTableModel extends AbstractTableModel implements ChangeListe
 
 	@Override
 	public void stateChanged(ChangeEvent e) {
+		Edt.check("PackageTableModel");
 		if (e.getSource() instanceof Integer rowIndex) {
 			if (rowIndex >= 0) {
 				fireTableRowsUpdated(rowIndex, rowIndex);

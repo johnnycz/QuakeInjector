@@ -75,6 +75,7 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 
 	@Override
 	public void stateChanged(ChangeEvent e) {
+		Edt.check("PackageInteractionPanelView");
 		updateElements();
 	}
 }

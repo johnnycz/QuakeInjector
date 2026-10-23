@@ -6,9 +6,6 @@ import javax.swing.*;
 import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import java.awt.*;
-import java.io.File;
-import java.lang.reflect.InvocationTargetException;
-import java.util.concurrent.ExecutionException;
 
 public class DialogView implements ChangeListener {
 
@@ -24,6 +21,7 @@ public class DialogView implements ChangeListener {
 
 	@Override
 	public void stateChanged(ChangeEvent e) {
+		Edt.check("DialogView");
 		if (vm.errorMessage != null) {
 			JOptionPane.showMessageDialog(parentComponent, vm.errorMessage, vm.title, JOptionPane.ERROR_MESSAGE);
 			vm.errorMessage = null;
@@ -52,32 +50,12 @@ public class DialogView implements ChangeListener {
 			vm.options = null;
 			vm.defaultOption = null;
 		} else if (vm.filesToOverwrite != null) {
-			if (SwingUtilities.isEventDispatchThread()) {
-				PackageOverwriteDialog pod = new PackageOverwriteDialog(parentComponent, vm.filesToOverwrite, vm.filesToWrite);
-				pod.packAndShow();
-				vm.overwritenFiles = pod.getOverwritten();
-				vm.filesToOverwrite = null;
-				vm.filesToWrite = null;
-			} else {
-				SwingWorker<java.util.List<String>,Void> dialogue = new SwingWorker<>() {
-					public java.util.List<String> doInBackground() {
-						PackageOverwriteDialog pod = new PackageOverwriteDialog(parentComponent, vm.filesToOverwrite, vm.filesToWrite);
-						pod.packAndShow();
-						return pod.getOverwritten();
-					}
-				};
-				try {
-					SwingUtilities.invokeAndWait(dialogue);
-					vm.overwritenFiles = dialogue.get();
-					vm.filesToOverwrite = null;
-					vm.filesToWrite = null;
-				} catch (InterruptedException ignored) {
-				} catch (InvocationTargetException ex) {
-					throw new RuntimeException(ex.getCause());
-				} catch (ExecutionException ex) {
-					throw new RuntimeException(ex.getCause());
-				}
-			}
+			// Modal, so this blocks until the user answers; the install waits on the UI thread for it
+			PackageOverwriteDialog pod = new PackageOverwriteDialog(parentComponent, vm.filesToOverwrite, vm.filesToWrite);
+			pod.packAndShow();
+			vm.overwritenFiles = pod.getOverwritten();
+			vm.filesToOverwrite = null;
+			vm.filesToWrite = null;
 		} else if (vm.engineConfigWindowShown) {
 			final EngineConfigDialog d = new EngineConfigDialog(parentComponent, vm.configViewModel);
 

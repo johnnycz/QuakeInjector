@@ -10,6 +10,14 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.function.Consumer;
 
+/**
+ * Asks {@link de.haukerehfeld.quakeinjector.gui.DialogView} to show dialogs.
+ * <p>
+ * Call all methods on the EDT. Listeners run synchronously, so the view builds and shows the
+ * dialog on the calling thread; methods that return the user's answer (such as {@link #showOptions}
+ * or {@link #showOverwriteDialog}) block while the modal dialog is open. Called from another thread,
+ * the dialog would be shown off the EDT, which Swing doesn't support.
+ */
 public class DialogViewModel implements DialogProvider {
 
 	private final ChangeListenerList listeners = new ChangeListenerList();
