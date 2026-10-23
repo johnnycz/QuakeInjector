@@ -19,81 +19,45 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector.model;
 
-import java.util.concurrent.Future;
-import java.util.concurrent.ExecutionException;
-import java.util.List;
-import java.util.Collections;
-import java.io.InputStream;
 import java.io.BufferedInputStream;
-import java.io.FileInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 
-import javax.swing.SwingWorker;
-
+/**
+ * Reads the installed packages file in the background.
+ */
 public class InstalledPackages {
-	private Future<List<PackageFileList>> installedPackages;
+	private volatile CompletableFuture<List<PackageFileList>> installedPackages;
 
-	public void parse(File installedPackagesXml) {
-		ParseInstalledPackagesWorker parseInstalled
-		    = new ParseInstalledPackagesWorker(installedPackagesXml);
-		parseInstalled.execute();
-		installedPackages = parseInstalled;
-	}
-	
-	public List<PackageFileList> get() throws InterruptedException, ExecutionException {
-		try {
-			return installedPackages.get();
-		}
-		catch (InterruptedException e) {
-			throw e;
-		}
-		catch (ExecutionException e) {
-			throw e;
-		}
-	}
-	
-
-	public List<PackageFileList> getDefaultErrorHandling() {
-		try {
-			return get();
-		}
-		catch (InterruptedException e) {
-			System.err.println("Error: couldn't set installedPackages, interrupted!" + e);
-			e.printStackTrace();
-		}
-		catch (ExecutionException err) {
+	/**
+	 * Start reading the installed packages file on {@code executor}.
+	 * Use the thread that also writes the file, so a read never sees a half-written one.
+	 */
+	public void parse(File installedPackagesXml, Executor executor) {
+		installedPackages = CompletableFuture.supplyAsync(() -> {
 			try {
-				throw err.getCause();
+				return parseInstalledPackagesFile(installedPackagesXml);
 			}
-			catch (java.io.FileNotFoundException e) {
-				System.out.println("Notice: installed packages file doesn't exist yet,"
-				                   + " no packages installed? " + e);
+			catch (IOException e) {
+				throw new CompletionException(e);
 			}
-			catch (java.io.IOException e) {
-				System.err.println("Error: installed packages file couldn't be "
-				                   + "loaded: " + e);
-				e.printStackTrace();
-			}
-		}
-		finally {
-			return Collections.emptyList();
-		}
+		}, executor);
 	}
 
-
-	class ParseInstalledPackagesWorker extends SwingWorker<List<PackageFileList>,Void> {
-		public final File xml;
-
-		public ParseInstalledPackagesWorker(File xml) {
-			this.xml = xml;
-		}
-		
-		@Override
-		public List<PackageFileList> doInBackground() throws FileNotFoundException, IOException {
-			return parseInstalledPackagesFile(xml);
-		}
+	/**
+	 * The result of the last {@link #parse}. Fails with a {@link NoInstalledPackagesFileException} if there
+	 * is no file yet (nothing installed), or another {@link IOException} if it couldn't be read.
+	 * Chain on it rather than blocking: the read may wait for an install that is using the disk thread.
+	 */
+	public CompletableFuture<List<PackageFileList>> loaded() {
+		return installedPackages;
 	}
 
 	/**
@@ -104,31 +68,14 @@ public class InstalledPackages {
 		public NoInstalledPackagesFileException() { super(); }
 	}
 
-	private List<PackageFileList> parseInstalledPackagesFile(File installedPackagesFile)
-		throws NoInstalledPackagesFileException, FileNotFoundException, IOException {
+	private List<PackageFileList> parseInstalledPackagesFile(File installedPackagesFile) throws IOException {
 		if (!installedPackagesFile.exists()) {
 			throw new NoInstalledPackagesFileException("No Installed packages file (" + installedPackagesFile + ")"
 			                                       + ", no packages installed?");
 		}
-		
-		final InputStream in = new BufferedInputStream(new FileInputStream(installedPackagesFile));
-		
-		List<PackageFileList> result =  new InstalledPackageList().read(in);
-
-		//close the stream after parsing is finished
-		Exception error = null;
-		try {
-			in.close();
+		// closed even if parsing fails
+		try (InputStream in = new BufferedInputStream(new FileInputStream(installedPackagesFile))) {
+			return new InstalledPackageList().read(in);
 		}
-		catch (java.io.FileNotFoundException e) {
-			error = e;
-		}
-		catch (java.io.IOException e) {
-			error = e;
-		}
-		if (error != null ) {
-			System.err.println("Error: couldn't close filestream " + installedPackagesFile + ": " + error);
-		}
-		return result;
 	}
 }

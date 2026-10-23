@@ -84,6 +84,14 @@ public class Installer {
 		});
 	}
 
+	/**
+	 * The disk thread: runs extraction, uninstall and writing the installed-packages list one at a time.
+	 * Use it for other work on those files, so it never overlaps with them.
+	 */
+	public Executor diskExecutor() {
+		return executors.disk();
+	}
+
 	public boolean checkInstallDirectory() {
 		if (!installDirectory.existsOrDefault()) {
 			return false;

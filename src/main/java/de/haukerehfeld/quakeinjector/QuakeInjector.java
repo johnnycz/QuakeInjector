@@ -272,6 +272,17 @@ public class QuakeInjector {
 	 * Everything that may be run AFTER the initial window is shown should be run here
 	 */
 	private void init() {
+		// first: reading the installed maps file runs on the installer's disk thread
+		installer = new Installer(getConfig().EnginePath, getConfig().DownloadPath,
+			javax.swing.SwingUtilities::invokeLater);
+		// refresh the Install button whenever an install starts or ends (also after a failure)
+		installer.addQueueListener(packageInteractionViewModel);
+
+		installUninstallService.init(installer,
+				maps,
+				new SaveInstalled(installedMapsFile)
+	    );
+
 		doParseInstalled();
 
 		parseDatabaseAndSetList();
@@ -305,16 +316,6 @@ public class QuakeInjector {
 
 		packageLauncher = new PackageLauncher(this.dialogProvider, starter);
 
-		installer = new Installer(getConfig().EnginePath, getConfig().DownloadPath,
-			javax.swing.SwingUtilities::invokeLater);
-		// refresh the Install button whenever an install starts or ends (also after a failure)
-		installer.addQueueListener(packageInteractionViewModel);
-
-		installUninstallService.init(installer,
-				maps,
-				new SaveInstalled(installedMapsFile)
-	    );
-
 		if (!installer.checkInstallDirectory()) {
 			// Engine path not set - show config dialog
 			// Database will load asynchronously in the background
@@ -322,8 +323,32 @@ public class QuakeInjector {
 		}
 	}
 
+	/** Runs on the EDT: mark the packages from the installed packages file as installed. */
+	private void applyInstalledStatus(List<PackageFileList> installed, Throwable error) {
+		if (error == null) {
+			setInstalledStatus(installed);
+			return;
+		}
+
+		maps.notifyChangeListeners();
+		Throwable cause = error instanceof java.util.concurrent.CompletionException && error.getCause() != null
+			? error.getCause()
+			: error;
+		if (cause instanceof InstalledPackages.NoInstalledPackagesFileException) {
+			// nothing installed yet
+			System.err.println(cause.getMessage());
+			return;
+		}
+		String ERROR_MESSAGE = "Reading installed maps failed!";
+		JOptionPane.showMessageDialog(view,
+			ERROR_MESSAGE + " " + cause.getMessage(),
+			ERROR_MESSAGE,
+			JOptionPane.ERROR_MESSAGE);
+	}
+
 	private void doParseInstalled() {
-		installedMaps.parse(installedMapsFile);
+		// the disk thread also writes this file, so the read never sees a half-written one
+		installedMaps.parse(installedMapsFile, installer.diskExecutor());
 	}
 
 	/**
@@ -418,26 +443,11 @@ public class QuakeInjector {
 							"Downloading failed");
 					}
 
-					try {
-						setInstalledStatus(installedMaps.get());
-					} catch (InterruptedException e) {
-						System.err.println("Interrupted while getting installed maps" + e);
-						e.printStackTrace();
-					} catch (ExecutionException err) {
-						maps.notifyChangeListeners();
-
-						try {
-							throw err.getCause();
-						} catch (InstalledPackages.NoInstalledPackagesFileException e) {
-							System.err.println(e.getMessage());
-						} catch (Throwable e) {
-							String ERROR_MESSAGE = "Reading installed maps failed!";
-							JOptionPane.showMessageDialog(view,
-								ERROR_MESSAGE + " " + e.getMessage(),
-								ERROR_MESSAGE,
-								JOptionPane.ERROR_MESSAGE);
-						}
-					}
+					// Don't block the EDT waiting for the installed list: its read may queue behind an install
+					// on the disk thread. Apply it on the EDT once it is there.
+					installedMaps.loaded().whenCompleteAsync(
+						(installed, error) -> applyInstalledStatus(installed, error),
+						javax.swing.SwingUtilities::invokeLater);
 				}
 
 				@Override
