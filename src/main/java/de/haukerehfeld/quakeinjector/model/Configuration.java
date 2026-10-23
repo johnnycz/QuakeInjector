@@ -20,6 +20,7 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 package de.haukerehfeld.quakeinjector.model;
 
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
+import de.haukerehfeld.quakeinjector.utils.RelativePath;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import java.io.File;
@@ -52,8 +53,37 @@ public class Configuration {
 	}
 	public final EnginePath EnginePath = new EnginePath();
 
+	/**
+	 * Stored relative to the engine path when possible, so the Quake directory can move.
+	 */
 	public static class EngineExecutable extends FileValue {
 		private EngineExecutable() { super("engineExecutable", new File("")); }
+
+		/**
+		 * Store {@code executable} relative to {@code enginePath}. Keeps it absolute if no relative
+		 * path exists (e.g. another drive on Windows) or the engine path isn't set.
+		 */
+		public void setRelativeTo(File enginePath, File executable) {
+			if (enginePath == null || executable == null || !executable.isAbsolute()) {
+				set(executable);
+				return;
+			}
+			try {
+				set(RelativePath.getRelativePath(enginePath.getAbsoluteFile(), executable));
+			}
+			catch (IllegalArgumentException differentRoot) {
+				set(executable);
+			}
+		}
+
+		/** The executable as a full path: a relative one is resolved against {@code enginePath}. */
+		public File resolveAgainst(File enginePath) {
+			File executable = get();
+			if (executable.isAbsolute() || enginePath == null) {
+				return executable;
+			}
+			return new File(enginePath, executable.getPath());
+		}
 	}
 	public final EngineExecutable EngineExecutable = new EngineExecutable();
 

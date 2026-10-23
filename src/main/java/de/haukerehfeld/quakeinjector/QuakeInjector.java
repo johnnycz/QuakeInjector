@@ -497,7 +497,8 @@ public class QuakeInjector {
 	private void applyAndPersistConfig() {
 		Configuration c = getConfig();
 		var workingDirAtExecutable = c.WorkingDirAtExecutable.get();
-		var engineExecutable = c.EngineExecutable.get();
+		// stored relative to the Quake directory; the engine starter needs the full path
+		var engineExecutable = c.EngineExecutable.resolveAgainst(c.EnginePath.get());
 
 		File workingDir;
 		if (workingDirAtExecutable) {

@@ -39,7 +39,8 @@ public class ConfigViewModel {
 
 	public void applyConfig() {
 		config.EnginePath.set(this.enginePath);
-		config.EngineExecutable.set(this.engineExecutable);
+		// the dialog returns the full path; store it relative to the Quake directory, as before the refactor
+		config.EngineExecutable.setRelativeTo(this.enginePath, this.engineExecutable);
 		config.WorkingDirAtExecutable.set(this.workingDirAtExecutable);
 		config.DownloadPath.set(this.downloadPath);
 		config.EngineCommandLine.set(this.engineCommandLine);
