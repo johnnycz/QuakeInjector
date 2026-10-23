@@ -22,8 +22,10 @@ package de.haukerehfeld.quakeinjector.gui;
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
 import de.haukerehfeld.quakeinjector.utils.AsyncListener;
 import de.haukerehfeld.quakeinjector.utils.AsyncProgressListener;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
 
 import javax.swing.SwingWorker;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -65,6 +67,9 @@ public class SwingWorkerAdapter<T> extends SwingWorker<T, Void> {
 		try {
 			T result = get();
 			listener.onSuccess(result);
+		} catch (CancellationException e) {
+			// cancel() was called; still tell the listener, so it can e.g. close a progress popup
+			listener.onFailure(new CancelledException());
 		} catch (ExecutionException e) {
 			// Unwrap the exception thrown by task.execute()
 			Throwable cause = e.getCause();

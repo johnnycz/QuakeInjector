@@ -32,6 +32,7 @@ import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
 import de.haukerehfeld.quakeinjector.utils.AsyncListener;
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.RuntimeExecutionException;
 
 import javax.swing.*;
@@ -398,6 +399,8 @@ public class QuakeInjector {
 
 	private void parseDatabaseAndSetList() {
 		AsyncTask<List<Requirement>> dbParseTask = packageDatabaseSerice.createParseDatabaseTask();
+		// set below, once the adapter it cancels exists
+		final JobTracker[] popup = new JobTracker[1];
 
 		// Wrap with SwingWorkerAdapter to handle threading and callbacks
 		SwingWorkerAdapter<List<Requirement>> adapter = new SwingWorkerAdapter<>(
@@ -405,6 +408,8 @@ public class QuakeInjector {
 			new AsyncListener<List<Requirement>>() {
 				@Override
 				public void onSuccess(List<Requirement> packages) {
+					// close the popup first, so other dialogs don't open behind it
+					popup[0].finish("Done");
 					maps.setRequirements(packages);
 					System.out.println("Setting Requirements");
 
@@ -432,6 +437,11 @@ public class QuakeInjector {
 
 				@Override
 				public void onFailure(Exception exception) {
+					popup[0].finish("Failed");
+					if (exception instanceof CancelledException) {
+						System.out.println("Loading the package database was cancelled");
+						return;
+					}
 					String ERROR_MESSAGE = "Database parsing failed!";
 					String msg = exception.getMessage();
 
@@ -447,7 +457,11 @@ public class QuakeInjector {
 			}
 		);
 
+		popup[0] = dialogProvider.showProgressPopup("Downloading package database", () -> adapter.cancel(true));
 		adapter.execute();
+		// The popup is modal: start() shows it and returns only once finish() closed it again. The adapter's
+		// callbacks run on the EDT inside the popup's event loop, so they can't run before it is open.
+		popup[0].start();
 	}
 
 	private void showEngineConfig() {

@@ -76,6 +76,8 @@ public class DialogView implements ChangeListener {
 			}
 		} else if (vm.progressPopupMessage == null && !vm.progressPopupShow && progressPopup != null) {
 			progressPopup.close();
+			// the next popup may have another description, so build a new one
+			progressPopup = null;
 		}
 	}
 }
