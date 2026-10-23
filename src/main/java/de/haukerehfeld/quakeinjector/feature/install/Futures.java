@@ -6,12 +6,12 @@ import java.util.concurrent.ExecutionException;
 /**
  * Small helpers for running checked-exception code as CompletableFuture stages.
  */
-final class Futures {
+public final class Futures {
 	private Futures() {
 	}
 
 	@FunctionalInterface
-	interface Stage<T> {
+	public interface Stage<T> {
 		T run() throws Exception;
 	}
 

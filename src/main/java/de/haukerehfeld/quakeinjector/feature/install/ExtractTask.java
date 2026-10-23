@@ -30,6 +30,7 @@ import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -78,7 +79,7 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 	 * @param overwrites a list of files that are allowed to be overwritten,
 	 *                   or null if everything should be overwritten
 	 * @param token cancel signal, checked between entries and between written chunks
-	 * @param progressListener optional listener for progress updates
+	 * @param progressListener optional listener, gets 0..100: the share of the archive read so far
 	 */
 	public ExtractTask(InputStream input, long inputSize, Package map,
 	                   File baseDirectory, ExtractMapping extractMapping,
@@ -102,6 +103,8 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 
 		// Only extracts; marking the package as installed is up to whoever runs the install
 		unzip(input, baseDirectory, map.getId(), overwrites);
+		// the zip reader stops at the central directory, so the archive is never read to its very end
+		reportProgress(100);
 
 		return files;
 	}
@@ -111,22 +114,24 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 	 */
 	private void unzip(InputStream in, File basedir, String mapid, List<File> overwrites)
 	        throws IOException, FileNotFoundException, CancelledException, ArchiveException {
-		// Build progress filter chain; check for cancel before each chunk gets written
-		ProgressListener percentage = new SumProgressListener(
+		// Progress is the share of the (compressed) archive read so far. Counting the uncompressed
+		// bytes written against the archive size would pass 100% for any file that compresses well.
+		ProgressListener archiveRead = new SumProgressListener(
 			new PercentageProgressListener(downloadSize, this::reportProgress));
-		ProgressListener progress = writtenBytes -> {
-			token.throwIfCancelled();
-			percentage.publish(writtenBytes);
-		};
+		// The archive factory needs mark/reset, so buffer on top of the counting stream
+		InputStream counted = new BufferedInputStream(new ProgressListenerInputStream(in, archiveRead));
+
+		// Check for cancel before each chunk gets written
+		ProgressListener cancelCheck = writtenBytes -> token.throwIfCancelled();
 
 		try (ArchiveInputStream<? extends ArchiveEntry> archiveStream = new ArchiveStreamFactory()
-				.createArchiveInputStream(in)) {
-			unzipEntries(archiveStream, basedir, overwrites, progress);
+				.createArchiveInputStream(counted)) {
+			unzipEntries(archiveStream, basedir, overwrites, cancelCheck);
 		}
 	}
 
 	private void unzipEntries(ArchiveInputStream<? extends ArchiveEntry> archiveStream, File basedir,
-	                          List<File> overwrites, ProgressListener progress)
+	                          List<File> overwrites, ProgressListener cancelCheck)
 	        throws IOException, CancelledException {
 		ArchiveEntry sourceEntry;
 
@@ -168,9 +173,7 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 
 				long crc;
 				try {
-					crc = Utils.writeFile(archiveStream, targetWritable,
-						new CompressedProgressListener(sourceEntry.getSize() / (double) sourceEntry.getSize(),
-							progress));
+					crc = Utils.writeFile(archiveStream, targetWritable, cancelCheck);
 				} catch (IOException | RuntimeException e) {
 					// Cancelled or failed mid-file: don't leave a half-written file (or temp file) behind.
 					// A file being replaced is untouched, because we were writing to a temp file.

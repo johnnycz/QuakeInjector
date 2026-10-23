@@ -22,6 +22,13 @@ public interface InstallListener {
 	 */
 	List<File> chooseOverwrites(Map<String, File> existingFiles);
 
+	/**
+	 * Overall progress of the install, 0..100 (download and extraction together).
+	 * Only called when the whole percentage changes.
+	 */
+	default void progress(int percent) {
+	}
+
 	/** The install finished and all files were extracted. */
 	void succeeded(PackageFileList installedFiles);
 

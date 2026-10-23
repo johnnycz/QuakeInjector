@@ -178,16 +178,42 @@ public class ExtractTaskTest {
 		assertFalse(Files.exists(engineDir().resolve("maps")));
 	}
 
+	@FunctionalInterface
+	private interface Condition {
+		boolean holds() throws Exception;
+	}
+
+	/**
+	 * Progress is reported as the archive gets read, so it is a good moment to check the disk
+	 * and press cancel at a well-defined point of the extraction.
+	 */
+	private static AsyncProgressListener cancelWhen(CancellationToken token, Condition condition) {
+		return (current, total) -> {
+			try {
+				if (condition.holds()) {
+					token.cancel();
+				}
+			}
+			catch (Exception e) {
+				throw new IllegalStateException(e);
+			}
+		};
+	}
+
 	@Test
 	public void cancelStopsBeforeTheNextEntry() throws Exception {
-		Path zip = new TestZip().file("maps/a.bsp", "A").file("maps/b.bsp", "B").writeTo(tmp.resolve("in.zip"));
+		byte[] a = new byte[200_000];
+		new Random(4).nextBytes(a);
+		Path zip = new TestZip().file("maps/a.bsp", a).file("maps/b.bsp", a).writeTo(tmp.resolve("in.zip"));
 		CancellationToken token = new CancellationToken();
-		// a.bsp is a single chunk, so it completes; the cancel takes effect before b.bsp
-		ExtractTask task = extractTask(zip, new ExtractMapping(), null, token, (current, total) -> token.cancel());
+		Path aFile = engineDir().resolve("maps/a.bsp");
+		// press cancel once a.bsp is completely written
+		ExtractTask task = extractTask(zip, new ExtractMapping(), null, token,
+			cancelWhen(token, () -> Files.exists(aFile) && Files.size(aFile) == a.length));
 
 		assertThrows(CancelledException.class, task::execute);
 
-		assertEquals("A", read(engineDir().resolve("maps/a.bsp")));
+		assertEquals(a.length, Files.size(aFile));
 		assertFalse(Files.exists(engineDir().resolve("maps/b.bsp")));
 		assertTrue(names(task.getExtractedFiles()).containsAll(List.of(rel("maps", "a.bsp"), rel("maps"))),
 			"files written before the cancel must be reported for cleanup: " + names(task.getExtractedFiles()));
@@ -199,7 +225,9 @@ public class ExtractTaskTest {
 		new Random(1).nextBytes(big);
 		Path zip = new TestZip().file("maps/big.pak", big).writeTo(tmp.resolve("in.zip"));
 		CancellationToken token = new CancellationToken();
-		ExtractTask task = extractTask(zip, new ExtractMapping(), null, token, (current, total) -> token.cancel());
+		// press cancel as soon as big.pak has been created, i.e. while it is being written
+		ExtractTask task = extractTask(zip, new ExtractMapping(), null, token,
+			cancelWhen(token, () -> Files.exists(engineDir().resolve("maps/big.pak"))));
 
 		assertThrows(CancelledException.class, task::execute);
 
@@ -214,15 +242,49 @@ public class ExtractTaskTest {
 		Files.createDirectories(engineDir().resolve("maps"));
 		Files.writeString(engineDir().resolve("maps/big.pak"), "OLD");
 		byte[] big = new byte[3 * 1024 * 1024];
-		new Random(2).nextBytes(big); // incompressible, so progress (measured on the zip size) stays <= 100%
+		new Random(2).nextBytes(big);
 		Path zip = new TestZip().file("maps/big.pak", big).writeTo(tmp.resolve("in.zip"));
 		CancellationToken token = new CancellationToken();
-		ExtractTask task = extractTask(zip, new ExtractMapping(), null, token, (current, total) -> token.cancel());
+		// press cancel while the new content is being written to a temp file
+		ExtractTask task = extractTask(zip, new ExtractMapping(), null, token,
+			cancelWhen(token, () -> !tempFiles().isEmpty()));
 
 		assertThrows(CancelledException.class, task::execute);
 
 		assertEquals("OLD", read(engineDir().resolve("maps/big.pak")));
 		assertEquals(List.of(), tempFiles());
+	}
+
+	@Test
+	public void progressReachesExactly100ForWellCompressedFiles() throws Exception {
+		// 2 MB of zeros compress to a few KB; progress used to be counted on the unpacked bytes
+		Path zip = new TestZip().file("maps/zeros.bsp", new byte[2 * 1024 * 1024])
+			.file("maps/a.bsp", "A").writeTo(tmp.resolve("in.zip"));
+		List<Long> progress = new ArrayList<>();
+
+		extractTask(zip, new ExtractMapping(), null, new CancellationToken(),
+			(current, total) -> progress.add(current)).execute();
+
+		assertFalse(progress.isEmpty(), "progress must be reported");
+		assertTrue(progress.stream().allMatch(p -> p >= 0 && p <= 100), "progress out of range: " + progress);
+		assertEquals(100L, progress.get(progress.size() - 1));
+	}
+
+	@Test
+	public void progressGrowsWhileExtractingALargeArchive() throws Exception {
+		byte[] big = new byte[1024 * 1024];
+		new Random(5).nextBytes(big);
+		Path zip = new TestZip().file("maps/big.pak", big).writeTo(tmp.resolve("in.zip"));
+		List<Long> progress = new ArrayList<>();
+
+		extractTask(zip, new ExtractMapping(), null, new CancellationToken(),
+			(current, total) -> progress.add(current)).execute();
+
+		assertTrue(progress.stream().distinct().count() > 10, "expected gradual progress: " + progress);
+		for (int i = 1; i < progress.size(); i++) {
+			assertTrue(progress.get(i) >= progress.get(i - 1), "progress must not go back: " + progress);
+		}
+		assertEquals(100L, progress.get(progress.size() - 1));
 	}
 
 	private List<Path> tempFiles() throws Exception {

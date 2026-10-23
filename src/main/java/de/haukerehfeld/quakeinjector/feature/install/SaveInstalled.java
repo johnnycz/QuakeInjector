@@ -31,6 +31,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -53,6 +55,25 @@ public class SaveInstalled {
 		return new BufferedInputStream(new FileInputStream(file));
 	}
 	
+
+	/**
+	 * Copy the file lists of all installed packages, so they can be written on another thread
+	 * while the UI thread keeps changing the packages. Call on the UI thread.
+	 */
+	public static Map<String, Iterable<FileInfo>> snapshot(Iterable<? extends Requirement> list) {
+		Map<String, Iterable<FileInfo>> files = new HashMap<>();
+		for (Requirement r : list) {
+			if (!r.isInstalled()) {
+				continue;
+			}
+			List<FileInfo> copy = new ArrayList<>();
+			if (r.getFileList() != null) {
+				r.getFileList().forEach(copy::add);
+			}
+			files.put(r.getId(), copy);
+		}
+		return files;
+	}
 
 	public void write(Iterable<? extends Requirement> list) throws java.io.IOException {
 		OutputStream out = getOutputStream();

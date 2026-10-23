@@ -21,7 +21,6 @@ package de.haukerehfeld.quakeinjector.feature.install;
 
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
-import de.haukerehfeld.quakeinjector.utils.AsyncTask;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import java.io.File;
@@ -149,25 +148,25 @@ public class PackageInstallUninstallService {
 								  }
 								  return overwriteFiles;
 							  }
-							  
+
+							  @Override
+							  public void progress(int percent) {
+								  job.setProgress(percent);
+							  }
+
 							  @Override
 							  public void succeeded(PackageFileList installedFiles) {
 								  Requirement r = requirements.get(installedFiles.getId());
-								  r.setInstalled(true);
+								  // set the file list first: listeners of the installed flag may read it
 								  if (!(r instanceof de.haukerehfeld.quakeinjector.model.Package)) {
 									  System.err.println(r + " isn't a Package!");
 								  }
 								  else {
 									  ((de.haukerehfeld.quakeinjector.model.Package) r).setFileList(installedFiles);
 								  }
+								  r.setInstalled(true);
 
-								  try {
-									  installedMaps.write(requirements);
-								  }
-								  catch (java.io.IOException e) {
-									  System.out.println("Couldn't write installed Maps file!"
-									                     + e.getMessage());
-								  }
+								  saveInstalledMaps();
 								  job.setProgress(100);
 								  job.finish("Success");
 							  }
@@ -202,8 +201,7 @@ public class PackageInstallUninstallService {
 									  }
 								  }
 							  }
-						  },
-		                  job);
+						  });
 	}
 
 	public void uninstall(Package pkg) {
@@ -222,24 +220,19 @@ public class PackageInstallUninstallService {
 
 		var job = jobTrackerProvider.addJob(description, () -> {});
 
+		// All handler methods run on the UI thread
 		installer.uninstall(files,
 		                    new Installer.UninstallErrorHandler() {
 								@Override
+								public void progress(int percent) {
+									job.setProgress(percent);
+								}
+
+								@Override
 								public void success() {
 									job.finish("success");
-
-									synchronized (map) {
-										map.setInstalled(false);
-									}
-
-									// Create a task to save installed maps
-									AsyncTask<Void> saveTask = createSaveInstalledTask();
-									// Execute it (GUI will wrap this with SwingWorkerAdapter)
-									try {
-										saveTask.execute();
-									} catch (Exception e) {
-										System.out.println("Couldn't write installed Maps file! " + e.getMessage());
-									}
+									map.setInstalled(false);
+									saveInstalledMaps();
 								}
 
 								@Override
@@ -248,22 +241,19 @@ public class PackageInstallUninstallService {
 									System.out.println(e.getMessage());
 									e.printStackTrace();
 								}
-							},
-		                    job
-		    );
+							});
 	}
 
 	/**
-	 * Create a task that saves the installed packages to disk.
+	 * Save which packages are installed. The list is copied here, on the UI thread, and written on
+	 * the disk thread. Writes happen in order, so the file always ends up with the latest state.
 	 */
-	private AsyncTask<Void> createSaveInstalledTask() {
-		return new AsyncTask<Void>() {
-			@Override
-			public Void execute() throws Exception {
-				installedMaps.write(requirements);
-				return null;
-			}
-		};
+	private void saveInstalledMaps() {
+		var snapshot = SaveInstalled.snapshot(requirements);
+		installer.runOnDiskThread("Writing the installed maps file", () -> {
+			installedMaps.write(snapshot);
+			return null;
+		});
 	}
 
 }

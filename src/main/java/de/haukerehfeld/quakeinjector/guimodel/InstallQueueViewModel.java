@@ -8,8 +8,6 @@ import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -33,7 +31,7 @@ public class InstallQueueViewModel implements JobTrackerProvider {
 
 	private AtomicInteger jobCounter = new AtomicInteger(0);
 
-	public class JobVm implements PropertyChangeListener {
+	public class JobVm {
 		private final int id;
 		private final String description;
 		private final Runnable cancelAction;
@@ -45,13 +43,6 @@ public class InstallQueueViewModel implements JobTrackerProvider {
 			this.id = id;
 			this.description = description;
 			this.cancelAction = cancelAction;
-		}
-
-		public void propertyChange(PropertyChangeEvent evt) {
-			if ("progress".equals(evt.getPropertyName())) {
-				int p = (Integer) evt.getNewValue();
-				setProgress(p);
-			}
 		}
 
 		public void setProgress(int progress) {
@@ -112,11 +103,6 @@ public class InstallQueueViewModel implements JobTrackerProvider {
 		@Override
 		public void setProgress(int progress) {
 			jobs.get(jobId).setProgress(progress);
-		}
-
-		@Override
-		public void propertyChange(PropertyChangeEvent evt) {
-			jobs.get(jobId).propertyChange(evt);
 		}
 	}
 

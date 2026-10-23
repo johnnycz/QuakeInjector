@@ -7,7 +7,6 @@ import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
 import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
-import java.beans.PropertyChangeEvent;
 import java.io.InputStream;
 import java.util.List;
 import java.util.function.Consumer;
@@ -145,11 +144,6 @@ public class DialogViewModel implements DialogProvider {
 			@Override
 			public void setProgress(int progress) {
 				DialogViewModel.this.progress = progress;
-				notifyChangeListeners();
-			}
-
-			@Override
-			public void propertyChange(PropertyChangeEvent evt) {
 				notifyChangeListeners();
 			}
 		};

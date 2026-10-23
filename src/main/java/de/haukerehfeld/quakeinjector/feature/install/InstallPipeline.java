@@ -60,8 +60,15 @@ public class InstallPipeline {
 	}
 
 	/** The downloaded (or cached) archive. */
-	private record Archive(File file, long size) {
+	private record Archive(File file, long size, boolean downloaded) {
+		/** Where extraction progress starts: after the download's half, or at 0 for a cached archive. */
+		int extractProgressFrom() {
+			return downloaded ? DOWNLOAD_SHARE : 0;
+		}
 	}
+
+	/** Share of the overall progress taken by the download; extraction takes the rest. */
+	private static final int DOWNLOAD_SHARE = 50;
 
 	/** The archive plus the existing files the package would overwrite (null if none exist). */
 	private record Inspection(Archive archive, Map<String, File> existingFiles) {
@@ -83,6 +90,7 @@ public class InstallPipeline {
 	private final Executors executors;
 
 	private final CancellationToken token = new CancellationToken();
+	private final UiProgress progress;
 
 	public InstallPipeline(String url, Package installedPackage,
 	                       InstallListener listener,
@@ -95,6 +103,7 @@ public class InstallPipeline {
 		this.downloadDirectory = downloadDirectory;
 		this.installDirectory = installDirectory;
 		this.executors = executors;
+		this.progress = new UiProgress(executors.ui(), listener::progress);
 	}
 
 	/**
@@ -124,14 +133,15 @@ public class InstallPipeline {
 
 		if (downloadFile.exists()) {
 			System.out.println("Skipping download, already existing with length " + downloadFile.length());
-			return new Archive(downloadFile, downloadFile.length());
+			return new Archive(downloadFile, downloadFile.length(), false);
 		}
 
 		System.out.println("Downloading to " + downloadFile);
 		downloadFile.getParentFile().mkdirs();
 		try (FileOutputStream out = new FileOutputStream(downloadFile)) {
-			long size = new DownloadTask(Download.create(url), out, token).execute();
-			return new Archive(downloadFile, size);
+			long size = new DownloadTask(Download.create(url), out, token,
+				(percent, total) -> progress.reportStage(percent, 0, DOWNLOAD_SHARE)).execute();
+			return new Archive(downloadFile, size, true);
 		}
 		catch (Exception e) {
 			// the stream is closed by now, so the partial file can be deleted (also on Windows)
@@ -202,7 +212,8 @@ public class InstallPipeline {
 				installDirectory.get(),
 				installedPackage.getExtractMapping(),
 				plan.overwrites(),
-				token);
+				token,
+				(percent, total) -> progress.reportStage(percent, plan.archive().extractProgressFrom(), 100));
 			return extractTask.execute();
 		}
 		catch (Exception e) {

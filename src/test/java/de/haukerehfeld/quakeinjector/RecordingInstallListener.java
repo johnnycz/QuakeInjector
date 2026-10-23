@@ -23,6 +23,15 @@ public class RecordingInstallListener implements InstallListener {
 	public volatile Map<String, File> askedAbout;
 	public volatile PackageFileList succeededWith;
 	public volatile InstallFailure failure;
+	/** Progress values and their threads; kept apart from {@link #calls} so call order stays readable. */
+	public final List<Integer> progress = new CopyOnWriteArrayList<>();
+	public final List<String> progressThreads = new CopyOnWriteArrayList<>();
+
+	@Override
+	public void progress(int percent) {
+		progressThreads.add(Thread.currentThread().getName());
+		progress.add(percent);
+	}
 
 	private void record(String call) {
 		threads.add(Thread.currentThread().getName());

@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
@@ -62,7 +63,7 @@ public class InstallerTest {
 			}
 		};
 
-		var done = installer.install(pkg, url, checking, null);
+		var done = installer.install(pkg, url, checking);
 		assertTrue(installer.alreadyQueued(pkg));
 		done.get(10, TimeUnit.SECONDS);
 
@@ -82,11 +83,11 @@ public class InstallerTest {
 		RecordingInstallListener second = new RecordingInstallListener();
 		// while the first install waits for the overwrite answer, try installing again
 		listener.overwriteAnswer = existing -> {
-			assertTrue(installer.install(pkg, url, second, null).isDone(), "second install must be rejected");
+			assertTrue(installer.install(pkg, url, second).isDone(), "second install must be rejected");
 			return new ArrayList<>(existing.values());
 		};
 
-		installer.install(pkg, url, listener, null).get(10, TimeUnit.SECONDS);
+		installer.install(pkg, url, listener).get(10, TimeUnit.SECONDS);
 
 		assertEquals(List.of("overwrite", "succeeded"), listener.calls);
 		assertEquals(List.of(), second.calls);
@@ -103,7 +104,7 @@ public class InstallerTest {
 			return new ArrayList<>(existing.values());
 		};
 
-		installer.install(pkg, url, listener, null).get(10, TimeUnit.SECONDS);
+		installer.install(pkg, url, listener).get(10, TimeUnit.SECONDS);
 
 		assertEquals(List.of("overwrite", "failed:CANCELLED"), listener.calls);
 		assertEquals("OLD", Files.readString(engineDir.resolve("maps/a.bsp")));
@@ -121,7 +122,7 @@ public class InstallerTest {
 			+ " queued=" + installer.alreadyQueued(pkg)
 			+ " on " + Thread.currentThread().getName()))).get();
 
-		installer.install(pkg, url, listener, null).get(10, TimeUnit.SECONDS);
+		installer.install(pkg, url, listener).get(10, TimeUnit.SECONDS);
 
 		assertEquals(List.of(
 			"testmap queued=true on " + TestThreads.UI,
@@ -137,7 +138,7 @@ public class InstallerTest {
 		listener.onFailed = failure -> whenTold.add("queued=" + installer.alreadyQueued(pkg)
 			+ " a.bsp exists=" + Files.exists(engineDir.resolve("maps/a.bsp")));
 
-		installer.install(pkg, url, listener, null).get(10, TimeUnit.SECONDS);
+		installer.install(pkg, url, listener).get(10, TimeUnit.SECONDS);
 
 		assertEquals(List.of("failed:NOT_WRITABLE"), listener.calls);
 		assertEquals(List.of("queued=true a.bsp exists=false"), whenTold);
@@ -152,8 +153,14 @@ public class InstallerTest {
 		files.add(new FileInfo("maps/a.bsp", 0));
 		files.add(new FileInfo("maps", 0));
 		List<String> calls = new CopyOnWriteArrayList<>();
+		List<String> progress = new CopyOnWriteArrayList<>();
 
 		installer.uninstall(files, new Installer.UninstallErrorHandler() {
+			@Override
+			public void progress(int percent) {
+				progress.add(percent + " on " + Thread.currentThread().getName());
+			}
+
 			@Override
 			public void success() {
 				calls.add("success on " + Thread.currentThread().getName());
@@ -163,10 +170,29 @@ public class InstallerTest {
 			public void error(Exception e) {
 				calls.add("error on " + Thread.currentThread().getName());
 			}
-		}, null).get(10, TimeUnit.SECONDS);
+		}).get(10, TimeUnit.SECONDS);
 
 		assertEquals(List.of("success on " + TestThreads.UI), calls);
+		assertEquals(List.of("50 on " + TestThreads.UI, "100 on " + TestThreads.UI), progress);
 		assertFalse(Files.exists(engineDir.resolve("maps/a.bsp")));
 		assertFalse(Files.exists(engineDir.resolve("maps")), "the emptied dir must be removed too");
+	}
+
+	@Test
+	public void runOnDiskThreadRunsAfterWorkAlreadyQueued() throws Exception {
+		List<String> order = new CopyOnWriteArrayList<>();
+		var first = installer.runOnDiskThread("first", () -> {
+			Thread.sleep(100);
+			order.add("first on " + Thread.currentThread().getName());
+			return null;
+		});
+		var second = installer.runOnDiskThread("second", () -> {
+			order.add("second on " + Thread.currentThread().getName());
+			return null;
+		});
+
+		CompletableFuture.allOf(first, second).get(10, TimeUnit.SECONDS);
+
+		assertEquals(List.of("first on " + TestThreads.DISK, "second on " + TestThreads.DISK), order);
 	}
 }

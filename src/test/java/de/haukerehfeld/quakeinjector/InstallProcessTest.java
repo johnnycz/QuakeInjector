@@ -56,6 +56,21 @@ public class InstallProcessTest {
 		// every listener call must happen on the UI thread
 		assertTrue(listener.threads.stream().allMatch(TestThreads.UI::equals),
 			"listener called on " + listener.threads);
+		assertTrue(listener.progressThreads.stream().allMatch(TestThreads.UI::equals),
+			"progress reported on " + listener.progressThreads);
+	}
+
+	/** Progress must stay in 0..100, never go back, have no repeats and end at 100. */
+	private void assertCleanProgress() {
+		List<Integer> progress = listener.progress;
+		assertFalse(progress.isEmpty(), "no progress reported");
+		for (int i = 0; i < progress.size(); i++) {
+			assertTrue(progress.get(i) >= 0 && progress.get(i) <= 100, "out of range: " + progress);
+			if (i > 0) {
+				assertTrue(progress.get(i) > progress.get(i - 1), "not strictly growing: " + progress);
+			}
+		}
+		assertEquals(100, progress.get(progress.size() - 1), "must end at 100: " + progress);
 	}
 
 	private InstallPipeline pipeline(String url) {
@@ -82,6 +97,23 @@ public class InstallProcessTest {
 		assertTrue(names(listener.succeededWith).contains(rel("maps", "a.bsp")));
 		assertTrue(Files.exists(downloadDir.resolve("testmap.zip")), "download should be cached");
 		assertFalse(pkg.isInstalled(), "marking the package installed is the listener's job");
+		assertCleanProgress();
+	}
+
+	@Test
+	public void progressCoversDownloadThenExtraction() throws Exception {
+		byte[] big = new byte[1024 * 1024];
+		new java.util.Random(6).nextBytes(big);
+		String url = remoteZip(new TestZip().file("maps/big.pak", big));
+
+		run(pipeline(url));
+
+		assertCleanProgress();
+		assertTrue(listener.progress.contains(50), "the download ends at 50%: " + listener.progress);
+		assertTrue(listener.progress.stream().filter(p -> p < 50).count() > 5,
+			"download progress expected below 50%: " + listener.progress);
+		assertTrue(listener.progress.stream().filter(p -> p > 50).count() > 5,
+			"extraction progress expected above 50%: " + listener.progress);
 	}
 
 	@Test
@@ -112,6 +144,8 @@ public class InstallProcessTest {
 
 		assertEquals(List.of("succeeded"), listener.calls);
 		assertEquals("A", read(engineDir.resolve("maps/a.bsp")));
+		// nothing was downloaded, so extraction alone goes from 0 to 100
+		assertCleanProgress();
 	}
 
 	@Test

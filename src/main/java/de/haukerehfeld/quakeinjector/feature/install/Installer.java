@@ -25,7 +25,6 @@ import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
-import java.beans.PropertyChangeListener;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -140,8 +139,7 @@ public class Installer {
 	 */
 	public CompletableFuture<Void> install(final Package selectedMap,
 	                                       final String url,
-	                                       final InstallListener listener,
-	                                       final PropertyChangeListener downloadProgressListener) {
+	                                       final InstallListener listener) {
 		InstallPipeline pipeline = new InstallPipeline(
 			url, selectedMap, listener, downloadDirectory, installDirectory, executors);
 		if (queue.putIfAbsent(selectedMap, pipeline) != null) {
@@ -182,9 +180,10 @@ public class Installer {
 	 * @return completes after the handler was called
 	 */
 	public CompletableFuture<Void> uninstall(PackageFileList map,
-	                                         final UninstallErrorHandler errorHandler,
-	                                         PropertyChangeListener progressListener) {
-		UninstallTask uninstallTask = new UninstallTask(map, installDirectory.get().getAbsolutePath());
+	                                         final UninstallErrorHandler errorHandler) {
+		UiProgress progress = new UiProgress(executors.ui(), errorHandler::progress);
+		UninstallTask uninstallTask = new UninstallTask(map, installDirectory.get().getAbsolutePath(),
+			(current, total) -> progress.report((int) (current * 100 / Math.max(1, total))));
 
 		return CompletableFuture
 			.runAsync(() -> unchecked(uninstallTask::execute), executors.disk())
@@ -200,8 +199,26 @@ public class Installer {
 			}, executors.ui());
 	}
 
+	/**
+	 * Run a short piece of file work (like saving the installed-packages list) on the disk thread,
+	 * after any extraction or uninstall that is already running. Errors are logged.
+	 */
+	public CompletableFuture<Void> runOnDiskThread(String description, Futures.Stage<?> work) {
+		return CompletableFuture
+			.runAsync(() -> unchecked(work), executors.disk())
+			.whenComplete((ignored, error) -> {
+				if (error != null) {
+					System.err.println(description + " failed: " + Futures.unwrap(error));
+				}
+			});
+	}
+
 	/** Callbacks of {@link #uninstall}, called on the UI executor. */
 	public interface UninstallErrorHandler {
+		/** Uninstall progress, 0..100; only called when the whole percentage changes. */
+		default void progress(int percent) {
+		}
+
 		public void success();
 		public void error(Exception e);
 	}
