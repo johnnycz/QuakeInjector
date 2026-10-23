@@ -22,6 +22,7 @@ package de.haukerehfeld.quakeinjector.feature.install;
 import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.utils.UiProgress;
 import de.haukerehfeld.quakeinjector.utils.CancellationToken;
 import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.Download;

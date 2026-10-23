@@ -33,24 +33,25 @@ import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
 import de.haukerehfeld.quakeinjector.utils.AsyncListener;
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
+import de.haukerehfeld.quakeinjector.utils.CancellationToken;
 import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.RuntimeExecutionException;
+import de.haukerehfeld.quakeinjector.utils.UiProgress;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -354,56 +355,60 @@ public class QuakeInjector {
 	/**
 	 * See what maps are installed
 	 */
-	private Future<List<PackageFileList>> checkForInstalledMaps() {
-		final CheckInstalled checker
-		    = new CheckInstalled(dialogProvider,
-		                         getConfig(),
-		                         getConfig().EnginePath.get().toString(),
-		                         maps,
-				(list) -> {
-						try {
-							setInstalledStatus(list);
+	private void checkForInstalledMaps() {
+		// copy on the EDT: the check runs on another thread, while the EDT may replace the list
+		Set<String> knownPackageIds = new HashSet<>();
+		for (Requirement r : maps) {
+			if (!(r instanceof UnavailableRequirement)) {
+				knownPackageIds.add(r.getId());
+			}
+		}
 
-							synchronized (maps) {
-								saveInstalled.write(maps);
-							}
-						}
-						catch (java.util.concurrent.CancellationException e) {
-						}
-						catch (java.io.IOException e) {
-							System.err.println("Couldn't write installedMapsFile: " + e);
-							e.printStackTrace();
-						}
-				});
+		CancellationToken token = new CancellationToken();
+		JobTracker popup = dialogProvider.showProgressPopup("Checking for installed maps", token::cancel);
+		UiProgress progress = new UiProgress(javax.swing.SwingUtilities::invokeLater, popup::setProgress);
+		CheckInstalled checker = new CheckInstalled(getConfig(),
+		                                            getConfig().EnginePath.get().toString(),
+		                                            knownPackageIds,
+		                                            token,
+		                                            (current, total) -> progress.report((int) current));
 
-		final ProgressPopup dbpopup =
-		    new ProgressPopup("Checking for installed maps",
-		                      new ActionListener() {
-
-								  public void actionPerformed(ActionEvent e) {
-									  checker.cancel(true);
-								  }
-							  },
-		                      view);
-
-		checker.addPropertyChangeListener(new PropertyChangeListener() {
-				@Override
-				public void propertyChange(PropertyChangeEvent evt) {
-					if (evt.getPropertyName() == "progress") {
-						int p = (Integer) evt.getNewValue();
-						dbpopup.setProgress(p);
-					}
-					else if (evt.getPropertyName() == "state"
-					    && evt.getNewValue().equals(SwingWorker.StateValue.DONE)) {
-						dbpopup.close();
-					}
+		// on the disk thread, so it doesn't look at files an install is just writing
+		CompletableFuture.supplyAsync(checker::execute, installer.diskExecutor())
+			.whenCompleteAsync((installed, error) -> {
+				popup.finish("Done");
+				if (error == null) {
+					setInstalledStatus(installed);
+					saveInstalledMaps();
+					return;
 				}
-			});
-		checker.execute();
-		dbpopup.pack();
-		dbpopup.setVisible(true);
+				Throwable cause = error instanceof java.util.concurrent.CompletionException && error.getCause() != null
+					? error.getCause()
+					: error;
+				if (cause instanceof CancelledException) {
+					System.out.println("Checking for installed maps was cancelled");
+					return;
+				}
+				cause.printStackTrace();
+				dialogProvider.showError("Checking for installed maps failed! " + cause.getMessage(),
+					"Checking failed");
+			}, javax.swing.SwingUtilities::invokeLater);
 
-		return checker;
+		// The popup is modal: start() shows it and returns only once finish() closed it again.
+		// The completion above runs on the EDT inside the popup's event loop.
+		popup.start();
+	}
+
+	/**
+	 * Save which packages are installed: copied here on the EDT, written on the disk thread, where all
+	 * other writes of the file happen too.
+	 */
+	private void saveInstalledMaps() {
+		var snapshot = SaveInstalled.snapshot(maps);
+		installer.runOnDiskThread("Writing the installed maps file", () -> {
+			saveInstalled.write(snapshot);
+			return null;
+		});
 	}
 	
 

@@ -1,57 +1,67 @@
 package de.haukerehfeld.quakeinjector.feature.list;
 
 import de.haukerehfeld.quakeinjector.model.Configuration;
-import de.haukerehfeld.quakeinjector.model.*;
+import de.haukerehfeld.quakeinjector.model.FileInfo;
 import de.haukerehfeld.quakeinjector.model.Package;
-import de.haukerehfeld.quakeinjector.utils.ProgressListener;
-
-import javax.swing.SwingWorker;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Collections;
+import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.model.Requirement;
+import de.haukerehfeld.quakeinjector.utils.AsyncProgressListener;
+import de.haukerehfeld.quakeinjector.utils.AsyncTask;
+import de.haukerehfeld.quakeinjector.utils.CancellationToken;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.util.function.Consumer;
-import javax.swing.JOptionPane;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
-
-public class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
-	implements ProgressListener {
-
+/**
+ * Find out which packages are installed by looking for their files in the Quake directory.
+ * Uses the file lists of the cached package database.
+ * <p>
+ * Runs on any thread and doesn't touch shared models: the caller passes the ids of the packages it knows,
+ * copied on the UI thread, and applies the result itself.
+ */
+public class CheckInstalled implements AsyncTask<List<PackageFileList>> {
 	private final Configuration configuration;
 	private final String enginePath;
-	private final RequirementList maps;
-	private final DialogProvider dialogProvider;
-	private final Consumer<List<PackageFileList>> doneCallback;
+	private final Set<String> knownPackageIds;
+	private final CancellationToken token;
+	private final AsyncProgressListener progress;
 
-	public CheckInstalled(DialogProvider dialogProvider,
-	                      Configuration configuration,
+	/**
+	 * @param knownPackageIds only these packages are checked (the ones in the current package list)
+	 * @param progress gets 0..100: the share of packages checked so far
+	 */
+	public CheckInstalled(Configuration configuration,
 	                      String enginePath,
-	                      RequirementList maps,
-	                      Consumer<List<PackageFileList>> doneCallback) {
+	                      Set<String> knownPackageIds,
+	                      CancellationToken token,
+	                      AsyncProgressListener progress) {
 		this.configuration = configuration;
 		this.enginePath = enginePath;
-		this.maps = maps;
-		this.dialogProvider = dialogProvider;
-		this.doneCallback = doneCallback;
+		this.knownPackageIds = knownPackageIds;
+		this.token = token;
+		this.progress = progress;
 	}
 
+	/**
+	 * @return the file lists of the packages whose files are all there
+	 * @throws CancelledException if the token was cancelled
+	 */
 	@Override
-	    public List<PackageFileList> doInBackground() throws java.lang.InterruptedException,
-	    java.util.concurrent.ExecutionException,
-	    java.io.IOException {
-
+	public List<PackageFileList> execute() throws CancelledException {
 		File localDatabaseFile = configuration.LocalDatabaseFile.get();
 		if (!localDatabaseFile.exists() || !localDatabaseFile.isFile() || !localDatabaseFile.canRead()) {
 			System.err.println("Cached database file not found");
 			return Collections.emptyList();
 		}
+
 		List<Requirement> packages;
 		try (FileInputStream dl = new FileInputStream(localDatabaseFile)) {
 			packages = new PackageDatabaseSolrJsonParser(configuration).parse(dl);
-
 			Collections.sort(packages);
 		}
 		catch (java.io.FileNotFoundException e) {
@@ -68,23 +78,21 @@ public class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 		int i = 0;
 		List<PackageFileList> installed = new ArrayList<PackageFileList>();
 		for (Requirement requirement: packages) {
+			token.throwIfCancelled();
 			if (!(requirement instanceof Package pkg)) {
 				continue;
 			}
 			PackageFileList list = pkg.getSupposedFileList();
-			publish(i++ * 100L / packages.size());
-			Requirement r = maps.get(list.getId());
-			String basedir = enginePath + File.separator;
-			if (r instanceof UnavailableRequirement) {
+			progress.onProgress(i++ * 100L / packages.size(), 100);
+
+			if (!knownPackageIds.contains(list.getId())) {
 				continue;
 			}
 
+			String basedir = enginePath + File.separator;
 			List<String> missingFiles = new ArrayList<String>();
 			for (FileInfo entry: list) {
-				if (isCancelled()) {
-					throw new java.util.concurrent.CancellationException();
-				}
-
+				token.throwIfCancelled();
 				if (list.size() > 7 && missingFiles.size() > 0.2f * list.size()) {
 					System.out.println("Too many missing files for " + list.getId()
 					                   + ", stopping search!");
@@ -125,43 +133,7 @@ public class CheckInstalled extends SwingWorker<List<PackageFileList>, Void>
 				System.out.println(list.getId() + " has missing files, not installed.");
 			}
 		}
-
+		progress.onProgress(100, 100);
 		return installed;
 	}
-
-
-	@Override
-    public void done() {
-		try {
-			doneCallback.accept(get());
-		}
-		catch (java.lang.InterruptedException e) {
-			System.err.println("Interrupted: " + e);
-			e.printStackTrace();
-		}
-		catch (java.util.concurrent.ExecutionException e) {
-			System.err.println("Exception: " + e);
-			e.printStackTrace();
-			try {
-				throw e.getCause();
-			}
-			catch (java.net.ConnectException err) {
-				String msg = "Downloading file database failed, " + err.getMessage() + "!";
-				dialogProvider.showError(msg,"Downloading failed!");
-			}
-			catch (Throwable err) {
-			}
-		}
-		catch (java.util.concurrent.CancellationException e) {
-		}
-	}
-
-	public void publish(long progress) {
-		if (progress <= 100) {
-			setProgress((int) progress);
-		}
-	}
-	
 }
-
-
