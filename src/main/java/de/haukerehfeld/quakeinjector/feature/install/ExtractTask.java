@@ -100,9 +100,9 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 	                                         CancelledException, ArchiveException {
 		System.out.println("Extracting " + map.getId());
 
+		// Only extracts; marking the package as installed is up to whoever runs the install
 		unzip(input, baseDirectory, map.getId(), overwrites);
 
-		map.setInstalled(true);
 		return files;
 	}
 
@@ -119,8 +119,15 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 			percentage.publish(writtenBytes);
 		};
 
-		ArchiveInputStream<? extends ArchiveEntry> archiveStream = new ArchiveStreamFactory()
-			.createArchiveInputStream(in);
+		try (ArchiveInputStream<? extends ArchiveEntry> archiveStream = new ArchiveStreamFactory()
+				.createArchiveInputStream(in)) {
+			unzipEntries(archiveStream, basedir, overwrites, progress);
+		}
+	}
+
+	private void unzipEntries(ArchiveInputStream<? extends ArchiveEntry> archiveStream, File basedir,
+	                          List<File> overwrites, ProgressListener progress)
+	        throws IOException, CancelledException {
 		ArchiveEntry sourceEntry;
 
 		boolean extracted = false;
@@ -147,6 +154,9 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 
 			// Do nothing for directories other than creating them
 			if (!sourceEntry.isDirectory()) {
+				// Record new dirs straight away, so cleanup removes them even if writing the file fails
+				recordDirs(basedir, createdDirs);
+
 				File overwrittenFile = targetWritable;
 				if (targetWritable.exists()) {
 					// Create temp file and rename later
@@ -161,14 +171,13 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 					crc = Utils.writeFile(archiveStream, targetWritable,
 						new CompressedProgressListener(sourceEntry.getSize() / (double) sourceEntry.getSize(),
 							progress));
-				} catch (FileNotFoundException e) {
-					throw new FileNotWritableException(e.getMessage());
-				} catch (CancelledException e) {
-					// Don't leave a half-written file behind; record created dirs so cleanup removes them
-					System.out.println("Extraction cancelled, removing partially written " + targetWritable);
+				} catch (IOException | RuntimeException e) {
+					// Cancelled or failed mid-file: don't leave a half-written file (or temp file) behind.
+					// A file being replaced is untouched, because we were writing to a temp file.
+					System.out.println("Extraction stopped (" + e + "), removing partially written " + targetWritable);
 					targetWritable.delete();
-					for (File dirname : createdDirs) {
-						files.add(new FileInfo(RelativePath.getRelativePath(basedir, dirname).toString(), 0));
+					if (e instanceof FileNotFoundException) {
+						throw new FileNotWritableException(e.getMessage());
 					}
 					throw e;
 				}
@@ -185,11 +194,6 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 				FileInfo info = new FileInfo(filename, crc, targetWritable.length());
 				files.add(info);
 
-				for (File dirname : createdDirs) {
-					// Save relative paths to files so we can delete dirs later
-					files.add(new FileInfo(RelativePath.getRelativePath(basedir, dirname).toString(), 0));
-				}
-
 				// If we extracted to temp, rename
 				if (!targetWritable.equals(overwrittenFile)) {
 					overwrittenFile.delete();
@@ -204,8 +208,13 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 		if (!extracted) {
 			throw new ZipException("No files extracted from zip, is it an empty file?");
 		}
+	}
 
-		archiveStream.close();
+	/** Save relative paths of created dirs, so uninstall and cleanup can delete them later. */
+	private void recordDirs(File basedir, List<File> createdDirs) {
+		for (File dirname : createdDirs) {
+			files.add(new FileInfo(RelativePath.getRelativePath(basedir, dirname).toString(), 0));
+		}
 	}
 
 	private File getTargetFile(ArchiveEntry sourceEntry) {

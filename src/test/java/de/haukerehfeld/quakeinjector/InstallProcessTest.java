@@ -53,8 +53,11 @@ public class InstallProcessTest {
 		config.DownloadPath.set(downloadDir.toFile());
 	}
 
+	/** The package of the most recently created task. */
+	private Package pkg;
+
 	private PackageInstallOrchestrationTask task(String url) {
-		Package pkg = TestZip.testPackage("testmap", new ExtractMapping(), url);
+		pkg = TestZip.testPackage("testmap", new ExtractMapping(), url);
 		return new PackageInstallOrchestrationTask(url, pkg, handler, config.DownloadPath, config.EnginePath);
 	}
 
@@ -72,6 +75,21 @@ public class InstallProcessTest {
 		assertTrue(names(files).contains(rel("maps", "a.bsp")));
 		assertTrue(Files.exists(downloadDir.resolve("testmap.zip")), "download should be cached");
 		assertEquals(List.of(), handler.calls, "no handler calls on a plain install");
+		assertFalse(pkg.isInstalled(), "marking the package installed is the success handler's job");
+	}
+
+	@Test
+	public void failedExtractionReportsWhatWasWrittenForCleanup() throws Exception {
+		// a plain file where the zip expects a directory: inspecting works, writing blocker/x.bsp fails
+		Files.writeString(engineDir.resolve("blocker"), "not a directory");
+		String url = remoteZip(new TestZip().file("maps/a.bsp", "A").file("blocker/x.bsp", "X"));
+
+		assertThrows(FileNotWritableException.class, () -> task(url).execute());
+
+		assertEquals(List.of("notWritable"), handler.calls);
+		assertTrue(names(handler.filesOnFailure).containsAll(List.of(rel("maps", "a.bsp"), rel("maps"))),
+			"the handler needs the files extracted before the failure: " + names(handler.filesOnFailure));
+		assertFalse(pkg.isInstalled());
 	}
 
 	@Test

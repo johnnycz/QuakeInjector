@@ -13,10 +13,12 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Stream;
@@ -39,10 +41,12 @@ public class ExtractTaskTest {
 		return extractTask(zip, mapping, overwrites, new CancellationToken(), null).execute();
 	}
 
+	/** The package being extracted; ExtractTask takes the mapping as a separate argument. */
+	private final Package pkg = TestZip.testPackage("testmap", new ExtractMapping(), "unused");
+
 	/** The task reads from a stream that stays open until the test ends (closed by {@link #closeStreams}). */
 	private ExtractTask extractTask(Path zip, ExtractMapping mapping, List<File> overwrites,
 	                                CancellationToken token, AsyncProgressListener progress) throws Exception {
-		Package pkg = TestZip.testPackage("testmap", mapping, "unused");
 		InputStream in = new BufferedInputStream(Files.newInputStream(zip));
 		openStreams.add(in);
 		return new ExtractTask(in, Files.size(zip), pkg, engineDir().toFile(), mapping, overwrites, token, progress);
@@ -67,6 +71,7 @@ public class ExtractTaskTest {
 		assertEquals("B", read(engineDir().resolve("maps/b.bsp")));
 		assertTrue(names(files).containsAll(List.of(rel("maps", "a.bsp"), rel("maps", "b.bsp"), rel("maps"))),
 			"file list should contain both files and the created directory: " + names(files));
+		assertFalse(pkg.isInstalled(), "extracting must not mark the package installed");
 	}
 
 	@Test
@@ -122,6 +127,36 @@ public class ExtractTaskTest {
 		assertFalse(Files.exists(engineDir().resolve("maps/bad.bsp")));
 		assertFalse(names(files).contains(rel("maps", "bad.bsp")));
 		assertEquals("OK", read(engineDir().resolve("maps/ok.bsp")));
+	}
+
+	@Test
+	public void recordsDirCreatedForAFileWithWrongCrc() throws Exception {
+		Path zip = new TestZip()
+			.storedFile("bad/bad.bsp", "GOODDATA")
+			.file("maps/ok.bsp", "OK")
+			.writeCorrupted(tmp.resolve("in.zip"), "GOODDATA", "BADDATA!");
+
+		PackageFileList files = extract(zip, new ExtractMapping(), null);
+
+		assertTrue(names(files).contains(rel("bad")),
+			"the dir created for the dropped file must be recorded so uninstall removes it: " + names(files));
+	}
+
+	@Test
+	public void failedWriteRemovesPartialFileAndReportsWhatWasWritten() throws Exception {
+		byte[] big = new byte[3 * 1024 * 1024];
+		new Random(3).nextBytes(big);
+		Path zip = new TestZip().file("maps/a.bsp", "A").file("pak/big.pak", big).writeTo(tmp.resolve("in.zip"));
+		// cut the zip in the middle of big.pak, so reading it fails half way
+		Files.write(zip, Arrays.copyOf(Files.readAllBytes(zip), (int) (Files.size(zip) / 2)));
+		ExtractTask task = extractTask(zip, new ExtractMapping(), null, new CancellationToken(), null);
+
+		assertThrows(IOException.class, task::execute);
+
+		assertFalse(Files.exists(engineDir().resolve("pak/big.pak")), "partial file must be deleted");
+		assertEquals(List.of(), tempFiles());
+		assertTrue(names(task.getExtractedFiles()).containsAll(List.of(rel("maps", "a.bsp"), rel("maps"), rel("pak"))),
+			"cleanup needs the files and dirs written before the failure: " + names(task.getExtractedFiles()));
 	}
 
 	@Test
