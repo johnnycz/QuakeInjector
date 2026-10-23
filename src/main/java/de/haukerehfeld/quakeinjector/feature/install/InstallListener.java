@@ -25,6 +25,9 @@ public interface InstallListener {
 	/** The install finished and all files were extracted. */
 	void succeeded(PackageFileList installedFiles);
 
-	/** The install stopped early because it failed or was cancelled. */
+	/**
+	 * The install stopped early because it failed or was cancelled.
+	 * Any files it had written are already deleted.
+	 */
 	void failed(InstallFailure failure);
 }

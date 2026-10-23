@@ -8,6 +8,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -17,6 +18,8 @@ public class RecordingInstallListener implements InstallListener {
 	public final List<String> calls = new CopyOnWriteArrayList<>();
 	public final List<String> threads = new CopyOnWriteArrayList<>();
 	public Function<Map<String, File>, List<File>> overwriteAnswer = existing -> null;
+	/** Runs inside failed(), to check the state at the moment the listener is told. */
+	public Consumer<InstallFailure> onFailed = failure -> { };
 	public volatile Map<String, File> askedAbout;
 	public volatile PackageFileList succeededWith;
 	public volatile InstallFailure failure;
@@ -43,5 +46,6 @@ public class RecordingInstallListener implements InstallListener {
 	public void failed(InstallFailure failure) {
 		record("failed:" + failure.getKind());
 		this.failure = failure;
+		onFailed.accept(failure);
 	}
 }

@@ -22,13 +22,15 @@ package de.haukerehfeld.quakeinjector.feature.install;
 import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.utils.ChangeListener;
+import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
 import java.beans.PropertyChangeListener;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,7 +45,8 @@ import static de.haukerehfeld.quakeinjector.feature.install.Futures.unchecked;
  * <li>one network thread: downloads run one at a time</li>
  * <li>one disk thread: inspecting, extracting and uninstalling run one at a time, so cleanup
  *     never overlaps with an extraction</li>
- * <li>the UI executor passed in: overwrite questions and all listener / handler callbacks</li>
+ * <li>the UI executor passed in: overwrite questions, all listener / handler callbacks and
+ *     queue change events</li>
  * </ul>
  */
 public class Installer {
@@ -51,7 +54,11 @@ public class Installer {
 	private final Configuration.DownloadPath downloadDirectory;
 	private final InstallPipeline.Executors executors;
 
-	private final Map<Package, InstallPipeline> queue = new HashMap<>(); // guarded by itself
+	/** Installs that haven't reported their outcome yet. */
+	private final Map<Package, InstallPipeline> queue = new ConcurrentHashMap<>();
+
+	/** Only touched on the UI executor. */
+	private final ChangeListenerList queueListeners = new ChangeListenerList();
 
 	/**
 	 * @param uiExecutor runs callbacks on the UI thread, e.g. {@code SwingUtilities::invokeLater}
@@ -93,36 +100,40 @@ public class Installer {
 	}
 
 	public void cancelAll() {
-		Set<Package> queued;
-		synchronized (queue) {
-			queued = new HashSet<>(queue.keySet());
-		}
-		for (Package inQueue : queued) {
+		for (Package inQueue : getQueue()) {
 			System.out.println("Canceling " + inQueue);
 			cancel(inQueue);
 		}
 	}
 
 	public boolean working() {
-		synchronized (queue) {
-			return !queue.isEmpty();
-		}
+		return !queue.isEmpty();
 	}
 
 	public Set<Package> getQueue() {
-		synchronized (queue) {
-			return new HashSet<>(queue.keySet());
-		}
+		return new HashSet<>(queue.keySet());
 	}
 
 	public boolean alreadyQueued(final Package map) {
-		synchronized (queue) {
-			return queue.containsKey(map);
-		}
+		return queue.containsKey(map);
+	}
+
+	/**
+	 * Be told whenever a package enters or leaves the install queue (see {@link #alreadyQueued}).
+	 * Events arrive on the UI executor; the event source is the package. Register on the UI thread.
+	 */
+	public void addQueueListener(ChangeListener listener) {
+		queueListeners.addChangeListener(listener);
+	}
+
+	public void removeQueueListener(ChangeListener listener) {
+		queueListeners.removeChangeListener(listener);
 	}
 
 	/**
 	 * Install a package in the background. All listener calls happen on the UI executor.
+	 * The package stays queued until the listener was told the outcome; after a failure, the files
+	 * written so far are already removed by then.
 	 *
 	 * @return completes after the listener was told the outcome and the package left the queue;
 	 *         an already finished future if the package is already being installed
@@ -133,31 +144,33 @@ public class Installer {
 	                                       final PropertyChangeListener downloadProgressListener) {
 		InstallPipeline pipeline = new InstallPipeline(
 			url, selectedMap, listener, downloadDirectory, installDirectory, executors);
-		synchronized (queue) {
-			if (queue.containsKey(selectedMap)) {
-				return CompletableFuture.completedFuture(null);
-			}
-			queue.put(selectedMap, pipeline);
+		if (queue.putIfAbsent(selectedMap, pipeline) != null) {
+			return CompletableFuture.completedFuture(null);
 		}
+		executors.ui().execute(() -> queueChanged(selectedMap));
 
+		// runs on the UI executor, right after the listener was called
 		return pipeline.start()
 			.whenComplete((ignored, error) -> {
 				if (error != null) {
 					System.err.println("Install listener failed for " + selectedMap.getId() + ": " + error);
 					error.printStackTrace();
 				}
-				synchronized (queue) {
-					queue.remove(selectedMap);
-				}
+				queue.remove(selectedMap);
+				queueChanged(selectedMap);
 			});
 	}
 
-	/** Cancel a queued install. The listener hears about it once the running stage has stopped. */
+	private void queueChanged(Package changed) {
+		queueListeners.notifyChangeListeners(changed);
+	}
+
+	/**
+	 * Cancel a queued install. Only signals the running stage; the listener hears about it, and the
+	 * package leaves the queue, once that stage has stopped and its partial files are removed.
+	 */
 	public void cancel(Package installerMap) {
-		InstallPipeline pipeline;
-		synchronized (queue) {
-			pipeline = queue.get(installerMap);
-		}
+		InstallPipeline pipeline = queue.get(installerMap);
 		if (pipeline != null) {
 			pipeline.cancel();
 		}

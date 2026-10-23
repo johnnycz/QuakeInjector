@@ -47,11 +47,12 @@ import static de.haukerehfeld.quakeinjector.feature.install.Futures.unchecked;
  * Each stage runs on the executor that suits it, and no thread waits for another:
  * <ul>
  * <li>download on the network executor</li>
- * <li>inspect and extract on the disk executor</li>
+ * <li>inspect, extract, and cleanup after a failure on the disk executor</li>
  * <li>the overwrite question and the final {@link InstallListener} call on the UI executor</li>
  * </ul>
  * One {@link CancellationToken} is shared by all stages, so {@link #cancel()} stops whichever stage is
- * running. The listener is told about the outcome only after that stage has actually stopped.
+ * running. The listener is told about a failure only after that stage has actually stopped and the
+ * files it had written have been removed.
  */
 public class InstallPipeline {
 	/** The threads the stages run on. */
@@ -68,6 +69,10 @@ public class InstallPipeline {
 
 	/** What to extract: overwrites is null to write every file. */
 	private record ExtractPlan(Archive archive, List<File> overwrites) {
+	}
+
+	/** Either the installed files or the failure. */
+	private record Outcome(PackageFileList installedFiles, InstallFailure failure) {
 	}
 
 	private final String url;
@@ -103,7 +108,8 @@ public class InstallPipeline {
 			.thenApplyAsync(archive -> unchecked(() -> inspect(archive)), executors.disk())
 			.thenApplyAsync(this::askOverwrites, executors.ui())
 			.thenApplyAsync(this::extract, executors.disk())
-			.handleAsync(this::finish, executors.ui());
+			.handleAsync(this::cleanUpOnFailure, executors.disk())
+			.thenAcceptAsync(this::report, executors.ui());
 	}
 
 	/** Stop the install. Safe to call from any thread; the running stage stops at its next check. */
@@ -208,20 +214,44 @@ public class InstallPipeline {
 		}
 	}
 
-	/** Runs on the UI executor. Tells the listener the outcome. */
-	private Void finish(PackageFileList installedFiles, Throwable error) {
+	/**
+	 * Runs on the disk executor, so it can't overlap with another extraction or uninstall.
+	 * After a failure, deletes the files the install had already written.
+	 */
+	private Outcome cleanUpOnFailure(PackageFileList installedFiles, Throwable error) {
 		if (error == null) {
+			return new Outcome(installedFiles, null);
+		}
+
+		InstallFailure failure = InstallFailure.of(error, installedPackage.getId());
+		System.out.println("Install of " + installedPackage.getId() + " stopped: " + failure);
+		if (failure.getKind() == InstallFailure.Kind.UNEXPECTED) {
+			failure.getCause().printStackTrace();
+		}
+
+		PackageFileList written = failure.getPartialFiles();
+		if (!written.isEmpty()) {
+			System.out.println("Cleaning up " + written.size() + " files of " + installedPackage.getId());
+			try {
+				new UninstallTask(written, installDirectory.get().getAbsolutePath()).execute();
+			}
+			catch (Exception e) {
+				// Still report the original failure; leftover files are less important than a stuck job
+				System.err.println("Cleanup after failed install of " + installedPackage.getId() + " failed: " + e);
+				e.printStackTrace();
+			}
+		}
+		return new Outcome(null, failure);
+	}
+
+	/** Runs on the UI executor. Tells the listener the outcome. */
+	private void report(Outcome outcome) {
+		if (outcome.failure() == null) {
 			System.out.println("Success installing " + installedPackage.getId());
-			listener.succeeded(installedFiles);
+			listener.succeeded(outcome.installedFiles());
 		}
 		else {
-			InstallFailure failure = InstallFailure.of(error, installedPackage.getId());
-			System.out.println("Install of " + installedPackage.getId() + " stopped: " + failure);
-			if (failure.getKind() == InstallFailure.Kind.UNEXPECTED) {
-				failure.getCause().printStackTrace();
-			}
-			listener.failed(failure);
+			listener.failed(outcome.failure());
 		}
-		return null;
 	}
 }

@@ -85,17 +85,20 @@ public class InstallProcessTest {
 	}
 
 	@Test
-	public void failedExtractionReportsWhatWasWrittenForCleanup() throws Exception {
+	public void failedExtractionIsCleanedUpBeforeTheListenerIsTold() throws Exception {
 		// a plain file where the zip expects a directory: inspecting works, writing blocker/x.bsp fails
 		Files.writeString(engineDir.resolve("blocker"), "not a directory");
 		String url = remoteZip(new TestZip().file("maps/a.bsp", "A").file("blocker/x.bsp", "X"));
+		List<Boolean> fileExistedWhenTold = new ArrayList<>();
+		listener.onFailed = failure -> fileExistedWhenTold.add(Files.exists(engineDir.resolve("maps/a.bsp")));
 
 		run(pipeline(url));
 
 		assertEquals(List.of("failed:NOT_WRITABLE"), listener.calls);
+		assertEquals(List.of(false), fileExistedWhenTold, "a.bsp must be removed before the listener is told");
 		assertTrue(names(listener.failure.getPartialFiles()).containsAll(List.of(rel("maps", "a.bsp"), rel("maps"))),
-			"the listener needs the files extracted before the failure: "
-			+ names(listener.failure.getPartialFiles()));
+			"the failure lists what was written (and removed): " + names(listener.failure.getPartialFiles()));
+		assertEquals("not a directory", read(engineDir.resolve("blocker")), "files not written by the install stay");
 		assertFalse(pkg.isInstalled());
 	}
 

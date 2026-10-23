@@ -111,6 +111,40 @@ public class InstallerTest {
 	}
 
 	@Test
+	public void queueChangesAreSentOnTheUiThread() throws Exception {
+		String url = remoteZip(new TestZip().file("maps/a.bsp", "A"));
+		Package pkg = TestZip.testPackage("testmap", new ExtractMapping(), url);
+		List<String> events = new CopyOnWriteArrayList<>();
+		// register on the UI thread, as the app does
+		threads.ui().submit(() -> installer.addQueueListener(e -> events.add(
+			(e.getSource() == pkg ? "testmap" : "?")
+			+ " queued=" + installer.alreadyQueued(pkg)
+			+ " on " + Thread.currentThread().getName()))).get();
+
+		installer.install(pkg, url, listener, null).get(10, TimeUnit.SECONDS);
+
+		assertEquals(List.of(
+			"testmap queued=true on " + TestThreads.UI,
+			"testmap queued=false on " + TestThreads.UI), events);
+	}
+
+	@Test
+	public void failedInstallStaysQueuedUntilCleanedUpAndReported() throws Exception {
+		Files.writeString(engineDir.resolve("blocker"), "not a directory");
+		String url = remoteZip(new TestZip().file("maps/a.bsp", "A").file("blocker/x.bsp", "X"));
+		Package pkg = TestZip.testPackage("testmap", new ExtractMapping(), url);
+		List<String> whenTold = new ArrayList<>();
+		listener.onFailed = failure -> whenTold.add("queued=" + installer.alreadyQueued(pkg)
+			+ " a.bsp exists=" + Files.exists(engineDir.resolve("maps/a.bsp")));
+
+		installer.install(pkg, url, listener, null).get(10, TimeUnit.SECONDS);
+
+		assertEquals(List.of("failed:NOT_WRITABLE"), listener.calls);
+		assertEquals(List.of("queued=true a.bsp exists=false"), whenTold);
+		assertFalse(installer.alreadyQueued(pkg));
+	}
+
+	@Test
 	public void uninstallDeletesFilesAndReportsOnTheUiThread() throws Exception {
 		Files.createDirectories(engineDir.resolve("maps"));
 		Files.writeString(engineDir.resolve("maps/a.bsp"), "A");

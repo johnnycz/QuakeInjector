@@ -68,6 +68,7 @@ public class QuakeInjector {
 	private final RequirementList maps;
 	private final PackageTableModel maplist;
 	private Installer installer;
+	private final PackageInteractionViewModel packageInteractionViewModel;
 	private final InstalledPackages installedMaps = new InstalledPackages();
 	private final Configuration config;
 
@@ -103,7 +104,7 @@ public class QuakeInjector {
 		// TODO clean this up
 		// initialize model, then view model, then view
 
-		PackageInteractionViewModel packageInteractionViewModel = new PackageInteractionViewModel(router);
+		packageInteractionViewModel = new PackageInteractionViewModel(router);
 		PackageListViewModel packageListViewModel = new PackageListViewModel(packageInteractionViewModel);
 		packageListViewModel.setMapList(packages);
 		maplist = new PackageTableModel(packageListViewModel, packageInteractionViewModel);
@@ -304,6 +305,8 @@ public class QuakeInjector {
 
 		installer = new Installer(getConfig().EnginePath, getConfig().DownloadPath,
 			javax.swing.SwingUtilities::invokeLater);
+		// refresh the Install button whenever an install starts or ends (also after a failure)
+		installer.addQueueListener(packageInteractionViewModel);
 
 		installUninstallService.init(installer,
 				maps,

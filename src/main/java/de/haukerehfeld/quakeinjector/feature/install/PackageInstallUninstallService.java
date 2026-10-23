@@ -174,7 +174,7 @@ public class PackageInstallUninstallService {
 
 							  @Override
 							  public void failed(InstallFailure failure) {
-								  PackageFileList written = failure.getPartialFiles();
+								  // The pipeline has already removed the partially written files
 								  String reason = failure.getCause().getMessage();
 								  switch (failure.getKind()) {
 									  case NOT_FOUND -> {
@@ -183,31 +183,24 @@ public class PackageInstallUninstallService {
 										      + " repository", "File not found (404)");
 									  }
 									  case NOT_WRITABLE -> {
-										  cleanup(written, "Couldn't write");
+										  job.finish("Couldn't write");
 										  dialogProvider.showError("Couldn't write to harddisk! " + reason,
 										      "Couldn't write to harddisk");
 									  }
 									  case IO -> {
-										  cleanup(written, "File Error");
+										  job.finish("File Error");
 										  dialogProvider.showError("Couldn't open file! " + reason, "Couldn't open file!");
 									  }
 									  case NETWORK -> {
-										  cleanup(written, "Network Error");
+										  job.finish("Network Error");
 										  dialogProvider.showError("Download failed! " + reason, "Download failed!");
 									  }
-									  case CANCELLED -> cleanup(written, "Canceled");
+									  case CANCELLED -> job.finish("Canceled");
 									  case UNEXPECTED -> {
-										  cleanup(written, "Error");
+										  job.finish("Error");
 										  dialogProvider.showError("Install failed! " + failure.getCause(), "Install failed");
 									  }
 								  }
-							  }
-
-							  private void cleanup(PackageFileList alreadyInstalledFiles,
-							                       String message) {
-								  System.out.println("Cleaning up...");
-								  uninstall(selectedMap, alreadyInstalledFiles);
-								  job.finish(message);
 							  }
 						  },
 		                  job);

@@ -82,7 +82,10 @@ public final class InstallFailure {
 		return cause;
 	}
 
-	/** Files and dirs written before the install stopped; empty if it stopped before extracting. */
+	/**
+	 * Files and dirs written before the install stopped; empty if it stopped before extracting.
+	 * By the time an {@link InstallListener} sees this, the pipeline has already deleted them.
+	 */
 	public PackageFileList getPartialFiles() {
 		return partialFiles;
 	}
