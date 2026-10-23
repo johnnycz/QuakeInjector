@@ -39,7 +39,7 @@ import java.util.concurrent.Executors;
 
 public class Installer {
 	private static final int simultanousDownloads = 1;
-	private static final int simultanousInstalls = 1;
+	private static final int simultanousExtractions = 1;
 	private static final int simultanousInspectors = 1;
 	private static final int simultanousWaiters = 15;
 
@@ -48,7 +48,7 @@ public class Installer {
 	
 	private final ExecutorService activeDownloaders = Executors.newFixedThreadPool(simultanousDownloads);
 	private final ExecutorService activeInspectors = Executors.newFixedThreadPool(simultanousInspectors);
-	private final ExecutorService activeInstallers = Executors.newFixedThreadPool(simultanousInstalls);
+	private final ExecutorService activeExtractors = Executors.newFixedThreadPool(simultanousExtractions);
 	private final ExecutorService activeWaiters = Executors.newFixedThreadPool(simultanousWaiters);
 
 	private final Map<de.haukerehfeld.quakeinjector.model.Package,Worker> queue = new HashMap<de.haukerehfeld.quakeinjector.model.Package,Worker>();
@@ -119,17 +119,17 @@ public class Installer {
 	}
 
 	/**
-	 * Create a task to install a package from an archive.
+	 * Create a task to extract a package's files from an archive.
 	 *
 	 * @param input the archive input stream
 	 * @param inputSize size of the archive for progress reporting
-	 * @param map the package to install
+	 * @param map the package being installed
 	 * @param overwrites list of files allowed to overwrite (null = all)
-	 * @return an AsyncTask that performs the installation
+	 * @return an AsyncTask that performs the extraction
 	 */
-	public AsyncTask<PackageFileList> createInstallTask(InputStream input, long inputSize,
+	public AsyncTask<PackageFileList> createExtractTask(InputStream input, long inputSize,
 	                                                     Package map, List<File> overwrites) {
-		return new InstallTask(input, inputSize, map, installDirectory.get(),
+		return new ExtractTask(input, inputSize, map, installDirectory.get(),
 			map.getExtractMapping(), overwrites);
 	}
 

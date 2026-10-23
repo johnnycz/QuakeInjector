@@ -49,7 +49,9 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
     - `PackageDatabaseParserWorker` — SwingWorker for async parsing
   - **`feature.install/`** — Download, unzip, and dependency resolution
     - `PackageInstallUninstallService` — main entry point
-    - `InstallWorker` / `UninstallWorker` — SwingWorker implementations
+    - `PackageInstallOrchestrationTask` — the install process: download → inspect → ask about overwrites → extract
+    - `DownloadTask` / `InspectZipTask` / `ExtractTask` — the install stages; "extract" is the last stage, "install" always means the whole process
+    - `UninstallTask` — removes a package's files
     - `Installer` — core installation logic (package extraction, dependency traversal)
   - **`feature.play/`** — Quake engine launching
     - `PackageLauncher` — main entry point; prepares game state and launches engine

@@ -38,9 +38,10 @@ import java.util.List;
 import java.util.zip.ZipException;
 
 /**
- * Install a package by extracting files from an archive.
+ * Extract a package's files from an archive into the install directory.
+ * This is the last stage of a package install.
  */
-public class InstallTask implements AsyncTask<PackageFileList> {
+public class ExtractTask implements AsyncTask<PackageFileList> {
 	private final File baseDirectory;
 	private final ExtractMapping extractMapping;
 	private final Package map;
@@ -61,9 +62,9 @@ public class InstallTask implements AsyncTask<PackageFileList> {
 	 * @param overwrites a list of files that are allowed to be overwritten,
 	 *                   or null if everything should be overwritten
 	 */
-	public InstallTask(InputStream input, long inputSize, Package map,
-	                    File baseDirectory, ExtractMapping extractMapping,
-	                    List<File> overwrites) {
+	public ExtractTask(InputStream input, long inputSize, Package map,
+	                   File baseDirectory, ExtractMapping extractMapping,
+	                   List<File> overwrites) {
 		this(input, inputSize, map, baseDirectory, extractMapping, overwrites, null);
 	}
 
@@ -77,9 +78,9 @@ public class InstallTask implements AsyncTask<PackageFileList> {
 	 *                   or null if everything should be overwritten
 	 * @param progressListener optional listener for progress updates
 	 */
-	public InstallTask(InputStream input, long inputSize, Package map,
-	                    File baseDirectory, ExtractMapping extractMapping,
-	                    List<File> overwrites, AsyncProgressListener progressListener) {
+	public ExtractTask(InputStream input, long inputSize, Package map,
+	                   File baseDirectory, ExtractMapping extractMapping,
+	                   List<File> overwrites, AsyncProgressListener progressListener) {
 		this.map = map;
 		this.input = input;
 		this.downloadSize = inputSize;
@@ -93,7 +94,7 @@ public class InstallTask implements AsyncTask<PackageFileList> {
 	@Override
 	public PackageFileList execute() throws IOException, FileNotFoundException,
 	                                         Installer.CancelledException, ArchiveException {
-		System.out.println("Installing " + map.getId());
+		System.out.println("Extracting " + map.getId());
 
 		unzip(input, baseDirectory, map.getId(), overwrites);
 

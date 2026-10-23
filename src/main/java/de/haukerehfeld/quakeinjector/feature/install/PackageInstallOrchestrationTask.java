@@ -84,20 +84,20 @@ public class PackageInstallOrchestrationTask implements AsyncTask<PackageFileLis
 				overwrites = handler.overwrite(existingFiles);
 			}
 
-			// Install phase
+			// Extract phase
 			if (overwrites == null || !overwrites.isEmpty()) {
-				System.out.println("Starting install");
+				System.out.println("Starting extraction");
 				BufferedInputStream in = new BufferedInputStream(new FileInputStream(downloadFile));
 
 				try {
-					AsyncTask<PackageFileList> installTask = new InstallTask(in,
+					AsyncTask<PackageFileList> extractTask = new ExtractTask(in,
 						downloadSize,
 						installedPackage,
 						installDirectory.get(),
 						installedPackage.getExtractMapping(),
 						overwrites);
 
-					installedFiles = installTask.execute();
+					installedFiles = extractTask.execute();
 				} finally {
 					in.close();
 				}
