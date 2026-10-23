@@ -5,8 +5,6 @@ import de.haukerehfeld.quakeinjector.model.JobTrackerProvider;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;

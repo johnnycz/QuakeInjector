@@ -1,6 +1,5 @@
 package de.haukerehfeld.quakeinjector.guimodel;
 
-import de.haukerehfeld.quakeinjector.gui.ProgressPopup;
 import de.haukerehfeld.quakeinjector.model.DialogProvider;
 import de.haukerehfeld.quakeinjector.model.JobTracker;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;

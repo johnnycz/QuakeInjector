@@ -67,7 +67,8 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
 **Separation of Concerns (Current Goal)**
 - `gui/` must not import from `model/` directly; communication flows through `guimodel/`
 - `feature/*` packages should not depend on `gui/` or `guimodel/`
-- This is validated by `ArchitectureTest` using ArchUnit
+- `feature/*`, `model/` and `utils/` must not use Swing or AWT; only `gui/` and the main class `QuakeInjector` may
+- This is validated by `ArchitectureTest` using ArchUnit; it passes, keep it green
 
 **Threading**
 - All UI updates happen on the Event Dispatch Thread (EDT). `guimodel` classes are only called on the EDT and notify their views on it, synchronously (see `guimodel/package-info.java`).
@@ -80,7 +81,10 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - `Installer` sends queue change events on the UI executor; `PackageInteractionViewModel` listens to refresh the Install button.
   - Progress reaches the UI only when the whole percent changes (`UiProgress`).
   - The installed-packages file is snapshotted on the EDT (`SaveInstalled.snapshot`) and written on the disk thread.
-- Package database loading and the installed-maps check still use `SwingWorker` (see Known Issues). `gui.SwingWorkerAdapter` runs an `AsyncTask` and reports success, failure or cancel (`CancelledException`) on the EDT.
+- Outside installs:
+  - Package database loading: `QuakeInjector` runs `PackageDatabaseCacheTask` through `gui.SwingWorkerAdapter`, which reports success, failure or cancel (`CancelledException`) on the EDT, while a modal progress popup is open.
+  - Reading the installed packages file (`model.InstalledPackages`) and "Check for installed maps" (`feature.list.CheckInstalled`) run on the installer's disk thread (`Installer.diskExecutor()`), because the disk thread also writes those files; results come back with `whenCompleteAsync(..., SwingUtilities::invokeLater)`. Don't block the EDT on these futures: they may queue behind an install.
+  - Modal progress popups (`DialogProvider.showProgressPopup`): start the background work first, then call `start()`, which returns only once `finish()` closed the popup; finish it first thing in the completion callback.
 
 **Immutability**
 - `Package`, `Requirement`, and other model objects are immutable (or should be treated as such)
@@ -91,7 +95,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
 The branch `refactor_mvc_interaction_viewmodel` is actively working to:
 1. Decouple the GUI from model classes by introducing/expanding ViewModels
 2. Improve test isolation via architecture tests
-3. Potentially reduce or eliminate SwingWorker dependencies in favor of cleaner async patterns
+3. Reduce SwingWorker dependencies in favor of cleaner async patterns (done: outside `gui/`, only `QuakeInjector`'s config loading still uses it)
 4. Ensure all cross-layer communication flows through ViewModel objects
 
 When touching GUI-related code, prefer adding/expanding ViewModel classes over letting the GUI reference models directly.
@@ -154,7 +158,6 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 
 ## Known Issues and TODOs
 
-- **SwingWorker usage** — `feature.install` no longer uses Swing. `feature.list.CheckInstalled` and `model.InstalledPackages` still extend `SwingWorker`; these are the 4 violations that currently make `ArchitectureTest` fail.
 - **Prerequisites** — `PackageInstallUninstallService.installRequirements` queues prerequisites as separate installs that don't wait for each other; the main package doesn't wait for them, and a failed prerequisite doesn't stop it
 - **SpotBugs** — reports `EQ_UNUSUAL` for Java records; false positives of the old SpotBugs 4.2.2
 - **Case-sensitive filesystems** — Linux/macOS cases aren't fully handled; many Quake maps are packed with mixed-case filenames
