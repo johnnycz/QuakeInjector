@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Run tests with parallel forks disabled** (default, required for this project): Tests already run serially (maxParallelForks = 1)
 
 ### Code Quality
-- **SpotBugs analysis**: `gradlew.bat spotbugsMain` or `./gradlew spotbugsMain`
+- **SpotBugs analysis**: `gradlew.bat spotbugsMain` or `./gradlew spotbugsMain`; report in `build/reports/spotbugs/main.html` (and `main.xml`). The task fails while there are findings (currently 132, mostly `EI_EXPOSE_REP*` and `PA_PUBLIC_PRIMITIVE_ATTRIBUTE`), so `check`/`build` fail too; `assemble`, `run` and `winDist` don't run it
 
 ### Build Artifacts
 - JAR output: `build/libs/`
@@ -141,7 +141,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 
 **Build Plugins:**
 - **Launch4j** (v2.5.0) — Builds Windows EXE from JAR
-- **SpotBugs** (v4.7.1) — Static bug analysis
+- **SpotBugs** (Gradle plugin v6.5.13, SpotBugs v4.10.5 pinned via `toolVersion`) — Static bug analysis
 
 ## Version Management
 
@@ -159,6 +159,6 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 ## Known Issues and TODOs
 
 - **Prerequisites** — `PackageInstallUninstallService.installRequirements` queues prerequisites as separate installs that don't wait for each other; the main package doesn't wait for them, and a failed prerequisite doesn't stop it
-- **SpotBugs** — reports `EQ_UNUSUAL` for Java records; false positives of the old SpotBugs 4.2.2
+- **SpotBugs** — `AT_STALE_THREAD_WRITE_OF_PRIMITIVE` on `InstallQueueViewModel.JobVm` is a false positive: the fields are only used on the EDT, which SpotBugs can't see
 - **Case-sensitive filesystems** — Linux/macOS cases aren't fully handled; many Quake maps are packed with mixed-case filenames
 - **Legacy engine limits** — Some modern maps exceed original Quake engine constraints; users may need a modern engine like QuakeSpasm or vkQuake
