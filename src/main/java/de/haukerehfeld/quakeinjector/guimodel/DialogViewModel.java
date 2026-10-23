@@ -5,7 +5,6 @@ import de.haukerehfeld.quakeinjector.model.DialogProvider;
 import de.haukerehfeld.quakeinjector.model.JobTracker;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
-import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import java.io.InputStream;
 import java.util.List;
@@ -23,7 +22,7 @@ public class DialogViewModel implements DialogProvider {
 	}
 
 	private void notifyChangeListeners() {
-		listeners.notifyChangeListeners(new ChangeEvent(this));
+		listeners.notifyChangeListeners(this);
 	}
 
 	public final ConfigViewModel configViewModel;

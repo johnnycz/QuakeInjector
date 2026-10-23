@@ -4,7 +4,6 @@ import de.haukerehfeld.quakeinjector.model.JobTracker;
 import de.haukerehfeld.quakeinjector.model.JobTrackerProvider;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
-import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -24,7 +23,7 @@ public class InstallQueueViewModel implements JobTrackerProvider {
 	}
 
 	private void notifyChangeListeners(JobVm job) {
-		listeners.notifyChangeListeners(new ChangeEvent(job));
+		listeners.notifyChangeListeners(job);
 	}
 
 	public List<JobVm> jobs = new ArrayList<>();

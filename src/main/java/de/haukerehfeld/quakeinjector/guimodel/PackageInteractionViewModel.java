@@ -76,7 +76,7 @@ public class PackageInteractionViewModel implements ChangeListener {
 	}
 
 	private void notifyChangeListeners() {
-		listeners.notifyChangeListeners(new ChangeEvent(this));
+		listeners.notifyChangeListeners(this);
 	}
 
 	public boolean isInstalled() {
