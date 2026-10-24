@@ -25,3 +25,6 @@ jre/
 
 *.iml
 .idea/
+
+# local MCP server config
+.mcp.json
