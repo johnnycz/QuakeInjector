@@ -97,7 +97,7 @@ public class PackageInteractionViewModel implements ChangeListener {
 	}
 
 	public boolean isInstalling() {
-		return commandHandler.isInstallInProgress(selectedPackage);
+		return selectedPackage != null && commandHandler.isInstallInProgress(selectedPackage);
 	}
 
 	public String getTitle() {
