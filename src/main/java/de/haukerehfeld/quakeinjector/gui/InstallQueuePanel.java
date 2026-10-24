@@ -144,8 +144,15 @@ public class InstallQueuePanel extends JPanel implements Scrollable, ChangeListe
 
 		public void update() {
 			if (!jobVm.isFinished()) {
-				progressBar.setString(ProgressPopup.progressString(jobVm.getDescription(), jobVm.getProgress()));
-				progressBar.setValue(jobVm.getProgress());
+				if (jobVm.isProgressUnknown()) {
+					progressBar.setIndeterminate(true);
+					progressBar.setString(jobVm.getDescription());
+				}
+				else {
+					progressBar.setIndeterminate(false);
+					progressBar.setString(ProgressPopup.progressString(jobVm.getDescription(), jobVm.getProgress()));
+					progressBar.setValue(jobVm.getProgress());
+				}
 			}
 			else if (jobVm.isFinished() && !finished){
 				finished = true;

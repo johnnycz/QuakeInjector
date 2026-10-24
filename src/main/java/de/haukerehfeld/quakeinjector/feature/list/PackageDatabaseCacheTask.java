@@ -22,6 +22,8 @@ package de.haukerehfeld.quakeinjector.feature.list;
 import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
+import de.haukerehfeld.quakeinjector.utils.CancellationToken;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.Download;
 
 import java.io.*;
@@ -33,54 +35,65 @@ import java.util.List;
  */
 public class PackageDatabaseCacheTask implements AsyncTask<LoadedPackageDatabase> {
 	private final Configuration config;
+	private final CancellationToken token;
 
 	public PackageDatabaseCacheTask(Configuration config) {
-		this.config = config;
+		this(config, new CancellationToken());
 	}
 
-	@Override
-	public LoadedPackageDatabase execute() throws IOException {
-		final String databaseUrl = config.RepositoryDatabasePath.get();
-		File cache = config.LocalDatabaseFile.get().getAbsoluteFile();
-		File tmpFile = null;
+	/**
+	 * @param token cancelling it closes the download; a cancelled load doesn't fall back to the cache
+	 */
+	public PackageDatabaseCacheTask(Configuration config, CancellationToken token) {
+		this.config = config;
+		this.token = token;
+	}
 
-		BufferedInputStream downloadStream = null;
-		BufferedOutputStream tmpWriteStream = null;
-		BufferedInputStream cacheReadStream = null;
+	/**
+	 * @throws CancelledException if the token was cancelled
+	 * @throws IOException if neither the download nor the cache could be read
+	 */
+	@Override
+	public LoadedPackageDatabase execute() throws IOException, CancelledException {
+		token.throwIfCancelled();
+		File cache = config.LocalDatabaseFile.get().getAbsoluteFile();
 
 		try {
-			// Try to download database and cache it
-			downloadStream = new BufferedInputStream(downloadDatabase(databaseUrl));
-			tmpFile = File.createTempFile(cache.getName(), null, cache.getParentFile());
-			tmpWriteStream = new BufferedOutputStream(new FileOutputStream(tmpFile));
-
-			InputStream db = new DumpInputStream(downloadStream, tmpWriteStream);
-			List<Requirement> parseResult = parseDatabase(db);
-
-			// Download succeeded, update cache
-			closeStreams(downloadStream, tmpWriteStream, cacheReadStream);
-			updateCacheFile(cache, tmpFile);
-
-			return new LoadedPackageDatabase(parseResult, false);
+			return new LoadedPackageDatabase(downloadAndCache(cache), false);
 		} catch (Exception e) {
-			// Download failed, try to use cached version
+			if (token.isCancelled()) {
+				// the stream was closed by cancel(), so this is a cancellation, not a failed download
+				throw new CancelledException();
+			}
 			System.err.println("Failed to download database: " + e.getMessage());
-			closeStreams(downloadStream, tmpWriteStream, null);
 
-			try {
-				cacheReadStream = getCachedDatabaseStream(cache);
-				List<Requirement> parseResult = parseDatabase(cacheReadStream);
-				closeStreams(null, null, cacheReadStream);
-				return new LoadedPackageDatabase(parseResult, true);
+			try (InputStream cached = getCachedDatabaseStream(cache)) {
+				return new LoadedPackageDatabase(parseDatabase(cached), true);
 			} catch (IOException cacheError) {
-				closeStreams(null, null, cacheReadStream);
 				// Neither download nor cache available
 				throw new IOException("Cannot download package database or read local cache", e);
-			} finally {
-				// Clean up temp file
-				if (tmpFile != null && tmpFile.exists()) {
-					tmpFile.delete();
-				}
+			}
+		}
+	}
+
+	/** Download and parse the database, keeping a copy as the new cache once all of it was read. */
+	private List<Requirement> downloadAndCache(File cache) throws IOException {
+		File tmpFile = File.createTempFile(cache.getName(), null, cache.getParentFile());
+		try {
+			List<Requirement> packages;
+			// Closing the stream on cancel wakes up a read() that is blocked on the network
+			try (InputStream download = downloadDatabase(config.RepositoryDatabasePath.get());
+			     CancellationToken.Registration ignored = token.onCancel(() -> closeQuietly(download));
+			     OutputStream copy = new BufferedOutputStream(new FileOutputStream(tmpFile))) {
+				packages = parseDatabase(new DumpInputStream(new BufferedInputStream(download), copy));
+			}
+			token.throwIfCancelled();
+			updateCacheFile(cache, tmpFile);
+			return packages;
+		} finally {
+			// still there if anything failed
+			if (tmpFile.exists()) {
+				tmpFile.delete();
 			}
 		}
 	}
@@ -98,10 +111,7 @@ public class PackageDatabaseCacheTask implements AsyncTask<LoadedPackageDatabase
 
 	private BufferedInputStream getCachedDatabaseStream(File cache) throws IOException {
 		if (cache != null && cache.exists() && cache.canRead()) {
-			try {
-				return new BufferedInputStream(new FileInputStream(cache));
-			} catch (IOException ignored) {
-			}
+			return new BufferedInputStream(new FileInputStream(cache));
 		}
 		throw new IOException("Cannot read local cache file: " + cache);
 	}
@@ -117,19 +127,11 @@ public class PackageDatabaseCacheTask implements AsyncTask<LoadedPackageDatabase
 		}
 	}
 
-	private void closeStreams(BufferedInputStream download, BufferedOutputStream write, BufferedInputStream cache) {
+	private static void closeQuietly(InputStream in) {
 		try {
-			if (download != null) {
-				download.close();
-			}
-			if (write != null) {
-				write.close();
-			}
-			if (cache != null) {
-				cache.close();
-			}
+			in.close();
 		} catch (IOException e) {
-			// Ignore close errors
+			System.err.println("Couldn't close the database download: " + e.getMessage());
 		}
 	}
 }

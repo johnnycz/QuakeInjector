@@ -3,6 +3,8 @@ package de.haukerehfeld.quakeinjector;
 import de.haukerehfeld.quakeinjector.feature.list.LoadedPackageDatabase;
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseCacheTask;
 import de.haukerehfeld.quakeinjector.model.Configuration;
+import de.haukerehfeld.quakeinjector.utils.CancellationToken;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -68,6 +70,16 @@ public class PackageDatabaseCacheTaskTest {
 	@Test
 	public void failsWhenNeitherDownloadNorCacheWork() throws Exception {
 		assertThrows(IOException.class, () -> load(tmp.resolve("remote/missing.json")));
+		assertNoTempFiles();
+	}
+
+	@Test
+	public void cancelledLoadDoesNotFallBackToTheCache() throws Exception {
+		load(remoteDatabase);
+		CancellationToken token = new CancellationToken();
+		token.cancel();
+
+		assertThrows(CancelledException.class, () -> new PackageDatabaseCacheTask(config, token).execute());
 		assertNoTempFiles();
 	}
 

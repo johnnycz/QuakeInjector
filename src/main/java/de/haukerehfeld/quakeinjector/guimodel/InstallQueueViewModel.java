@@ -65,8 +65,13 @@ public class InstallQueueViewModel implements JobTrackerProvider {
 			return id;
 		}
 
+		/** 0..100, or {@link JobTracker#UNKNOWN_PROGRESS} */
 		public int getProgress() {
 			return progress;
+		}
+
+		public boolean isProgressUnknown() {
+			return progress == JobTracker.UNKNOWN_PROGRESS;
 		}
 
 		public void cancel() {

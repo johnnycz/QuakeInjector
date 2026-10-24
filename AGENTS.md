@@ -40,11 +40,11 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - `Package`, `Requirement`, `Configuration`, `InstalledPackages`
   - Immutable where possible; change-event notification via listeners
   - `CommandHandler` — central router for async operations
-  - `JobTracker` — one row in the install queue (or the progress popup): `start`, `setProgress`, `finish`; call it on the EDT
+  - `JobTracker` — one row in the install queue (or the progress popup): `start`, `setProgress` (0..100 or `UNKNOWN_PROGRESS`, shown as a busy bar), `finish`; call it on the EDT
 
 - **`feature/`** — Feature-specific implementations organized by user-facing workflows
   - **`feature.list/`** — Package database fetching, parsing, and search
-    - `PackageDatabaseService` — main entry point; manages fetching and parsing
+    - `PackageDatabaseService` — main entry point: `load` downloads and parses the database in the background, showing a row in the install queue panel (no popup), and replaces the package list
     - `PackageDatabaseJsonParser` / `PackageDatabaseSolrJsonParser` — API parsers
     - `PackageDatabaseCacheTask` — downloads and parses the database, falling back to the offline cache; `LoadedPackageDatabase.fromCache` says which was used
   - **`feature.install/`** — Download, unzip, dependency resolution, and finding out what is installed
@@ -83,9 +83,9 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - Progress reaches the UI only when the whole percent changes (`UiProgress`).
   - The installed-packages file is snapshotted on the EDT (`SaveInstalled.snapshot`) and written on the disk thread.
 - Outside installs:
-  - Package database loading: `QuakeInjector` runs `PackageDatabaseCacheTask` through `gui.SwingWorkerAdapter`, which reports success, failure or cancel (`CancelledException`) on the EDT, while a modal progress popup is open.
+  - Package database loading: `PackageDatabaseService.load` runs `PackageDatabaseCacheTask` on its own daemon thread (not the installer's network thread, so it doesn't wait behind a map download) and reports on the injected UI executor. It doesn't block the UI; a second `load` while one runs is ignored. Cancel goes through a `CancellationToken` that closes the download stream; a cancelled load doesn't fall back to the cache. The installed packages file is read only after the list was replaced, so it includes installs that finished during the load.
   - Reading the installed packages file (`model.InstalledPackages`) and "Check for installed maps" (`PackageInstallUninstallService.checkForInstalledMaps`, running `CheckInstalled`) run on the installer's disk thread (`Installer.diskExecutor()`), because the disk thread also writes those files; results come back on the UI executor via `whenCompleteAsync`. Don't block the EDT on these futures: they may queue behind an install.
-  - Modal progress popups (`DialogProvider.showProgressPopup`): start the background work first, then call `start()`, which returns only once `finish()` closed the popup; finish it first thing in the completion callback.
+  - Modal progress popups (`DialogProvider.showProgressPopup`, now only used by "Check for installed maps"): start the background work first, then call `start()`, which returns only once `finish()` closed the popup; finish it first thing in the completion callback.
 
 **Immutability**
 - `Package`, `Requirement`, and other model objects are immutable (or should be treated as such)
@@ -96,7 +96,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
 The branch `refactor_mvc_interaction_viewmodel` is actively working to:
 1. Decouple the GUI from model classes by introducing/expanding ViewModels
 2. Improve test isolation via architecture tests
-3. Reduce SwingWorker dependencies in favor of cleaner async patterns (done: outside `gui/`, only `QuakeInjector`'s config loading still uses it)
+3. Reduce SwingWorker dependencies in favor of cleaner async patterns (done: only `QuakeInjector`'s config loading still uses it)
 4. Ensure all cross-layer communication flows through ViewModel objects
 
 When touching GUI-related code, prefer adding/expanding ViewModel classes over letting the GUI reference models directly.
@@ -117,6 +117,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - Path tests (`RelativePathTest`) verify file operations on different OS
 - Install tests: `ExtractTaskTest`, `DownloadTaskTest`, `UninstallTaskTest` per stage; `InstallProcessTest` (whole `InstallPipeline`) and `InstallerTest` (queue, cancel, uninstall) end to end
 - Check for installed maps: `CheckInstalledTest` (the file check), `CheckForInstalledMapsTest` (the whole service flow)
+- Database loading: `PackageDatabaseCacheTaskTest` (download, cache fallback, cancel), `PackageDatabaseServiceTest` (the queue row, replacing the list, errors, cancel, one load at a time)
 - Prefer focused, single-concern tests over integration suites
 
 ### Test helpers

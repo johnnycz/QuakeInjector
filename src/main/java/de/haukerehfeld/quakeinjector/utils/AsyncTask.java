@@ -29,7 +29,7 @@ package de.haukerehfeld.quakeinjector.utils;
 public interface AsyncTask<T> {
 	/**
 	 * Execute the task and return the result.
-	 * This method may throw checked exceptions which will be passed to AsyncListener.onFailure().
+	 * This method may throw checked exceptions; the caller reports them.
 	 *
 	 * @return the result of the operation
 	 * @throws Exception if the operation fails

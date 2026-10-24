@@ -20,7 +20,6 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 package de.haukerehfeld.quakeinjector;
 
 import de.haukerehfeld.quakeinjector.feature.install.*;
-import de.haukerehfeld.quakeinjector.feature.list.LoadedPackageDatabase;
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseService;
 import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
 import de.haukerehfeld.quakeinjector.feature.play.PackageLauncher;
@@ -29,10 +28,7 @@ import de.haukerehfeld.quakeinjector.gui.Menu;
 import de.haukerehfeld.quakeinjector.guimodel.*;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
-import de.haukerehfeld.quakeinjector.utils.AsyncTask;
-import de.haukerehfeld.quakeinjector.utils.AsyncListener;
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
-import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.RuntimeExecutionException;
 
 import javax.swing.*;
@@ -60,7 +56,7 @@ public class QuakeInjector {
 	private PackageLauncher packageLauncher;
 	private final CommandRouter router;
 	private final DialogProvider dialogProvider;
-	private final PackageDatabaseService packageDatabaseSerice;
+	private final PackageDatabaseService packageDatabaseService;
 	private EngineStarter starter;
 	private final RequirementList maps;
 	private final PackageTableModel maplist;
@@ -110,7 +106,8 @@ public class QuakeInjector {
 		var dialogVm = new DialogViewModel(configViewModel);
 		this.dialogProvider = dialogVm;
 		this.installUninstallService = new PackageInstallUninstallService(jobTrackerProvider, dialogVm);
-		this.packageDatabaseSerice = new PackageDatabaseService(getConfig());
+		this.packageDatabaseService = new PackageDatabaseService(getConfig(), maps, jobTrackerProvider, dialogVm,
+			javax.swing.SwingUtilities::invokeLater);
 
 		view = new QuakeInjectorView(maplist, packageInteractionViewModel, new PackageInteractionPanelView(packageInteractionViewModel), new InstallQueuePanel(jobTrackerProvider));
 
@@ -248,10 +245,7 @@ public class QuakeInjector {
 
 	private void addMenuActionListeners() {
 		Menu menu = view.getMenu();
-		menu.addReparseDatabaseActionListener((e) -> {
-			doParseInstalled();
-			parseDatabaseAndSetList();
-		});
+		menu.addReparseDatabaseActionListener((e) -> loadPackageDatabase());
 
 		menu.addCheckInstalledActionListener((e) -> installUninstallService.checkForInstalledMaps());
 
@@ -267,7 +261,7 @@ public class QuakeInjector {
 	 * Everything that may be run AFTER the initial window is shown should be run here
 	 */
 	private void init() {
-		// first: reading the installed maps file runs on the installer's disk thread
+		// first: once the database is loaded, the installed maps file is read on the installer's disk thread
 		installer = new Installer(getConfig().EnginePath, getConfig().DownloadPath,
 			javax.swing.SwingUtilities::invokeLater);
 		// refresh the Install button whenever an install starts or ends (also after a failure)
@@ -278,9 +272,7 @@ public class QuakeInjector {
 				new SaveInstalled(installedMapsFile)
 	    );
 
-		doParseInstalled();
-
-		parseDatabaseAndSetList();
+		loadPackageDatabase();
 
 		Configuration.EnginePath enginePath = getConfig().EnginePath;
 		boolean workingDirAtExecutable = false;
@@ -341,65 +333,18 @@ public class QuakeInjector {
 			JOptionPane.ERROR_MESSAGE);
 	}
 
-	private void doParseInstalled() {
-		// the disk thread also writes this file, so the read never sees a half-written one
-		installedMaps.parse(installedMapsFile, installer.diskExecutor());
+	/** Load the package database in the background (progress in the job list), then mark what is installed. */
+	private void loadPackageDatabase() {
+		packageDatabaseService.load(this::loadInstalledStatus);
 	}
 
-	private void parseDatabaseAndSetList() {
-		AsyncTask<LoadedPackageDatabase> dbParseTask = packageDatabaseSerice.createParseDatabaseTask();
-		// set below, once the adapter it cancels exists
-		final JobTracker[] popup = new JobTracker[1];
-
-		// Wrap with SwingWorkerAdapter to handle threading and callbacks
-		SwingWorkerAdapter<LoadedPackageDatabase> adapter = new SwingWorkerAdapter<>(
-			dbParseTask,
-			new AsyncListener<LoadedPackageDatabase>() {
-				@Override
-				public void onSuccess(LoadedPackageDatabase database) {
-					// close the popup first, so other dialogs don't open behind it
-					popup[0].finish("Done");
-					maps.setRequirements(database.packages());
-					System.out.println("Setting Requirements");
-					if (database.fromCache()) {
-						dialogProvider.showWarning("Failed to fetch current database; using previously downloaded info.",
-							"Downloading failed");
-					}
-
-					// Don't block the EDT waiting for the installed list: its read may queue behind an install
-					// on the disk thread. Apply it on the EDT once it is there.
-					installedMaps.loaded().whenCompleteAsync(
-						(installed, error) -> applyInstalledStatus(installed, error),
-						javax.swing.SwingUtilities::invokeLater);
-				}
-
-				@Override
-				public void onFailure(Exception exception) {
-					popup[0].finish("Failed");
-					if (exception instanceof CancelledException) {
-						System.out.println("Loading the package database was cancelled");
-						return;
-					}
-					String ERROR_MESSAGE = "Database parsing failed!";
-					String msg = exception.getMessage();
-
-					if (exception.getCause() instanceof java.net.UnknownHostException) {
-						msg = "Couldn't establish connection to the server (" + exception.getCause().getMessage() + ").";
-					}
-
-					JOptionPane.showMessageDialog(view,
-						ERROR_MESSAGE + " " + msg,
-						ERROR_MESSAGE,
-						JOptionPane.ERROR_MESSAGE);
-				}
-			}
-		);
-
-		popup[0] = dialogProvider.showProgressPopup("Downloading package database", () -> adapter.cancel(true));
-		adapter.execute();
-		// The popup is modal: start() shows it and returns only once finish() closed it again. The adapter's
-		// callbacks run on the EDT inside the popup's event loop, so they can't run before it is open.
-		popup[0].start();
+	/** Runs on the EDT once the package list was replaced. */
+	private void loadInstalledStatus() {
+		// On the disk thread: it also writes this file, so the read never sees a half-written one, and it comes
+		// after the save of any install that finished while the database was loading.
+		installedMaps.parse(installedMapsFile, installer.diskExecutor());
+		// Don't block the EDT waiting for it: the read may queue behind an install
+		installedMaps.loaded().whenCompleteAsync(this::applyInstalledStatus, javax.swing.SwingUtilities::invokeLater);
 	}
 
 	private void showEngineConfig() {

@@ -39,6 +39,29 @@ public class InstallQueuePanelTest {
 	}
 
 	@Test
+	public void unknownProgressShowsABusyBar() throws Exception {
+		JobTracker[] job = new JobTracker[1];
+
+		onEdt(() -> {
+			panel = new InstallQueuePanel(vm);
+			job[0] = vm.addJob("Downloading package database", () -> { });
+			job[0].setProgress(JobTracker.UNKNOWN_PROGRESS);
+		});
+		onEdt(() -> {
+			JProgressBar bar = components(JProgressBar.class).get(0);
+			assertTrue(bar.isIndeterminate());
+			assertEquals("Downloading package database", bar.getString(), "no percentage");
+		});
+
+		onEdt(() -> job[0].setProgress(30));
+		onEdt(() -> {
+			JProgressBar bar = components(JProgressBar.class).get(0);
+			assertFalse(bar.isIndeterminate());
+			assertEquals(30, bar.getValue());
+		});
+	}
+
+	@Test
 	public void addedJobShowsAProgressRowThatFollowsTheJob() throws Exception {
 		AtomicInteger cancelled = new AtomicInteger();
 		JobTracker[] job = new JobTracker[1];
