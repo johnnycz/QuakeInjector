@@ -146,6 +146,12 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - **Launch4j** (v2.5.0) — Builds Windows EXE from JAR
 - **SpotBugs** (Gradle plugin v6.5.13, SpotBugs v4.10.5 pinned via `toolVersion`) — Static bug analysis
 
+## Commit Messages
+
+- Keep them short: a brief one-line summary, lowercase like the existing history
+- At most one more paragraph, and only when something about the change isn't obvious
+- Never add a `Co-Authored-By` line (or any other attribution trailer)
+
 ## Version Management
 
 - Version is determined from Git tags via `git describe --tags` in build.gradle
