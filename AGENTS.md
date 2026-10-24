@@ -55,6 +55,11 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
     - `DownloadTask` / `InspectZipTask` / `ExtractTask` — the install stages; "extract" is the last stage, "install" always means the whole process
     - `UninstallTask` — removes a package's files
     - `CheckInstalled` — "Check for installed maps": looks for each package's files (`Package.getSupposedFileList`, copied from the loaded package list) in the Quake directory
+  - **`feature.readme/`** — "Readme": shows the text files of an installed package
+    - `ReadmeService` — main entry point, implementing `model.ReadmeSource` (guimodel may not use feature packages); `ReadmeViewModel` and `gui.ReadmeWindow` show the files
+    - The files come from the package's installed file list, which holds the names in the Quake directory *after* the extract mapping (e.g. `readme.txt` in the zip is `mapname/mapname_readme.txt`); without one, from the database's file list, which the parser maps the same way. Never use the archive's own paths
+    - `ReadmeFiles` — picks the `.txt` files and puts the likely readme first (`<package id>.txt`, `<map name>.txt`, `*readme*`, others, licenses/change logs last)
+    - `ReadmeReader` — UTF-8 if valid, otherwise code page 437 (DOS readmes); normalizes line ends, drops a BOM, reads at most 1 MB
   - **`feature.play/`** — Quake engine launching
     - `PackageLauncher` — main entry point; prepares game state and launches engine
     - `EngineStarter` — invokes the Quake engine process with configured arguments
@@ -87,6 +92,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - Package database loading: `PackageDatabaseService` reads the cache and downloads on its own daemon thread (not the installer's network thread, so it doesn't wait behind a map download) and reports on the injected UI executor. It doesn't block the UI; a second load while one runs is ignored. Cancel goes through a `CancellationToken` that closes the download stream.
   - Replacing the package list (`RequirementList.setRequirements`) brings new `Package` objects, so anything that outlives a reload goes by package id: the installed state carries over to the new objects, the install queue (`Installer`) is keyed by id, and the selection is restored by id (`PackageListViewModel`, `PackageTable.tableChanged`). The installed packages file is read only once, after the first list arrived.
   - Reading the installed packages file (`model.InstalledPackages`) and "Check for installed maps" (`PackageInstallUninstallService.checkForInstalledMaps`, running `CheckInstalled`) run on the installer's disk thread (`Installer.diskExecutor()`), because the disk thread also writes those files; results come back on the UI executor via `whenCompleteAsync`. Don't block the EDT on these futures: they may queue behind an install.
+  - Readme files are read on `ReadmeService`'s own daemon thread (not the disk thread, so they don't wait behind an install); the future completes on the UI executor. A file that finishes reading after the window moved on is ignored.
   - "Check for installed maps" doesn't block the UI: one check at a time (a second click while one runs is ignored), and its result is applied by package id, so installs, uninstalls or a database reload during the check are fine.
 
 **Immutability**
@@ -120,6 +126,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - Install tests: `ExtractTaskTest`, `DownloadTaskTest`, `UninstallTaskTest` per stage; `InstallProcessTest` (whole `InstallPipeline`) and `InstallerTest` (queue, cancel, uninstall) end to end
 - Check for installed maps: `CheckInstalledTest` (the file check), `CheckForInstalledMapsTest` (the whole service flow)
 - Database loading: `PackageDatabaseDownloadTaskTest` (download, cache file, cancel), `PackageDatabaseServiceTest` (cache first then download, failures, cancel, installed state kept, one load at a time)
+- Readme: `ReadmeFilesTest` (which files, order), `ReadmeReaderTest` (encodings, line ends, size limit), `ReadmeServiceTest` (end to end: a zip whose extract mapping renames the readme), `ReadmeViewModelTest` (switching files, late or failed reads), `PackageInteractionPanelViewTest` (the Readme button)
 - Reloading the list: `RequirementListTest` (installed state carries over), `PackageTableSelectionTest` (selection survives), `InstallerTest` (queue by package id)
 - Prefer focused, single-concern tests over integration suites
 

@@ -43,7 +43,7 @@ public class PackageTableSelectionTest {
 
 	private void createTable(Package... packages) {
 		requirements = new RequirementList(list(packages));
-		interaction = new PackageInteractionViewModel(null);
+		interaction = new PackageInteractionViewModel(null, null);
 		PackageListViewModel listVm = new PackageListViewModel(interaction);
 		listVm.setMapList(new PackageList(requirements));
 		table = new PackageTable(new PackageTableModel(listVm, interaction));

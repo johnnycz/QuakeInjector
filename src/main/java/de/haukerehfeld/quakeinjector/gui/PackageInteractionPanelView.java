@@ -6,12 +6,17 @@ import javax.swing.*;
 import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Install, play and uninstall the selected package.
  * <p>
  * Nothing selected: no buttons. Not installed: only the Install button. Installed: the Play button with
- * the start map below it, and a narrow Uninstall button (trash icon) to the right of both. All layouts
+ * the start map below it, a narrow Uninstall button (trash icon) to the right of both, and a Readme
+ * button below the start map. All layouts
  * take the same height, so the panel doesn't jump when a package gets selected or installed.
  */
 public class PackageInteractionPanelView extends JPanel implements ChangeListener {
@@ -33,7 +38,10 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 	private final JButton installButton;
 	private final JButton playButton;
 	private final JButton uninstallButton;
+	private final JButton readmeButton;
 	private final JComboBox<String> startmaps;
+	/** The open readme windows by package id, so a second click brings the window to the front. */
+	private final Map<String, ReadmeWindow> readmeWindows = new HashMap<>();
 
 	public PackageInteractionPanelView(PackageInteractionViewModel vm) {
 		this.vm = vm;
@@ -56,6 +64,9 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 		uninstallButton.setToolTipText("Uninstall");
 		uninstallButton.getAccessibleContext().setAccessibleName("Uninstall");
 		uninstallButton.addActionListener((e) -> vm.uninstall());
+
+		readmeButton = new JButton("Readme");
+		readmeButton.addActionListener((e) -> openReadme());
 
 		add(new JPanel(), NOTHING_SELECTED);
 		add(notInstalledCard(), NOT_INSTALLED);
@@ -89,7 +100,10 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 		return card;
 	}
 
-	/** Play, with the start map below it, and the narrow Uninstall button to the right of both. */
+	/**
+	 * Play, with the start map below it, the narrow Uninstall button to the right of both, and Readme below
+	 * the start map.
+	 */
 	private JPanel installedCard() {
 		JPanel card = new JPanel(new GridBagLayout());
 		card.add(playButton, new GridBagConstraints() {{
@@ -109,7 +123,32 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 			fill = VERTICAL;
 			insets = new Insets(0, GAP, 0, 0);
 		}});
+		card.add(readmeButton, new GridBagConstraints() {{
+			gridy = 2;
+			fill = HORIZONTAL;
+			weightx = 1;
+			insets = new Insets(GAP, 0, 0, 0);
+		}});
 		return card;
+	}
+
+	private void openReadme() {
+		ReadmeWindow open = readmeWindows.get(vm.getPackageId());
+		if (open != null) {
+			open.toFront();
+			open.requestFocus();
+			return;
+		}
+		String id = vm.getPackageId();
+		ReadmeWindow window = new ReadmeWindow(SwingUtilities.getWindowAncestor(this), vm.openReadme());
+		readmeWindows.put(id, window);
+		window.addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowClosed(WindowEvent e) {
+				readmeWindows.remove(id);
+			}
+		});
+		window.setVisible(true);
 	}
 
 	private void updateElements() {
@@ -118,6 +157,10 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 		cards.show(this, !selected ? NOTHING_SELECTED : installed ? INSTALLED : NOT_INSTALLED);
 
 		installButton.setEnabled(selected && !installed && !vm.isInstalling());
+
+		boolean hasTextFiles = installed && vm.hasTextFiles();
+		readmeButton.setEnabled(hasTextFiles);
+		readmeButton.setToolTipText(hasTextFiles ? null : "No text files");
 
 		startmaps.removeAllItems();
 		for (String startmap: vm.getStartmaps()) {

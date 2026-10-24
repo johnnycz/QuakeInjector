@@ -23,6 +23,7 @@ import de.haukerehfeld.quakeinjector.feature.install.*;
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseService;
 import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
 import de.haukerehfeld.quakeinjector.feature.play.PackageLauncher;
+import de.haukerehfeld.quakeinjector.feature.readme.ReadmeService;
 import de.haukerehfeld.quakeinjector.gui.*;
 import de.haukerehfeld.quakeinjector.gui.Menu;
 import de.haukerehfeld.quakeinjector.guimodel.*;
@@ -97,7 +98,8 @@ public class QuakeInjector {
 		// TODO clean this up
 		// initialize model, then view model, then view
 
-		packageInteractionViewModel = new PackageInteractionViewModel(router);
+		var readmeService = new ReadmeService(() -> getConfig().EnginePath.get(), javax.swing.SwingUtilities::invokeLater);
+		packageInteractionViewModel = new PackageInteractionViewModel(router, readmeService);
 		PackageListViewModel packageListViewModel = new PackageListViewModel(packageInteractionViewModel);
 		packageListViewModel.setMapList(packages);
 		maplist = new PackageTableModel(packageListViewModel, packageInteractionViewModel);

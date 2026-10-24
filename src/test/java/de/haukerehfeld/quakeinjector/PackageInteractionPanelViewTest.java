@@ -6,6 +6,7 @@ import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
 import de.haukerehfeld.quakeinjector.model.CommandHandler;
 import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.ReadmeSource;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.AbstractButton;
@@ -16,6 +17,7 @@ import java.awt.Container;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -50,9 +52,29 @@ public class PackageInteractionPanelViewTest {
 	}
 
 	private void createPanel(Package selected) {
-		vm = new PackageInteractionViewModel(noCommands());
+		createPanel(selected, null);
+	}
+
+	private void createPanel(Package selected, ReadmeSource readmes) {
+		vm = new PackageInteractionViewModel(noCommands(), readmes);
 		vm.setSelectedPackage(selected);
 		panel = new PackageInteractionPanelView(vm);
+	}
+
+	/** Lists the given text files for every package; reading isn't needed here. */
+	private static ReadmeSource textFiles(String... files) {
+		return new ReadmeSource() {
+			public List<String> textFiles(Package p) { return List.of(files); }
+			public CompletableFuture<String> read(String path) { return new CompletableFuture<>(); }
+		};
+	}
+
+	private AbstractButton button(String text) {
+		List<Component> all = new ArrayList<>();
+		collect(panel, all);
+		return all.stream()
+			.filter(c -> c instanceof AbstractButton b && text.equals(b.getText()))
+			.map(c -> (AbstractButton) c).findFirst().orElseThrow();
 	}
 
 	private static void collect(Container c, List<Component> into) {
@@ -115,11 +137,11 @@ public class PackageInteractionPanelViewTest {
 	}
 
 	@Test
-	public void installedShowsPlayStartmapsAndTheUninstallIcon() throws Exception {
+	public void installedShowsPlayStartmapsUninstallIconAndReadme() throws Exception {
 		onEdt(() -> {
 			createPanel(pkg("jam9", true));
 
-			assertEquals(List.of("Play", ""), visibleButtons());
+			assertEquals(List.of("Play", "", "Readme"), visibleButtons());
 			assertTrue(startmapsVisible());
 			AbstractButton uninstall = iconButton();
 			assertEquals("Uninstall", uninstall.getToolTipText());
@@ -133,7 +155,7 @@ public class PackageInteractionPanelViewTest {
 			createPanel(pkg);
 			pkg.setInstalled(true);
 
-			assertEquals(List.of("Play", ""), visibleButtons());
+			assertEquals(List.of("Play", "", "Readme"), visibleButtons());
 		});
 	}
 
@@ -157,6 +179,26 @@ public class PackageInteractionPanelViewTest {
 
 			vm.setSelectedPackage(null);
 			assertEquals(List.of(), visibleButtons());
+		});
+	}
+
+	@Test
+	public void readmeIsEnabledWhenThePackageHasTextFiles() throws Exception {
+		onEdt(() -> {
+			createPanel(pkg("jam9", true), textFiles("jam9/jam9.txt"));
+
+			assertTrue(button("Readme").isEnabled());
+			assertNull(button("Readme").getToolTipText());
+		});
+	}
+
+	@Test
+	public void readmeIsDisabledWithoutTextFiles() throws Exception {
+		onEdt(() -> {
+			createPanel(pkg("jam9", true), textFiles());
+
+			assertFalse(button("Readme").isEnabled());
+			assertEquals("No text files", button("Readme").getToolTipText());
 		});
 	}
 }

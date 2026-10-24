@@ -1,6 +1,7 @@
 package de.haukerehfeld.quakeinjector.guimodel;
 
 import de.haukerehfeld.quakeinjector.model.CommandHandler;
+import de.haukerehfeld.quakeinjector.model.ReadmeSource;
 import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 import de.haukerehfeld.quakeinjector.model.Package;
@@ -17,9 +18,12 @@ public class PackageInteractionViewModel implements ChangeListener {
 	private Package selectedPackage = null;
 	private final ChangeListenerList listeners = new ChangeListenerList();
 	private final CommandHandler commandHandler;
+	private final ReadmeSource readmeSource;
 
-	public PackageInteractionViewModel(CommandHandler commandHandler) {
+	/** @param readmeSource null: no readmes */
+	public PackageInteractionViewModel(CommandHandler commandHandler, ReadmeSource readmeSource) {
 		this.commandHandler = commandHandler;
+		this.readmeSource = readmeSource;
 	}
 
 	public void setSelectedPackage(Package  p) {
@@ -94,6 +98,16 @@ public class PackageInteractionViewModel implements ChangeListener {
 
 	public List<String> getStartmaps() {
 		return selectedPackage != null ? selectedPackage.getStartmaps() : Collections.emptyList();
+	}
+
+	/** Whether the selected package is installed and has text files to show. */
+	public boolean hasTextFiles() {
+		return isInstalled() && readmeSource != null && !readmeSource.textFiles(selectedPackage).isEmpty();
+	}
+
+	/** A view model for a readme window of the selected package, which must be installed. */
+	public ReadmeViewModel openReadme() {
+		return new ReadmeViewModel(readmeSource, getPackageId(), getTitle(), readmeSource.textFiles(selectedPackage));
 	}
 
 	public boolean isInstalling() {
