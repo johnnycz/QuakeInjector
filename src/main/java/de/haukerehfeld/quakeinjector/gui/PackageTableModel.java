@@ -141,6 +141,11 @@ public class PackageTableModel extends AbstractTableModel implements ChangeListe
 		vm.selectPackageByRowIndex(modelRowIndex);
 	}
 
+	/** @return the model row of the selected package, or -1 */
+	public int selectedRowIndex() {
+		return vm.selectedRowIndex();
+	}
+
 	@Override
 	public void stateChanged(ChangeEvent e) {
 		Edt.check("PackageTableModel");

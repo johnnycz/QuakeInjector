@@ -75,6 +75,22 @@ public class InstallerTest {
 	}
 
 	@Test
+	public void theQueueGoesByPackageIdNotObject() throws Exception {
+		String url = remoteZip(new TestZip().file("maps/a.bsp", "A"));
+		Package pkg = TestZip.testPackage("testmap", new ExtractMapping(), url);
+		// what a reloaded package database brings: a new object for the same package
+		Package reloaded = TestZip.testPackage("testmap", new ExtractMapping(), url);
+
+		var done = installer.install(pkg, url, listener);
+		assertTrue(installer.alreadyQueued(reloaded));
+		assertTrue(installer.install(reloaded, url, new RecordingInstallListener()).isDone(),
+			"installing the reloaded object must be rejected while the first install runs");
+		done.get(10, TimeUnit.SECONDS);
+
+		assertFalse(installer.alreadyQueued(reloaded));
+	}
+
+	@Test
 	public void secondInstallOfTheSamePackageIsIgnored() throws Exception {
 		Files.createDirectories(engineDir.resolve("maps"));
 		Files.writeString(engineDir.resolve("maps/a.bsp"), "OLD");

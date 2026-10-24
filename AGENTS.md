@@ -44,9 +44,10 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
 
 - **`feature/`** — Feature-specific implementations organized by user-facing workflows
   - **`feature.list/`** — Package database fetching, parsing, and search
-    - `PackageDatabaseService` — main entry point: `load` downloads and parses the database in the background, showing a row in the install queue panel (no popup), and replaces the package list
+    - `PackageDatabaseService` — main entry point, showing a row in the install queue panel (no popup): `loadCachedThenDownload` (startup) shows the cached database right away, then downloads and replaces the list; `download` ("Reparse database") only downloads. A failed download keeps the list already shown; there is no fallback to the cache after a download
     - `PackageDatabaseJsonParser` / `PackageDatabaseSolrJsonParser` — API parsers
-    - `PackageDatabaseCacheTask` — downloads and parses the database, falling back to the offline cache; `LoadedPackageDatabase.fromCache` says which was used
+    - `PackageDatabaseCache` — reads the cache file (`database.json`); missing or broken reads as empty
+    - `PackageDatabaseDownloadTask` — downloads and parses the database, and keeps the download as the new cache file
   - **`feature.install/`** — Download, unzip, dependency resolution, and finding out what is installed
     - `PackageInstallUninstallService` — main entry point (install, uninstall, "Check for installed maps")
     - `InstallPipeline` — the install process as a `CompletableFuture` chain: download (network thread) → inspect (disk thread) → ask about overwrites (UI thread) → extract (disk thread) → report to `InstallListener` (UI thread)
@@ -83,7 +84,8 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - Progress reaches the UI only when the whole percent changes (`UiProgress`).
   - The installed-packages file is snapshotted on the EDT (`SaveInstalled.snapshot`) and written on the disk thread.
 - Outside installs:
-  - Package database loading: `PackageDatabaseService.load` runs `PackageDatabaseCacheTask` on its own daemon thread (not the installer's network thread, so it doesn't wait behind a map download) and reports on the injected UI executor. It doesn't block the UI; a second `load` while one runs is ignored. Cancel goes through a `CancellationToken` that closes the download stream; a cancelled load doesn't fall back to the cache. The installed packages file is read only after the list was replaced, so it includes installs that finished during the load.
+  - Package database loading: `PackageDatabaseService` reads the cache and downloads on its own daemon thread (not the installer's network thread, so it doesn't wait behind a map download) and reports on the injected UI executor. It doesn't block the UI; a second load while one runs is ignored. Cancel goes through a `CancellationToken` that closes the download stream.
+  - Replacing the package list (`RequirementList.setRequirements`) brings new `Package` objects, so anything that outlives a reload goes by package id: the installed state carries over to the new objects, the install queue (`Installer`) is keyed by id, and the selection is restored by id (`PackageListViewModel`, `PackageTable.tableChanged`). The installed packages file is read only once, after the first list arrived.
   - Reading the installed packages file (`model.InstalledPackages`) and "Check for installed maps" (`PackageInstallUninstallService.checkForInstalledMaps`, running `CheckInstalled`) run on the installer's disk thread (`Installer.diskExecutor()`), because the disk thread also writes those files; results come back on the UI executor via `whenCompleteAsync`. Don't block the EDT on these futures: they may queue behind an install.
   - Modal progress popups (`DialogProvider.showProgressPopup`, now only used by "Check for installed maps"): start the background work first, then call `start()`, which returns only once `finish()` closed the popup; finish it first thing in the completion callback.
 
@@ -117,7 +119,8 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - Path tests (`RelativePathTest`) verify file operations on different OS
 - Install tests: `ExtractTaskTest`, `DownloadTaskTest`, `UninstallTaskTest` per stage; `InstallProcessTest` (whole `InstallPipeline`) and `InstallerTest` (queue, cancel, uninstall) end to end
 - Check for installed maps: `CheckInstalledTest` (the file check), `CheckForInstalledMapsTest` (the whole service flow)
-- Database loading: `PackageDatabaseCacheTaskTest` (download, cache fallback, cancel), `PackageDatabaseServiceTest` (the queue row, replacing the list, errors, cancel, one load at a time)
+- Database loading: `PackageDatabaseDownloadTaskTest` (download, cache file, cancel), `PackageDatabaseServiceTest` (cache first then download, failures, cancel, installed state kept, one load at a time)
+- Reloading the list: `RequirementListTest` (installed state carries over), `PackageTableSelectionTest` (selection survives), `InstallerTest` (queue by package id)
 - Prefer focused, single-concern tests over integration suites
 
 ### Test helpers

@@ -28,6 +28,7 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.event.TableModelEvent;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableRowSorter;
 
@@ -63,18 +64,13 @@ public class PackageTable extends JTable {
 
 		//getColumnModel().getColumn(Column.NORMALIZEDUSERSRATING.ordinal()).setCellRenderer(new PackageListModel.BarRenderer());
 		getSelectionModel().addListSelectionListener(new ListSelectionListener() {
-			int lastSelection = -1;
 			@Override
 			public void valueChanged(ListSelectionEvent e) {
 				ListSelectionModel lsm = (ListSelectionModel) e.getSource();
 
 				if (!lsm.isSelectionEmpty()) {
-					int modelRowIndex = convertRowIndexToModel(getSelection(lsm));
-					if (lastSelection == modelRowIndex) {
-						return;
-					}
-					vm.selectPackageByRowIndex(modelRowIndex);
-					lastSelection = modelRowIndex;
+					// selecting the package that is already selected does nothing
+					vm.selectPackageByRowIndex(convertRowIndexToModel(getSelection(lsm)));
 				}
 			}
 
@@ -97,6 +93,26 @@ public class PackageTable extends JTable {
 		});
 	}
 	
+	/**
+	 * A full refresh (e.g. a reloaded package database) clears the table's selection:
+	 * select the row of the selected package again.
+	 */
+	@Override
+	public void tableChanged(TableModelEvent e) {
+		super.tableChanged(e);
+		boolean allRows = e == null || e.getFirstRow() == TableModelEvent.HEADER_ROW
+			|| e.getLastRow() == Integer.MAX_VALUE;
+		if (allRows && getModel() instanceof PackageTableModel model) {
+			int modelRow = model.selectedRowIndex();
+			if (modelRow >= 0 && modelRow < model.getRowCount()) {
+				int viewRow = convertRowIndexToView(modelRow);
+				if (viewRow >= 0) {
+					setRowSelectionInterval(viewRow, viewRow);
+				}
+			}
+		}
+	}
+
     /**
      * Shades alternate rows in different colors.
      */

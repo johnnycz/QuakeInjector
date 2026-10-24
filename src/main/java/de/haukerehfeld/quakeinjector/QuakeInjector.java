@@ -106,8 +106,9 @@ public class QuakeInjector {
 		var dialogVm = new DialogViewModel(configViewModel);
 		this.dialogProvider = dialogVm;
 		this.installUninstallService = new PackageInstallUninstallService(jobTrackerProvider, dialogVm);
+		// the installed maps file is read once the first package list is there; installer exists by then
 		this.packageDatabaseService = new PackageDatabaseService(getConfig(), maps, jobTrackerProvider, dialogVm,
-			javax.swing.SwingUtilities::invokeLater);
+			this::loadInstalledStatus, javax.swing.SwingUtilities::invokeLater);
 
 		view = new QuakeInjectorView(maplist, packageInteractionViewModel, new PackageInteractionPanelView(packageInteractionViewModel), new InstallQueuePanel(jobTrackerProvider));
 
@@ -245,7 +246,7 @@ public class QuakeInjector {
 
 	private void addMenuActionListeners() {
 		Menu menu = view.getMenu();
-		menu.addReparseDatabaseActionListener((e) -> loadPackageDatabase());
+		menu.addReparseDatabaseActionListener((e) -> packageDatabaseService.download());
 
 		menu.addCheckInstalledActionListener((e) -> installUninstallService.checkForInstalledMaps());
 
@@ -272,7 +273,7 @@ public class QuakeInjector {
 				new SaveInstalled(installedMapsFile)
 	    );
 
-		loadPackageDatabase();
+		packageDatabaseService.loadCachedThenDownload();
 
 		Configuration.EnginePath enginePath = getConfig().EnginePath;
 		boolean workingDirAtExecutable = false;
@@ -333,15 +334,12 @@ public class QuakeInjector {
 			JOptionPane.ERROR_MESSAGE);
 	}
 
-	/** Load the package database in the background (progress in the job list), then mark what is installed. */
-	private void loadPackageDatabase() {
-		packageDatabaseService.load(this::loadInstalledStatus);
-	}
-
-	/** Runs on the EDT once the package list was replaced. */
+	/**
+	 * Runs on the EDT the first time the package list was filled. Later replacements keep the installed
+	 * state in memory (RequirementList.setRequirements), so the file is only read once.
+	 */
 	private void loadInstalledStatus() {
-		// On the disk thread: it also writes this file, so the read never sees a half-written one, and it comes
-		// after the save of any install that finished while the database was loading.
+		// On the disk thread: it also writes this file, so the read never sees a half-written one
 		installedMaps.parse(installedMapsFile, installer.diskExecutor());
 		// Don't block the EDT waiting for it: the read may queue behind an install
 		installedMaps.loaded().whenCompleteAsync(this::applyInstalledStatus, javax.swing.SwingUtilities::invokeLater);

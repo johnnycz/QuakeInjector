@@ -4,7 +4,9 @@ import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseService;
 import de.haukerehfeld.quakeinjector.guimodel.InstallQueueViewModel;
 import de.haukerehfeld.quakeinjector.guimodel.InstallQueueViewModel.JobVm;
 import de.haukerehfeld.quakeinjector.model.Configuration;
-import de.haukerehfeld.quakeinjector.model.JobTracker;
+import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.model.RequirementList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,7 +17,10 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -25,11 +30,11 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Loading the package database into the package list, with a file:// URL standing in for the server
- * and the real job list view model showing the progress row.
+ * Loading the package database into the package list: the cached copy first, then the download.
+ * A file:// URL stands in for the server; the real job list view model shows the progress row.
  */
 public class PackageDatabaseServiceTest {
-	private static final String DESCRIPTION = "Downloading package database";
+	private static final String DESCRIPTION = "Loading package database";
 
 	@TempDir
 	Path tmp;
@@ -39,10 +44,14 @@ public class PackageDatabaseServiceTest {
 	private final InstallQueueViewModel jobs = new InstallQueueViewModel();
 	private final RecordingDialogs dialogs = new RecordingDialogs();
 	private final RequirementList packages = new RequirementList();
-	/** Threads {@code whenLoaded} ran on. */
-	private final List<String> loadedOn = new CopyOnWriteArrayList<>();
-	/** Completes with the message of the first job that finishes. */
-	private final CompletableFuture<String> finished = new CompletableFuture<>();
+	/** For each time the list was replaced: whether the load's row was finished by then. */
+	private final List<Boolean> replacedWhenFinished = new CopyOnWriteArrayList<>();
+	/** For each call of whenFirstLoaded: how often the list had been replaced by then. */
+	private final List<Integer> firstLoadedAfter = new CopyOnWriteArrayList<>();
+	/** Runs inside whenFirstLoaded, on the UI thread. */
+	private volatile Runnable duringFirstLoaded = () -> { };
+	/** Finish message of each job, by job id. */
+	private final Map<Integer, CompletableFuture<String>> finished = new ConcurrentHashMap<>();
 
 	private Path remoteDatabase;
 	private Path cache;
@@ -65,10 +74,14 @@ public class PackageDatabaseServiceTest {
 
 		jobs.addChangeListener(e -> {
 			if (e.getSource() instanceof JobVm job && job.isFinished()) {
-				finished.complete(job.getFinishedMessage());
+				finishedMessage(job.getId()).complete(job.getFinishedMessage());
 			}
 		});
-		service = new PackageDatabaseService(config, packages, jobs, dialogs, background, threads.ui());
+		packages.addChangeListener(e -> replacedWhenFinished.add(jobs.jobs.get(jobs.jobs.size() - 1).isFinished()));
+		service = new PackageDatabaseService(config, packages, jobs, dialogs, () -> {
+			firstLoadedAfter.add(replacedWhenFinished.size());
+			duringFirstLoaded.run();
+		}, background, threads.ui());
 	}
 
 	@AfterEach
@@ -81,19 +94,30 @@ public class PackageDatabaseServiceTest {
 		config.RepositoryDatabasePath.set(database.toUri().toURL().toString());
 	}
 
-	private void startLoad() throws Exception {
-		threads.ui().submit(() -> service.load(() -> loadedOn.add(Thread.currentThread().getName())))
-			.get(10, TimeUnit.SECONDS);
+	private void cacheTheServersDatabase() throws Exception {
+		Files.copy(remoteDatabase, cache);
 	}
 
-	/** Wait until the load finished and the rest of its completion on the UI thread ran. */
-	private String awaitFinished() throws Exception {
-		String message = finished.get(10, TimeUnit.SECONDS);
-		threads.ui().submit(() -> { }).get(10, TimeUnit.SECONDS);
+	private CompletableFuture<String> finishedMessage(int jobId) {
+		return finished.computeIfAbsent(jobId, id -> new CompletableFuture<>());
+	}
+
+	private <T> T onUi(Callable<T> work) throws Exception {
+		return threads.ui().submit(work).get(10, TimeUnit.SECONDS);
+	}
+
+	private void onUi(Runnable work) throws Exception {
+		threads.ui().submit(work).get(10, TimeUnit.SECONDS);
+	}
+
+	/** Wait until job {@code jobId} finished and the rest of its completion on the UI thread ran. */
+	private String awaitFinished(int jobId) throws Exception {
+		String message = finishedMessage(jobId).get(10, TimeUnit.SECONDS);
+		onUi(() -> { });
 		return message;
 	}
 
-	/** Keep the background thread busy until the returned latch is released. */
+	/** Keep the background thread busy, from the call on, until the returned latch is released. */
 	private CountDownLatch blockBackground() {
 		CountDownLatch release = new CountDownLatch(1);
 		background.execute(() -> {
@@ -115,106 +139,158 @@ public class PackageDatabaseServiceTest {
 	public void showsARowWithUnknownProgressWhileLoading() throws Exception {
 		CountDownLatch release = blockBackground();
 
-		startLoad();
+		onUi(service::loadCachedThenDownload);
 
-		JobVm job = threads.ui().submit(this::onlyJob).get(10, TimeUnit.SECONDS);
+		JobVm job = onUi(this::onlyJob);
 		assertEquals(DESCRIPTION, job.getDescription());
 		assertTrue(job.isProgressUnknown());
 		assertFalse(job.isFinished());
 		assertEquals(List.of(), dialogs.calls, "no popup");
 		release.countDown();
-		awaitFinished();
+		awaitFinished(0);
 	}
 
 	@Test
-	public void downloadReplacesThePackageList() throws Exception {
-		List<String> notifiedOn = new CopyOnWriteArrayList<>();
-		packages.addChangeListener(e -> notifiedOn.add(Thread.currentThread().getName()));
+	public void showsTheCachedListBeforeTheDownloadReplacesIt() throws Exception {
+		cacheTheServersDatabase();
 
-		startLoad();
+		onUi(service::loadCachedThenDownload);
 
-		assertEquals("Done", awaitFinished());
+		assertEquals("Done", awaitFinished(0));
+		assertEquals(List.of(false, true), replacedWhenFinished, "the cached list, then the downloaded one");
+		assertEquals(List.of(1), firstLoadedAfter, "installed state is read once, after the cached list");
 		assertTrue(packages.size() > 0);
-		assertEquals(List.of(TestThreads.UI), notifiedOn);
-		assertEquals(List.of(TestThreads.UI), loadedOn);
-		assertTrue(Files.size(cache) > 0, "the download must be kept as the new cache");
 		assertEquals(List.of(), dialogs.calls);
 	}
 
 	@Test
-	public void usingTheCachedCopyIsShownInTheRowNotInADialog() throws Exception {
-		startLoad();
-		awaitFinished();
-		int downloaded = packages.size();
+	public void failedDownloadKeepsTheCachedListWithoutADialog() throws Exception {
+		cacheTheServersDatabase();
 		useServer(tmp.resolve("remote/missing.json"));
-		CompletableFuture<String> second = new CompletableFuture<>();
-		jobs.addChangeListener(e -> {
-			if (e.getSource() instanceof JobVm job && job.isFinished() && job.getId() == 1) {
-				second.complete(job.getFinishedMessage());
-			}
-		});
 
-		startLoad();
+		onUi(service::loadCachedThenDownload);
 
-		assertEquals("Offline copy used", second.get(10, TimeUnit.SECONDS));
-		threads.ui().submit(() -> { }).get(10, TimeUnit.SECONDS);
-		assertEquals(downloaded, packages.size());
-		assertEquals(2, loadedOn.size());
+		assertEquals("Download failed, using cached copy", awaitFinished(0));
+		assertEquals(List.of(false), replacedWhenFinished, "only the cached list, read once");
+		assertEquals(List.of(1), firstLoadedAfter);
+		assertTrue(packages.size() > 0);
 		assertEquals(List.of(), dialogs.calls);
 	}
 
 	@Test
-	public void failureShowsAnErrorAndKeepsTheList() throws Exception {
+	public void withoutACacheTheDownloadFillsTheList() throws Exception {
+		onUi(service::loadCachedThenDownload);
+
+		assertEquals("Done", awaitFinished(0));
+		assertEquals(List.of(true), replacedWhenFinished);
+		assertEquals(List.of(1), firstLoadedAfter);
+		assertTrue(Files.size(cache) > 0, "the download is cached");
+	}
+
+	@Test
+	public void withoutACacheAFailedDownloadShowsAnError() throws Exception {
 		useServer(tmp.resolve("remote/missing.json"));
 
-		startLoad();
+		onUi(service::loadCachedThenDownload);
 
-		assertEquals("Failed", awaitFinished());
+		assertEquals("Failed", awaitFinished(0));
 		assertEquals(0, packages.size());
-		assertEquals(List.of(), loadedOn);
+		assertEquals(List.of(), firstLoadedAfter);
 		assertEquals(List.of("error: Database parsing failed!"), dialogs.calls);
 		assertEquals(List.of(TestThreads.UI), dialogs.threads);
 	}
 
 	@Test
-	public void cancelStopsTheLoad() throws Exception {
-		CountDownLatch release = blockBackground();
-		startLoad();
+	public void aBrokenCacheIsSkipped() throws Exception {
+		Files.writeString(cache, "{ not json");
 
-		threads.ui().submit(() -> onlyJob().cancel()).get(10, TimeUnit.SECONDS);
-		release.countDown();
+		onUi(service::loadCachedThenDownload);
 
-		assertEquals("Cancelled", awaitFinished());
-		assertEquals(0, packages.size());
-		assertEquals(List.of(), loadedOn);
-		assertFalse(Files.exists(cache), "nothing cached");
+		assertEquals("Done", awaitFinished(0));
+		assertEquals(List.of(true), replacedWhenFinished);
+		assertTrue(packages.size() > 0);
+	}
+
+	@Test
+	public void cancellingTheDownloadKeepsTheCachedList() throws Exception {
+		cacheTheServersDatabase();
+		long cached = Files.size(cache);
+		CountDownLatch[] release = new CountDownLatch[1];
+		// the download is queued on the background thread right after this
+		duringFirstLoaded = () -> release[0] = blockBackground();
+		onUi(service::loadCachedThenDownload);
+		while (release[0] == null) {
+			onUi(() -> { });
+		}
+
+		onUi(() -> onlyJob().cancel());
+		release[0].countDown();
+
+		assertEquals("Cancelled", awaitFinished(0));
+		assertEquals(List.of(false), replacedWhenFinished);
+		assertTrue(packages.size() > 0);
+		assertEquals(cached, Files.size(cache));
 		assertEquals(List.of(), dialogs.calls);
+	}
+
+	@Test
+	public void downloadOnlyDoesNotFallBackToTheCache() throws Exception {
+		cacheTheServersDatabase();
+		useServer(tmp.resolve("remote/missing.json"));
+
+		onUi(service::download);
+
+		assertEquals("Failed", awaitFinished(0));
+		assertEquals(0, packages.size(), "the cache wasn't read");
+	}
+
+	@Test
+	public void downloadingAgainKeepsTheInstalledState() throws Exception {
+		onUi(service::loadCachedThenDownload);
+		awaitFinished(0);
+		Package before = onUi(() -> firstPackage());
+		PackageFileList files = new PackageFileList(before.getId());
+		onUi(() -> packages.setInstalled(List.of(files)));
+
+		onUi(service::download);
+		assertEquals("Done", awaitFinished(1));
+
+		Package after = onUi(() -> (Package) packages.get(before.getId()));
+		assertNotSame(before, after, "a new list");
+		assertTrue(after.isInstalled());
+		assertSame(files, after.getFileList());
+		assertEquals(List.of(1), firstLoadedAfter, "installed state is read only once");
+	}
+
+	private Package firstPackage() {
+		for (Requirement r : packages) {
+			if (r instanceof Package pkg) {
+				return pkg;
+			}
+		}
+		throw new AssertionError("no package");
 	}
 
 	@Test
 	public void loadingAgainWhileLoadingIsIgnored() throws Exception {
 		CountDownLatch release = blockBackground();
 
-		startLoad();
-		startLoad();
+		onUi(service::loadCachedThenDownload);
+		onUi(service::download);
 		release.countDown();
 
-		assertEquals("Done", awaitFinished());
-		threads.ui().submit(this::onlyJob).get(10, TimeUnit.SECONDS);
-		assertEquals(List.of(TestThreads.UI), loadedOn);
+		assertEquals("Done", awaitFinished(0));
+		onUi(this::onlyJob);
 	}
 
 	@Test
-	public void canLoadAgainAfterALoadFinished() throws Exception {
-		startLoad();
-		awaitFinished();
+	public void canDownloadAgainAfterALoadFinished() throws Exception {
+		onUi(service::loadCachedThenDownload);
+		awaitFinished(0);
 
-		startLoad();
-		background.submit(() -> { }).get(10, TimeUnit.SECONDS);
-		threads.ui().submit(() -> { }).get(10, TimeUnit.SECONDS);
+		onUi(service::download);
 
-		assertEquals(2, threads.ui().submit(() -> jobs.jobs.size()).get(10, TimeUnit.SECONDS));
-		assertEquals(List.of(TestThreads.UI, TestThreads.UI), loadedOn);
-		assertEquals(JobTracker.UNKNOWN_PROGRESS, jobs.jobs.get(1).getProgress());
+		assertEquals("Done", awaitFinished(1));
+		assertEquals(2, (int) onUi(() -> jobs.jobs.size()));
 	}
 }

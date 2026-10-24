@@ -48,7 +48,19 @@ public class PackageListViewModel implements ChangeListener {
 			map.addChangeListener(this);
 		}
 
+		// a reloaded package database brings new Package objects: keep the same package selected
+		Package selected = packageInteractionViewModel.getSelectedPackage();
+		if (selected != null) {
+			packageInteractionViewModel.setSelectedPackage(data.get(selected.getId()));
+		}
+
 		notifyChangeListeners(-1);
+	}
+
+	/** @return the row of the selected package, or -1 if none is selected */
+	public int selectedRowIndex() {
+		Package selected = packageInteractionViewModel.getSelectedPackage();
+		return selected == null || data == null ? -1 : data.indexOf(selected);
 	}
 
 	public void stateChanged(ChangeEvent e) {

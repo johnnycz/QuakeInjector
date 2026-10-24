@@ -27,9 +27,7 @@ import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
 import java.io.File;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -55,8 +53,11 @@ public class Installer {
 	private final Configuration.DownloadPath downloadDirectory;
 	private final InstallPipeline.Executors executors;
 
-	/** Installs that haven't reported their outcome yet. */
-	private final Map<Package, InstallPipeline> queue = new ConcurrentHashMap<>();
+	/**
+	 * Installs that haven't reported their outcome yet, by package id: reloading the package database
+	 * replaces the Package objects while an install may be running.
+	 */
+	private final Map<String, InstallPipeline> queue = new ConcurrentHashMap<>();
 
 	/** Only touched on the UI executor. */
 	private final ChangeListenerList queueListeners = new ChangeListenerList();
@@ -112,9 +113,9 @@ public class Installer {
 	}
 
 	public void cancelAll() {
-		for (Package inQueue : getQueue()) {
-			System.out.println("Canceling " + inQueue);
-			cancel(inQueue);
+		for (Map.Entry<String, InstallPipeline> inQueue : queue.entrySet()) {
+			System.out.println("Canceling " + inQueue.getKey());
+			inQueue.getValue().cancel();
 		}
 	}
 
@@ -122,12 +123,9 @@ public class Installer {
 		return !queue.isEmpty();
 	}
 
-	public Set<Package> getQueue() {
-		return new HashSet<>(queue.keySet());
-	}
-
+	/** Whether a package with this id is being installed, also if it is another Package object. */
 	public boolean alreadyQueued(final Package map) {
-		return queue.containsKey(map);
+		return queue.containsKey(map.getId());
 	}
 
 	/**
@@ -155,7 +153,7 @@ public class Installer {
 	                                       final InstallListener listener) {
 		InstallPipeline pipeline = new InstallPipeline(
 			url, selectedMap, listener, downloadDirectory, installDirectory, executors);
-		if (queue.putIfAbsent(selectedMap, pipeline) != null) {
+		if (queue.putIfAbsent(selectedMap.getId(), pipeline) != null) {
 			return CompletableFuture.completedFuture(null);
 		}
 		executors.ui().execute(() -> queueChanged(selectedMap));
@@ -167,7 +165,7 @@ public class Installer {
 					System.err.println("Install listener failed for " + selectedMap.getId() + ": " + error);
 					error.printStackTrace();
 				}
-				queue.remove(selectedMap);
+				queue.remove(selectedMap.getId());
 				queueChanged(selectedMap);
 			});
 	}
@@ -181,7 +179,7 @@ public class Installer {
 	 * package leaves the queue, once that stage has stopped and its partial files are removed.
 	 */
 	public void cancel(Package installerMap) {
-		InstallPipeline pipeline = queue.get(installerMap);
+		InstallPipeline pipeline = queue.get(installerMap.getId());
 		if (pipeline != null) {
 			pipeline.cancel();
 		}

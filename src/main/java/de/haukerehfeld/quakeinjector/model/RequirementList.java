@@ -40,7 +40,22 @@ public class RequirementList implements Iterable<Requirement> {
 		setRequirements(requirements);
 	}
 
+	/**
+	 * Replace the list, e.g. with a newly loaded package database. Packages that are installed in the
+	 * current list stay installed, with their file list: the new objects don't know about that yet.
+	 */
 	public void setRequirements(List<Requirement> requirements) {
+		for (Requirement r : requirements) {
+			Requirement old = get(r.getId());
+			if (old != r && old.isInstalled()) {
+				if (r instanceof Package pkg && old instanceof Package oldPkg) {
+					// the file list first: listeners of the installed flag may read it
+					pkg.setFileList(oldPkg.getFileList());
+				}
+				r.setInstalled(true);
+			}
+		}
+
 		names.clear();
 		for (int i = 0; i < requirements.size(); ++i) {
 			names.put(requirements.get(i).getId(), i);

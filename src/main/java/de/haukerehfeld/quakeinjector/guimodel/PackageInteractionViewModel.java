@@ -36,6 +36,11 @@ public class PackageInteractionViewModel implements ChangeListener {
 		notifyChangeListeners();
 	}
 
+	/** @return null if nothing is selected */
+	public Package getSelectedPackage() {
+		return selectedPackage;
+	}
+
 	public void install() {
 		commandHandler.install(selectedPackage);
 	}

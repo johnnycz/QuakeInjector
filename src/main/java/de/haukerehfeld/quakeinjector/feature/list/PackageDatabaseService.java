@@ -4,12 +4,14 @@ import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.DialogProvider;
 import de.haukerehfeld.quakeinjector.model.JobTracker;
 import de.haukerehfeld.quakeinjector.model.JobTrackerProvider;
+import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.model.RequirementList;
 import de.haukerehfeld.quakeinjector.utils.CancellationToken;
 import de.haukerehfeld.quakeinjector.utils.CancelledException;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -20,25 +22,29 @@ import java.util.concurrent.Executors;
  * Call it on the UI thread; it reports back there through the injected UI executor.
  */
 public class PackageDatabaseService {
-	static final String DESCRIPTION = "Downloading package database";
+	static final String DESCRIPTION = "Loading package database";
 
 	private final Configuration config;
 	private final RequirementList packages;
 	private final JobTrackerProvider jobs;
 	private final DialogProvider dialogs;
+	private final Runnable whenFirstLoaded;
 	private final Executor background;
 	private final Executor ui;
 
 	/** Only touched on the UI thread. */
 	private boolean loading = false;
+	/** Whether the package list was filled yet, from the cache or a download. Only touched on the UI thread. */
+	private boolean listLoaded = false;
 
 	/**
+	 * @param whenFirstLoaded runs on the UI thread the first time the package list was filled
 	 * @param ui runs callbacks on the UI thread, e.g. {@code SwingUtilities::invokeLater}
 	 */
 	public PackageDatabaseService(Configuration config, RequirementList packages, JobTrackerProvider jobs,
-	                              DialogProvider dialogs, Executor ui) {
+	                              DialogProvider dialogs, Runnable whenFirstLoaded, Executor ui) {
 		// its own thread, so the list doesn't wait behind a map download
-		this(config, packages, jobs, dialogs, Executors.newSingleThreadExecutor(runnable -> {
+		this(config, packages, jobs, dialogs, whenFirstLoaded, Executors.newSingleThreadExecutor(runnable -> {
 			Thread thread = new Thread(runnable, "quakeinjector-database");
 			thread.setDaemon(true);
 			return thread;
@@ -46,25 +52,38 @@ public class PackageDatabaseService {
 	}
 
 	/**
-	 * @param background downloads and parses the database
+	 * @param background reads the cache and downloads the database
 	 */
 	public PackageDatabaseService(Configuration config, RequirementList packages, JobTrackerProvider jobs,
-	                              DialogProvider dialogs, Executor background, Executor ui) {
+	                              DialogProvider dialogs, Runnable whenFirstLoaded,
+	                              Executor background, Executor ui) {
 		this.config = config;
 		this.packages = packages;
 		this.jobs = jobs;
 		this.dialogs = dialogs;
+		this.whenFirstLoaded = whenFirstLoaded;
 		this.background = background;
 		this.ui = ui;
 	}
 
 	/**
-	 * Download and parse the package database in the background, falling back to the cached copy,
-	 * and replace the package list with it. Returns right away; ignored while a load is running.
-	 *
-	 * @param whenLoaded runs on the UI thread once the package list was replaced (not if loading failed)
+	 * At startup: show the cached package database right away, if there is one, then download the
+	 * current one and replace the list with it. If the download fails, the cached list stays.
+	 * Returns right away; ignored while a load is running.
 	 */
-	public void load(Runnable whenLoaded) {
+	public void loadCachedThenDownload() {
+		load(true);
+	}
+
+	/**
+	 * Download the current package database and replace the list with it; if that fails, the current
+	 * list stays. Returns right away; ignored while a load is running.
+	 */
+	public void download() {
+		load(false);
+	}
+
+	private void load(boolean cacheFirst) {
 		if (loading) {
 			System.out.println("The package database is already loading");
 			return;
@@ -75,37 +94,66 @@ public class PackageDatabaseService {
 		JobTracker job = jobs.addJob(DESCRIPTION, token::cancel);
 		// the server doesn't send the size of the database
 		job.setProgress(JobTracker.UNKNOWN_PROGRESS);
-		PackageDatabaseCacheTask task = new PackageDatabaseCacheTask(config, token);
 
-		CompletableFuture.supplyAsync(() -> {
+		CompletableFuture<Void> cached = cacheFirst
+			? CompletableFuture.supplyAsync(new PackageDatabaseCache(config)::read, background)
+				.thenAcceptAsync(list -> list.ifPresent(this::showList), ui)
+			: CompletableFuture.completedFuture(null);
+
+		PackageDatabaseDownloadTask download = new PackageDatabaseDownloadTask(config, token);
+		cached
+			.thenApplyAsync(ignored -> {
 				try {
-					return task.execute();
+					return download.execute();
 				} catch (IOException e) {
 					throw new CompletionException(e);
 				}
 			}, background)
-			.whenCompleteAsync((database, error) -> {
+			.whenCompleteAsync((downloaded, error) -> {
 				loading = false;
 				if (error == null) {
-					job.finish(database.fromCache() ? "Offline copy used" : "Done");
-					packages.setRequirements(database.packages());
-					packages.notifyChangeListeners();
-					whenLoaded.run();
+					job.finish("Done");
+					showList(downloaded);
 					return;
 				}
-				Throwable cause = error instanceof CompletionException && error.getCause() != null
-					? error.getCause()
-					: error;
-				if (cause instanceof CancelledException) {
-					job.finish("Cancelled");
-					return;
-				}
-				job.finish("Failed");
-				String msg = cause.getMessage();
-				if (cause.getCause() instanceof UnknownHostException) {
-					msg = "Couldn't establish connection to the server (" + cause.getCause().getMessage() + ").";
-				}
-				dialogs.showError("Database parsing failed! " + msg, "Database parsing failed!");
+				downloadFailed(job, unwrap(error));
 			}, ui);
+	}
+
+	/** Replace the package list; the installed state carries over (see {@link RequirementList#setRequirements}). */
+	private void showList(List<Requirement> list) {
+		packages.setRequirements(list);
+		packages.notifyChangeListeners();
+		if (!listLoaded) {
+			listLoaded = true;
+			whenFirstLoaded.run();
+		}
+	}
+
+	private void downloadFailed(JobTracker job, Throwable cause) {
+		if (cause instanceof CancelledException) {
+			job.finish("Cancelled");
+			return;
+		}
+		System.err.println("Downloading the package database failed: " + cause);
+		if (listLoaded) {
+			// the list shown is the cached copy, or the last download, which the cache also holds
+			job.finish("Download failed, using cached copy");
+			return;
+		}
+		job.finish("Failed");
+		String msg = cause.getMessage();
+		if (cause instanceof UnknownHostException) {
+			msg = "Couldn't establish connection to the server (" + cause.getMessage() + ").";
+		}
+		dialogs.showError("Database parsing failed! " + msg, "Database parsing failed!");
+	}
+
+	private static Throwable unwrap(Throwable error) {
+		Throwable cause = error;
+		while (cause instanceof CompletionException && cause.getCause() != null) {
+			cause = cause.getCause();
+		}
+		return cause;
 	}
 }
