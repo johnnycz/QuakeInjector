@@ -26,6 +26,7 @@ import de.haukerehfeld.quakeinjector.utils.UiProgress;
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
+import java.io.File;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -91,6 +92,16 @@ public class Installer {
 	 */
 	public Executor diskExecutor() {
 		return executors.disk();
+	}
+
+	/** The executor callbacks run on: the UI thread. */
+	public Executor uiExecutor() {
+		return executors.ui();
+	}
+
+	/** The Quake directory packages are installed into. */
+	public File installDirectory() {
+		return installDirectory.get();
 	}
 
 	public boolean checkInstallDirectory() {

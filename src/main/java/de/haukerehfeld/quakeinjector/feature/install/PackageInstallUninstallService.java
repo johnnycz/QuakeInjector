@@ -21,12 +21,16 @@ package de.haukerehfeld.quakeinjector.feature.install;
 
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.utils.CancellationToken;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
+import de.haukerehfeld.quakeinjector.utils.UiProgress;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 public class PackageInstallUninstallService {
 
@@ -242,6 +246,52 @@ public class PackageInstallUninstallService {
 									e.printStackTrace();
 								}
 							});
+	}
+
+	/**
+	 * See which packages are installed by looking for their files in the Quake directory, mark them as
+	 * installed and save the installed list. Call on the UI thread: it shows a modal progress popup and
+	 * returns once that is closed again.
+	 */
+	public void checkForInstalledMaps() {
+		// copy on the UI thread: the check runs on the disk thread, while the UI thread may replace the list
+		List<PackageFileList> fileLists = new ArrayList<>();
+		for (Requirement r : requirements) {
+			if (r instanceof Package pkg && pkg.getSupposedFileList() != null) {
+				fileLists.add(pkg.getSupposedFileList());
+			}
+		}
+
+		CancellationToken token = new CancellationToken();
+		JobTracker popup = dialogProvider.showProgressPopup("Checking for installed maps", token::cancel);
+		UiProgress progress = new UiProgress(installer.uiExecutor(), popup::setProgress);
+		CheckInstalled checker = new CheckInstalled(fileLists,
+		                                            installer.installDirectory(),
+		                                            token,
+		                                            (current, total) -> progress.report((int) current));
+
+		// on the disk thread, so it doesn't look at files an install is just writing
+		CompletableFuture.supplyAsync(checker::execute, installer.diskExecutor())
+			.whenCompleteAsync((installed, error) -> {
+				popup.finish("Done");
+				if (error == null) {
+					requirements.setInstalled(installed);
+					saveInstalledMaps();
+					return;
+				}
+				Throwable cause = Futures.unwrap(error);
+				if (cause instanceof CancelledException) {
+					System.out.println("Checking for installed maps was cancelled");
+					return;
+				}
+				cause.printStackTrace();
+				dialogProvider.showError("Checking for installed maps failed! " + cause.getMessage(),
+					"Checking failed");
+			}, installer.uiExecutor());
+
+		// The popup is modal: start() shows it and returns only once finish() closed it again.
+		// The completion above runs on the UI thread inside the popup's event loop.
+		popup.start();
 	}
 
 	/**

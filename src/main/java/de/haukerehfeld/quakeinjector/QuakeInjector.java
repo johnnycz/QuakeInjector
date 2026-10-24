@@ -20,7 +20,6 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 package de.haukerehfeld.quakeinjector;
 
 import de.haukerehfeld.quakeinjector.feature.install.*;
-import de.haukerehfeld.quakeinjector.feature.list.CheckInstalled;
 import de.haukerehfeld.quakeinjector.feature.list.LoadedPackageDatabase;
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseService;
 import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
@@ -33,10 +32,8 @@ import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
 import de.haukerehfeld.quakeinjector.utils.AsyncListener;
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
-import de.haukerehfeld.quakeinjector.utils.CancellationToken;
 import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.RuntimeExecutionException;
-import de.haukerehfeld.quakeinjector.utils.UiProgress;
 
 import javax.swing.*;
 import java.awt.*;
@@ -47,11 +44,8 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -259,7 +253,7 @@ public class QuakeInjector {
 			parseDatabaseAndSetList();
 		});
 
-		menu.addCheckInstalledActionListener((e) -> checkForInstalledMaps());
+		menu.addCheckInstalledActionListener((e) -> installUninstallService.checkForInstalledMaps());
 
 		menu.addQuitActionListener((e) -> {
 			view.setVisible(false);
@@ -327,7 +321,7 @@ public class QuakeInjector {
 	/** Runs on the EDT: mark the packages from the installed packages file as installed. */
 	private void applyInstalledStatus(List<PackageFileList> installed, Throwable error) {
 		if (error == null) {
-			setInstalledStatus(installed);
+			maps.setInstalled(installed);
 			return;
 		}
 
@@ -350,82 +344,6 @@ public class QuakeInjector {
 	private void doParseInstalled() {
 		// the disk thread also writes this file, so the read never sees a half-written one
 		installedMaps.parse(installedMapsFile, installer.diskExecutor());
-	}
-
-	/**
-	 * See what maps are installed
-	 */
-	private void checkForInstalledMaps() {
-		// copy on the EDT: the check runs on another thread, while the EDT may replace the list
-		Set<String> knownPackageIds = new HashSet<>();
-		for (Requirement r : maps) {
-			if (!(r instanceof UnavailableRequirement)) {
-				knownPackageIds.add(r.getId());
-			}
-		}
-
-		CancellationToken token = new CancellationToken();
-		JobTracker popup = dialogProvider.showProgressPopup("Checking for installed maps", token::cancel);
-		UiProgress progress = new UiProgress(javax.swing.SwingUtilities::invokeLater, popup::setProgress);
-		CheckInstalled checker = new CheckInstalled(getConfig(),
-		                                            getConfig().EnginePath.get().toString(),
-		                                            knownPackageIds,
-		                                            token,
-		                                            (current, total) -> progress.report((int) current));
-
-		// on the disk thread, so it doesn't look at files an install is just writing
-		CompletableFuture.supplyAsync(checker::execute, installer.diskExecutor())
-			.whenCompleteAsync((installed, error) -> {
-				popup.finish("Done");
-				if (error == null) {
-					setInstalledStatus(installed);
-					saveInstalledMaps();
-					return;
-				}
-				Throwable cause = error instanceof java.util.concurrent.CompletionException && error.getCause() != null
-					? error.getCause()
-					: error;
-				if (cause instanceof CancelledException) {
-					System.out.println("Checking for installed maps was cancelled");
-					return;
-				}
-				cause.printStackTrace();
-				dialogProvider.showError("Checking for installed maps failed! " + cause.getMessage(),
-					"Checking failed");
-			}, javax.swing.SwingUtilities::invokeLater);
-
-		// The popup is modal: start() shows it and returns only once finish() closed it again.
-		// The completion above runs on the EDT inside the popup's event loop.
-		popup.start();
-	}
-
-	/**
-	 * Save which packages are installed: copied here on the EDT, written on the disk thread, where all
-	 * other writes of the file happen too.
-	 */
-	private void saveInstalledMaps() {
-		var snapshot = SaveInstalled.snapshot(maps);
-		installer.runOnDiskThread("Writing the installed maps file", () -> {
-			saveInstalled.write(snapshot);
-			return null;
-		});
-	}
-	
-
-	/**
-	 * Tell maps what maps are already installed
-	 */
-	void setInstalledStatus(final List<PackageFileList> packages) {
-		for (PackageFileList l: packages) {
-			maps.setInstalled(l);
-		}
-		//for (Requirement r: maps) {
-			//System.out.println(r);
-		//}
-		
-		maps.notifyChangeListeners();
-
-		
 	}
 
 	private void parseDatabaseAndSetList() {

@@ -61,6 +61,14 @@ public class RequirementList implements Iterable<Requirement> {
 		}
 	}
 
+	/** Mark these packages as installed with the given files, then notify the listeners once. */
+	public void setInstalled(List<PackageFileList> installed) {
+		for (PackageFileList l : installed) {
+			setInstalled(l);
+		}
+		notifyChangeListeners();
+	}
+
 	public Requirement get(int i) {
 		return requirements.get(i);
 	}

@@ -1,142 +1,103 @@
 package de.haukerehfeld.quakeinjector;
 
-import de.haukerehfeld.quakeinjector.feature.list.CheckInstalled;
-import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseSolrJsonParser;
-import de.haukerehfeld.quakeinjector.model.Configuration;
+import de.haukerehfeld.quakeinjector.feature.install.CheckInstalled;
 import de.haukerehfeld.quakeinjector.model.FileInfo;
-import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
-import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.utils.CancellationToken;
 import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Checks which packages are installed, using the test database as the cached database
- * and a temp directory as the Quake directory.
+ * Checks which packages are installed, with a temp directory as the Quake directory.
  */
 public class CheckInstalledTest {
 	@TempDir
 	Path tmp;
 
 	private Path engineDir;
-	private Configuration config;
-	/** The package used in the tests: the smallest one with several files, all of known size. */
-	private PackageFileList pkg;
 
 	@BeforeEach
 	public void setUp() throws Exception {
 		engineDir = Files.createDirectories(tmp.resolve("quake"));
-		Path cachedDatabase = tmp.resolve("database.json");
-		try (InputStream in = getClass().getResourceAsStream("/solr2pp.json")) {
-			Files.copy(in, cachedDatabase);
-		}
-		config = new Configuration(tmp.resolve("config.properties").toFile());
-		config.LocalDatabaseFile.set(cachedDatabase.toFile());
-
-		List<Requirement> packages;
-		try (InputStream in = Files.newInputStream(cachedDatabase)) {
-			packages = new PackageDatabaseSolrJsonParser(config).parse(in);
-		}
-		pkg = packages.stream()
-			.filter(r -> r instanceof Package)
-			.map(r -> ((Package) r).getSupposedFileList())
-			.filter(list -> list.size() >= 2 && list.size() <= 7 && allSizesKnown(list))
-			.min(Comparator.comparingLong(CheckInstalledTest::totalSize))
-			.orElseThrow();
 	}
 
-	private static boolean allSizesKnown(PackageFileList list) {
-		for (FileInfo f : list) {
-			if (f.getSize() <= 0) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	private static long totalSize(PackageFileList list) {
-		long total = 0;
-		for (FileInfo f : list) {
-			total += f.getSize();
-		}
-		return total;
+	/** A package with a map and a readme, of known sizes. */
+	private static PackageFileList testmap(String id) {
+		PackageFileList list = new PackageFileList(id);
+		list.add(new FileInfo("maps/" + id + ".bsp", 0, 3));
+		list.add(new FileInfo(id + ".txt", 0, 5));
+		return list;
 	}
 
 	/** Write all files of the package with their expected sizes, as if it was installed. */
-	private void installPackageFiles() throws Exception {
-		for (FileInfo f : pkg) {
+	private void installFiles(PackageFileList list) throws Exception {
+		for (FileInfo f : list) {
 			Path file = engineDir.resolve(f.getName());
 			Files.createDirectories(file.getParent());
 			Files.write(file, new byte[(int) f.getSize()]);
 		}
 	}
 
-	private Path firstFile() {
-		return engineDir.resolve(pkg.iterator().next().getName());
-	}
-
-	private List<String> check(Set<String> knownIds, CancellationToken token, List<Long> progress) throws Exception {
+	private List<String> check(List<PackageFileList> lists, CancellationToken token, List<Long> progress) {
 		List<String> ids = new ArrayList<>();
-		for (PackageFileList list : new CheckInstalled(config, engineDir.toString(), knownIds, token,
+		for (PackageFileList list : new CheckInstalled(lists, engineDir.toFile(), token,
 				(current, total) -> progress.add(current)).execute()) {
 			ids.add(list.getId());
 		}
 		return ids;
 	}
 
-	private List<String> check(Set<String> knownIds) throws Exception {
-		return check(knownIds, new CancellationToken(), new ArrayList<>());
+	private List<String> check(PackageFileList... lists) {
+		return check(List.of(lists), new CancellationToken(), new ArrayList<>());
 	}
 
 	@Test
 	public void findsAPackageWhoseFilesAreAllThere() throws Exception {
-		installPackageFiles();
+		PackageFileList pkg = testmap("a");
+		installFiles(pkg);
 
-		assertEquals(List.of(pkg.getId()), check(Set.of(pkg.getId())));
+		assertEquals(List.of("a"), check(pkg));
 	}
 
 	@Test
 	public void aMissingFileMeansNotInstalled() throws Exception {
-		installPackageFiles();
-		Files.delete(firstFile());
+		PackageFileList pkg = testmap("a");
+		installFiles(pkg);
+		Files.delete(engineDir.resolve("a.txt"));
 
-		assertEquals(List.of(), check(Set.of(pkg.getId())));
+		assertEquals(List.of(), check(pkg));
 	}
 
 	@Test
 	public void aFileOfTheWrongSizeMeansNotInstalled() throws Exception {
-		installPackageFiles();
-		Files.write(firstFile(), new byte[1 + (int) Files.size(firstFile())]);
+		PackageFileList pkg = testmap("a");
+		installFiles(pkg);
+		Files.write(engineDir.resolve("a.txt"), new byte[6]);
 
-		assertEquals(List.of(), check(Set.of(pkg.getId())));
+		assertEquals(List.of(), check(pkg));
 	}
 
 	@Test
-	public void onlyChecksKnownPackages() throws Exception {
-		installPackageFiles();
+	public void onlyReportsTheInstalledPackages() throws Exception {
+		PackageFileList a = testmap("a");
+		PackageFileList b = testmap("b");
+		installFiles(b);
 
-		assertEquals(List.of(), check(Set.of()));
+		assertEquals(List.of("b"), check(a, b));
 	}
 
 	@Test
-	public void noCachedDatabaseFindsNothing() throws Exception {
-		installPackageFiles();
-		config.LocalDatabaseFile.set(tmp.resolve("missing.json").toFile());
-
-		assertEquals(List.of(), check(Set.of(pkg.getId())));
+	public void noPackagesFindsNothing() {
+		assertEquals(List.of(), check());
 	}
 
 	@Test
@@ -144,14 +105,18 @@ public class CheckInstalledTest {
 		CancellationToken token = new CancellationToken();
 		token.cancel();
 
-		assertThrows(CancelledException.class, () -> check(Set.of(pkg.getId()), token, new ArrayList<>()));
+		assertThrows(CancelledException.class, () -> check(List.of(testmap("a")), token, new ArrayList<>()));
 	}
 
 	@Test
-	public void progressGoesUpTo100() throws Exception {
+	public void progressGoesUpTo100() {
+		List<PackageFileList> lists = new ArrayList<>();
+		for (int i = 0; i < 20; i++) {
+			lists.add(testmap("map" + i));
+		}
 		List<Long> progress = new ArrayList<>();
 
-		check(Set.of(pkg.getId()), new CancellationToken(), progress);
+		check(lists, new CancellationToken(), progress);
 
 		assertTrue(progress.size() > 10, "progress per package expected: " + progress.size());
 		assertTrue(progress.stream().allMatch(p -> p >= 0 && p <= 100), "out of range: " + progress);

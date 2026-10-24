@@ -47,12 +47,13 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
     - `PackageDatabaseService` — main entry point; manages fetching and parsing
     - `PackageDatabaseJsonParser` / `PackageDatabaseSolrJsonParser` — API parsers
     - `PackageDatabaseCacheTask` — downloads and parses the database, falling back to the offline cache; `LoadedPackageDatabase.fromCache` says which was used
-  - **`feature.install/`** — Download, unzip, and dependency resolution
-    - `PackageInstallUninstallService` — main entry point
+  - **`feature.install/`** — Download, unzip, dependency resolution, and finding out what is installed
+    - `PackageInstallUninstallService` — main entry point (install, uninstall, "Check for installed maps")
     - `InstallPipeline` — the install process as a `CompletableFuture` chain: download (network thread) → inspect (disk thread) → ask about overwrites (UI thread) → extract (disk thread) → report to `InstallListener` (UI thread)
     - `Installer` — owns the network/disk threads and the install queue; the UI executor (`SwingUtilities::invokeLater`) is injected
     - `DownloadTask` / `InspectZipTask` / `ExtractTask` — the install stages; "extract" is the last stage, "install" always means the whole process
     - `UninstallTask` — removes a package's files
+    - `CheckInstalled` — "Check for installed maps": looks for each package's files (`Package.getSupposedFileList`, copied from the loaded package list) in the Quake directory
   - **`feature.play/`** — Quake engine launching
     - `PackageLauncher` — main entry point; prepares game state and launches engine
     - `EngineStarter` — invokes the Quake engine process with configured arguments
@@ -83,7 +84,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - The installed-packages file is snapshotted on the EDT (`SaveInstalled.snapshot`) and written on the disk thread.
 - Outside installs:
   - Package database loading: `QuakeInjector` runs `PackageDatabaseCacheTask` through `gui.SwingWorkerAdapter`, which reports success, failure or cancel (`CancelledException`) on the EDT, while a modal progress popup is open.
-  - Reading the installed packages file (`model.InstalledPackages`) and "Check for installed maps" (`feature.list.CheckInstalled`) run on the installer's disk thread (`Installer.diskExecutor()`), because the disk thread also writes those files; results come back with `whenCompleteAsync(..., SwingUtilities::invokeLater)`. Don't block the EDT on these futures: they may queue behind an install.
+  - Reading the installed packages file (`model.InstalledPackages`) and "Check for installed maps" (`PackageInstallUninstallService.checkForInstalledMaps`, running `CheckInstalled`) run on the installer's disk thread (`Installer.diskExecutor()`), because the disk thread also writes those files; results come back on the UI executor via `whenCompleteAsync`. Don't block the EDT on these futures: they may queue behind an install.
   - Modal progress popups (`DialogProvider.showProgressPopup`): start the background work first, then call `start()`, which returns only once `finish()` closed the popup; finish it first thing in the completion callback.
 
 **Immutability**
@@ -115,12 +116,14 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - Parser tests (`PackageDatabaseJsonParserTest`, `PackageDatabaseSolrJsonParserTest`) validate data transformation
 - Path tests (`RelativePathTest`) verify file operations on different OS
 - Install tests: `ExtractTaskTest`, `DownloadTaskTest`, `UninstallTaskTest` per stage; `InstallProcessTest` (whole `InstallPipeline`) and `InstallerTest` (queue, cancel, uninstall) end to end
+- Check for installed maps: `CheckInstalledTest` (the file check), `CheckForInstalledMapsTest` (the whole service flow)
 - Prefer focused, single-concern tests over integration suites
 
 ### Test helpers
 - `TestZip` builds real zip files (also stored or corrupted entries); downloads use `file://` URLs, so no server or mocking is needed
 - `TestThreads` provides named single-thread executors standing in for the network, disk and UI threads; install tests assert that every listener call runs on the "UI" one
 - `RecordingInstallListener` records install callbacks, their order and threads
+- `RecordingDialogs` is a `DialogProvider` that shows nothing and records the dialogs asked for, and their threads; its progress popup doesn't block in `start()`
 - GUI tests (`InstallQueuePanelTest`) build real Swing components on the EDT with `SwingUtilities.invokeAndWait`; they need no window, so they run headless (modal dialogs can't be tested this way)
 - Files and Windows: close every stream (also on failure), otherwise the `@TempDir` can't be deleted and the test fails
 
