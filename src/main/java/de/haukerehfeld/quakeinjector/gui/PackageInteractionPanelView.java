@@ -18,11 +18,11 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 	private static final String NOT_INSTALLED = "notInstalled";
 	private static final String INSTALLED = "installed";
 
-	private static final Color INSTALL_COLOR = new Color(0xA8D4FF);
-	private static final Color PLAY_COLOR = new Color(0xA8E6A8);
-	private static final Color UNINSTALL_COLOR = new Color(0xF5AAAA);
-	/** Dark text on the light button colors, in both the light and the dark theme. */
-	private static final Color BUTTON_TEXT = new Color(0x1E1E1E);
+	private static final Color INSTALL_COLOR = new Color(0x5A9BD8);
+	private static final Color PLAY_COLOR = new Color(0x5BAE5B);
+	private static final Color UNINSTALL_COLOR = new Color(0xD86464);
+	/** The same text color on the button colors in both the light and the dark theme. */
+	private static final Color BUTTON_TEXT = Color.WHITE;
 	private static final float FONT_SCALE = 1.3f;
 	private static final int GAP = 4;
 
@@ -62,7 +62,7 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 
 	private static JButton coloredButton(String text, Color color) {
 		JButton button = new JButton(text);
-		button.setFont(button.getFont().deriveFont(Font.BOLD, button.getFont().getSize2D() * FONT_SCALE));
+		button.setFont(button.getFont().deriveFont(Font.PLAIN,button.getFont().getSize2D() * FONT_SCALE));
 		button.setBackground(color);
 		button.setForeground(BUTTON_TEXT);
 		Insets margin = button.getMargin();
