@@ -138,17 +138,25 @@ public class PackageInteractionPanelViewTest {
 	}
 
 	@Test
-	public void installIsDisabledWithoutASelection() throws Exception {
+	public void noButtonsWithoutASelection() throws Exception {
 		onEdt(() -> {
 			createPanel(null);
 
-			List<Component> all = new ArrayList<>();
-			collect(panel, all);
-			AbstractButton install = all.stream()
-				.filter(c -> c instanceof AbstractButton b && "Install".equals(b.getText()))
-				.map(c -> (AbstractButton) c).findFirst().orElseThrow();
-			assertTrue(visible(install));
-			assertFalse(install.isEnabled());
+			assertEquals(List.of(), visibleButtons());
+			assertFalse(startmapsVisible());
+		});
+	}
+
+	@Test
+	public void buttonsComeBackWhenAPackageGetsSelected() throws Exception {
+		onEdt(() -> {
+			createPanel(null);
+			vm.setSelectedPackage(pkg("jam9", false));
+
+			assertEquals(List.of("Install"), visibleButtons());
+
+			vm.setSelectedPackage(null);
+			assertEquals(List.of(), visibleButtons());
 		});
 	}
 }

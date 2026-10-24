@@ -196,8 +196,8 @@ public class QuakeInjectorView extends JFrame {
 		infoSplit.setOneTouchExpandable(true);
 		infoSplit.setResizeWeight(1);
 		infoSplit.setContinuousLayout(true);
-		infoSplit.setDividerLocation(600);
-		infoSplit.setMinimumSize(new Dimension(400, 600));
+		infoSplit.setDividerLocation(700);
+		infoSplit.setMinimumSize(new Dimension(533, 600));
 
 
 

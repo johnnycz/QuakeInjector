@@ -10,11 +10,12 @@ import java.awt.*;
 /**
  * Install, play and uninstall the selected package.
  * <p>
- * Not installed: only the Install button. Installed: the Play button with the start map below it, and
- * a narrow Uninstall button (trash icon) to the right of both. Both layouts take the same height, so
- * the panel doesn't jump when a package gets installed.
+ * Nothing selected: no buttons. Not installed: only the Install button. Installed: the Play button with
+ * the start map below it, and a narrow Uninstall button (trash icon) to the right of both. All layouts
+ * take the same height, so the panel doesn't jump when a package gets selected or installed.
  */
 public class PackageInteractionPanelView extends JPanel implements ChangeListener {
+	private static final String NOTHING_SELECTED = "nothingSelected";
 	private static final String NOT_INSTALLED = "notInstalled";
 	private static final String INSTALLED = "installed";
 
@@ -42,6 +43,9 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 		installButton.addActionListener((e) -> vm.install());
 
 		playButton = coloredButton("Play", PLAY_COLOR);
+		// a bit smaller than the text, on its left (the default)
+		playButton.setIcon(new PlayIcon(Math.round(playButton.getFont().getSize() * 0.8f)));
+		playButton.setIconTextGap(6);
 		startmaps = new JComboBox<>();
 		playButton.addActionListener((e) -> vm.play(startmaps.getItemAt(startmaps.getSelectedIndex())));
 
@@ -53,6 +57,7 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 		uninstallButton.getAccessibleContext().setAccessibleName("Uninstall");
 		uninstallButton.addActionListener((e) -> vm.uninstall());
 
+		add(new JPanel(), NOTHING_SELECTED);
 		add(notInstalledCard(), NOT_INSTALLED);
 		add(installedCard(), INSTALLED);
 
@@ -109,10 +114,10 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 
 	private void updateElements() {
 		boolean installed = vm.isInstalled();
-		cards.show(this, installed ? INSTALLED : NOT_INSTALLED);
+		boolean selected = !vm.getPackageId().isEmpty();
+		cards.show(this, !selected ? NOTHING_SELECTED : installed ? INSTALLED : NOT_INSTALLED);
 
-		// nothing selected, or already being installed
-		installButton.setEnabled(!installed && !vm.getPackageId().isEmpty() && !vm.isInstalling());
+		installButton.setEnabled(selected && !installed && !vm.isInstalling());
 
 		startmaps.removeAllItems();
 		for (String startmap: vm.getStartmaps()) {

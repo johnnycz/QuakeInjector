@@ -26,7 +26,7 @@ import java.util.List;
 
 public class PackageDetailPanelView extends JPanel implements ChangeListener {
 
-	public static final Dimension DEFAULTIMAGESIZE = new Dimension(360, 270);
+	public static final Dimension DEFAULTIMAGESIZE = new Dimension(480, 360);
 	private static final Dimension NOIMAGESIZE = new Dimension(100, 500);
 	private final PackageInteractionViewModel vm;
 
@@ -55,6 +55,8 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 		//content.setBackground();
 
 		title = new JLabel();
+		// larger than the Install/Play buttons (1.3 times the normal size)
+		title.setFont(title.getFont().deriveFont(title.getFont().getSize2D() * 1.6f));
 		title.setHorizontalAlignment(SwingConstants.CENTER);
 		title.setOpaque(true);
 		title.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -193,7 +195,7 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 	}
 
 	private void removeImage() {
-		remove(imagePanel);
+		content.remove(imagePanel);
 		imageDisplayed = false;
 	}
 
@@ -202,34 +204,50 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 		date.setText(toString(vm.getDate()));
 		size.setText(vm.getSize() / 1000f + " MB");
 
-		if (!imageDisplayed) {
-			addImage();
-		}
-
 		image.setIcon(null);
 
-		var screenshotUri = vm.getScreenshotUri();
+		URI screenshotUri = vm.getScreenshotUri();
+		if (screenshotUri == null) {
+			// nothing selected, or no screenshot
+			if (imageDisplayed) {
+				removeImage();
+			}
+		}
+		else {
+			if (!imageDisplayed) {
+				addImage();
+			}
+			loadScreenshot(screenshotUri, vm.getTitle());
+		}
 
-		//load image in bg thread
+		description.getEditorKit().createDefaultDocument();
+		description.setText(vm.getDescription()
+				+ toString(vm.getRequirements()) + "<p></p>");
+		//scroll to top
+		description.setCaretPosition(0);
+
+		revalidate();
+		repaint();
+	}
+
+	/** Loads the screenshot in the background and shows it, unless another package got selected meanwhile. */
+	private void loadScreenshot(URI screenshotUri, String imageTitle) {
 		new SwingWorker<ImageIcon,Void>() {
-			private final URI url = screenshotUri;
-
 			@Override
 			public ImageIcon doInBackground() {
 				try {
-					if (screenshotUri != null) {
-						URL cleanUrl = new URL(screenshotUri.toASCIIString());
-						return new ImageIcon(new ImageIcon(cleanUrl, vm.getTitle()).getImage().getScaledInstance(360, 270, Image.SCALE_SMOOTH));
-					}
+					URL cleanUrl = new URL(screenshotUri.toASCIIString());
+					return new ImageIcon(new ImageIcon(cleanUrl, imageTitle).getImage()
+						.getScaledInstance(DEFAULTIMAGESIZE.width, DEFAULTIMAGESIZE.height, Image.SCALE_SMOOTH));
 				}
 				catch (MalformedURLException e) {
+					return null;
 				}
-				return null;
 			}
 			@Override
 			public void done() {
-				//threading: is the image still valid?
-				if (isCancelled() || !screenshotUri.equals(url)) {
+				// the selection may have changed while loading
+				if (isCancelled() || !screenshotUri.equals(vm.getScreenshotUri())) {
 					return;
 				}
 
@@ -245,7 +263,9 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 				}
 
 				if (icon == null || (icon.getImageLoadStatus() & java.awt.MediaTracker.COMPLETE) == 0) {
-					removeImage();
+					if (imageDisplayed) {
+						removeImage();
+					}
 					System.err.println("Couldn't load image " + screenshotUri);
 				}
 				else {
@@ -257,15 +277,6 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 				repaint();
 			}
 		}.execute();
-
-		description.getEditorKit().createDefaultDocument();
-		description.setText(vm.getDescription()
-				+ toString(vm.getRequirements()) + "<p></p>");
-		//scroll to top
-		description.setCaretPosition(0);
-
-		revalidate();
-		repaint();
 	}
 
 	private String toString(Date date) {
