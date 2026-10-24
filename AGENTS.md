@@ -40,7 +40,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - `Package`, `Requirement`, `Configuration`, `InstalledPackages`
   - Immutable where possible; change-event notification via listeners
   - `CommandHandler` — central router for async operations
-  - `JobTracker` — one row in the install queue (or the progress popup): `start`, `setProgress` (0..100 or `UNKNOWN_PROGRESS`, shown as a busy bar), `finish`; call it on the EDT
+  - `JobTracker` — one row in the install queue panel, which shows all background work (installs, uninstalls, loading the database, "Check for installed maps"); there are no progress popups: `setProgress` (0..100 or `UNKNOWN_PROGRESS`, shown as a busy bar), `finish`; call it on the EDT
 
 - **`feature/`** — Feature-specific implementations organized by user-facing workflows
   - **`feature.list/`** — Package database fetching, parsing, and search
@@ -87,7 +87,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - Package database loading: `PackageDatabaseService` reads the cache and downloads on its own daemon thread (not the installer's network thread, so it doesn't wait behind a map download) and reports on the injected UI executor. It doesn't block the UI; a second load while one runs is ignored. Cancel goes through a `CancellationToken` that closes the download stream.
   - Replacing the package list (`RequirementList.setRequirements`) brings new `Package` objects, so anything that outlives a reload goes by package id: the installed state carries over to the new objects, the install queue (`Installer`) is keyed by id, and the selection is restored by id (`PackageListViewModel`, `PackageTable.tableChanged`). The installed packages file is read only once, after the first list arrived.
   - Reading the installed packages file (`model.InstalledPackages`) and "Check for installed maps" (`PackageInstallUninstallService.checkForInstalledMaps`, running `CheckInstalled`) run on the installer's disk thread (`Installer.diskExecutor()`), because the disk thread also writes those files; results come back on the UI executor via `whenCompleteAsync`. Don't block the EDT on these futures: they may queue behind an install.
-  - Modal progress popups (`DialogProvider.showProgressPopup`, now only used by "Check for installed maps"): start the background work first, then call `start()`, which returns only once `finish()` closed the popup; finish it first thing in the completion callback.
+  - "Check for installed maps" doesn't block the UI: one check at a time (a second click while one runs is ignored), and its result is applied by package id, so installs, uninstalls or a database reload during the check are fine.
 
 **Immutability**
 - `Package`, `Requirement`, and other model objects are immutable (or should be treated as such)
@@ -127,7 +127,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - `TestZip` builds real zip files (also stored or corrupted entries); downloads use `file://` URLs, so no server or mocking is needed
 - `TestThreads` provides named single-thread executors standing in for the network, disk and UI threads; install tests assert that every listener call runs on the "UI" one
 - `RecordingInstallListener` records install callbacks, their order and threads
-- `RecordingDialogs` is a `DialogProvider` that shows nothing and records the dialogs asked for, and their threads; its progress popup doesn't block in `start()`
+- `RecordingDialogs` is a `DialogProvider` that shows nothing and records the dialogs asked for, and their threads
 - GUI tests (`InstallQueuePanelTest`) build real Swing components on the EDT with `SwingUtilities.invokeAndWait`; they need no window, so they run headless (modal dialogs can't be tested this way)
 - Files and Windows: close every stream (also on failure), otherwise the `@TempDir` can't be deleted and the test fails
 

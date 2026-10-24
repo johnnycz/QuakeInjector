@@ -43,6 +43,9 @@ public class PackageInstallUninstallService {
 
 	private SaveInstalled installedMaps;
 
+	/** Whether "check for installed maps" is running. Only touched on the UI thread. */
+	private boolean checkingInstalled = false;
+
 	public PackageInstallUninstallService(JobTrackerProvider jobTrackerProvider, DialogProvider dialogProvider) {
 		this.jobTrackerProvider = jobTrackerProvider;
 		this.dialogProvider = dialogProvider;
@@ -250,10 +253,16 @@ public class PackageInstallUninstallService {
 
 	/**
 	 * See which packages are installed by looking for their files in the Quake directory, mark them as
-	 * installed and save the installed list. Call on the UI thread: it shows a modal progress popup and
-	 * returns once that is closed again.
+	 * installed and save the installed list. Call on the UI thread; returns right away, the progress shows
+	 * as a row in the job list. Ignored while a check is running.
 	 */
 	public void checkForInstalledMaps() {
+		if (checkingInstalled) {
+			System.out.println("Already checking for installed maps");
+			return;
+		}
+		checkingInstalled = true;
+
 		// copy on the UI thread: the check runs on the disk thread, while the UI thread may replace the list
 		List<PackageFileList> fileLists = new ArrayList<>();
 		for (Requirement r : requirements) {
@@ -263,8 +272,8 @@ public class PackageInstallUninstallService {
 		}
 
 		CancellationToken token = new CancellationToken();
-		JobTracker popup = dialogProvider.showProgressPopup("Checking for installed maps", token::cancel);
-		UiProgress progress = new UiProgress(installer.uiExecutor(), popup::setProgress);
+		JobTracker job = jobTrackerProvider.addJob("Checking for installed maps", token::cancel);
+		UiProgress progress = new UiProgress(installer.uiExecutor(), job::setProgress);
 		CheckInstalled checker = new CheckInstalled(fileLists,
 		                                            installer.installDirectory(),
 		                                            token,
@@ -273,25 +282,24 @@ public class PackageInstallUninstallService {
 		// on the disk thread, so it doesn't look at files an install is just writing
 		CompletableFuture.supplyAsync(checker::execute, installer.diskExecutor())
 			.whenCompleteAsync((installed, error) -> {
-				popup.finish("Done");
+				checkingInstalled = false;
 				if (error == null) {
+					job.finish("Done: " + (installed.size() == 1 ? "1 map" : installed.size() + " maps") + " found");
+					// by package id, so it also applies if the package database was reloaded meanwhile
 					requirements.setInstalled(installed);
 					saveInstalledMaps();
 					return;
 				}
 				Throwable cause = Futures.unwrap(error);
 				if (cause instanceof CancelledException) {
-					System.out.println("Checking for installed maps was cancelled");
+					job.finish("Cancelled");
 					return;
 				}
+				job.finish("Failed");
 				cause.printStackTrace();
 				dialogProvider.showError("Checking for installed maps failed! " + cause.getMessage(),
 					"Checking failed");
 			}, installer.uiExecutor());
-
-		// The popup is modal: start() shows it and returns only once finish() closed it again.
-		// The completion above runs on the UI thread inside the popup's event loop.
-		popup.start();
 	}
 
 	/**

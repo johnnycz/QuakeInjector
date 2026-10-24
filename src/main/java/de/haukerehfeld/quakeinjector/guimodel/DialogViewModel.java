@@ -1,7 +1,6 @@
 package de.haukerehfeld.quakeinjector.guimodel;
 
 import de.haukerehfeld.quakeinjector.model.DialogProvider;
-import de.haukerehfeld.quakeinjector.model.JobTracker;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
@@ -48,11 +47,6 @@ public class DialogViewModel implements DialogProvider {
 	public List<String> overwritenFiles;
 
 	public boolean engineConfigWindowShown;
-
-	public boolean progressPopupShow;
-	public String progressPopupMessage;
-	public Runnable progressPopupCancelAction;
-	public Integer progress;
 
 	public DialogViewModel(ConfigViewModel configViewModel) {
 		this.configViewModel = configViewModel;
@@ -126,30 +120,5 @@ public class DialogViewModel implements DialogProvider {
 		this.engineConfigWindowShown = true;
 		notifyChangeListeners();
 		this.engineConfigWindowShown = false;
-	}
-
-	@Override
-	public JobTracker showProgressPopup(String description, Runnable onCancel) {
-		this.progressPopupMessage = description;
-		this.progressPopupCancelAction = onCancel;
-		this.progress = null;
-		return new JobTracker() {
-			public void start() {
-				progressPopupShow = true;
-				notifyChangeListeners();
-			}
-			@Override
-			public void finish(String message) {
-				progressPopupMessage = null;
-				progressPopupShow = false;
-				notifyChangeListeners();
-			}
-
-			@Override
-			public void setProgress(int progress) {
-				DialogViewModel.this.progress = progress;
-				notifyChangeListeners();
-			}
-		};
 	}
 }

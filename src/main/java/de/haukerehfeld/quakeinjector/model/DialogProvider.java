@@ -12,6 +12,4 @@ public interface DialogProvider {
 	void showEngineOutout(InputStream engineOutput);
 	List<String> showOverwriteDialog(List<String> filesToOverwrite, List<String> filesToWrite);
 	boolean askAndshowEngineConfigWindow();
-	void showEngineConfigWindow();
-	JobTracker showProgressPopup(String description, Runnable onCancel);
-}
+	void showEngineConfigWindow();}

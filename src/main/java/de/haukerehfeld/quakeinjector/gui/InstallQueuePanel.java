@@ -98,6 +98,11 @@ public class InstallQueuePanel extends JPanel implements Scrollable, ChangeListe
 		}
 	}
 
+	/** The text of a row, e.g. "Installing jam1: 42%". */
+	private static String progressString(String description, String status) {
+		return description + ": " + status;
+	}
+
 	private static class RowConstraints extends GridBagConstraints {{
 		anchor = CENTER;
 		fill = HORIZONTAL;
@@ -150,7 +155,7 @@ public class InstallQueuePanel extends JPanel implements Scrollable, ChangeListe
 				}
 				else {
 					progressBar.setIndeterminate(false);
-					progressBar.setString(ProgressPopup.progressString(jobVm.getDescription(), jobVm.getProgress()));
+					progressBar.setString(progressString(jobVm.getDescription(), jobVm.getProgress() + "%"));
 					progressBar.setValue(jobVm.getProgress());
 				}
 			}
@@ -160,7 +165,7 @@ public class InstallQueuePanel extends JPanel implements Scrollable, ChangeListe
 				InstallQueuePanel.this.remove(cancelButton);
 
 				InstallQueuePanel.this.add(finishedLabel, new FinishedLabelConstraints() {{ gridy = jobVm.getId(); }});
-				finishedLabel.setText(ProgressPopup.progressString(jobVm.getDescription(), jobVm.getFinishedMessage()));
+				finishedLabel.setText(progressString(jobVm.getDescription(), jobVm.getFinishedMessage()));
 				finishedLabel.setPreferredSize(new Dimension((int) finishedLabel
 						.getPreferredSize().getWidth(),
 						(int) cancelButton.getSize().getHeight()));
