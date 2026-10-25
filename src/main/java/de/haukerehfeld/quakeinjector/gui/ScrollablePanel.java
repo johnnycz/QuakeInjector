@@ -41,8 +41,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
+import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
+import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 
 import javax.swing.ImageIcon;
 import javax.swing.border.EmptyBorder;

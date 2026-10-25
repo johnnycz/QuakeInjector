@@ -1,0 +1,204 @@
+package de.haukerehfeld.quakeinjector;
+
+import de.haukerehfeld.quakeinjector.gui.PackageInteractionPanelView;
+import de.haukerehfeld.quakeinjector.gui.TrashIcon;
+import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
+import de.haukerehfeld.quakeinjector.model.CommandHandler;
+import de.haukerehfeld.quakeinjector.model.ExtractMapping;
+import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.ReadmeSource;
+import org.junit.jupiter.api.Test;
+
+import javax.swing.AbstractButton;
+import javax.swing.JComboBox;
+import javax.swing.SwingUtilities;
+import java.awt.Component;
+import java.awt.Container;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Which buttons the interaction panel shows. Runs on the Swing event thread; needs no window.
+ */
+public class PackageInteractionPanelViewTest {
+	private PackageInteractionViewModel vm;
+	private PackageInteractionPanelView panel;
+
+	private static Package pkg(String id, boolean installed) {
+		return new Package(id, "sha", id + ".zip", List.of("file:///unused.zip"), "author", "title",
+			1000, null, installed, 0f, "description", new ExtractMapping(), "",
+			List.of("start", id + "_e1m1"), List.of());
+	}
+
+	private static CommandHandler noCommands() {
+		return new CommandHandler() {
+			public void install(Package p) { }
+			public void uninstall(Package p) { }
+			public void play(Package p, String startmap) { }
+			public void saveConfig() { }
+			public boolean isInstallInProgress(Package p) { return false; }
+			public void openPackageWebpage(Package p) { }
+			public void openScreenshotInBrowser(Package p) { }
+			public URI getScreenshotUri(Package p) { return null; }
+		};
+	}
+
+	private void onEdt(Runnable r) throws Exception {
+		SwingUtilities.invokeAndWait(r);
+	}
+
+	private void createPanel(Package selected) {
+		createPanel(selected, null);
+	}
+
+	private void createPanel(Package selected, ReadmeSource readmes) {
+		vm = new PackageInteractionViewModel(noCommands(), readmes);
+		vm.setSelectedPackage(selected);
+		panel = new PackageInteractionPanelView(vm);
+	}
+
+	/** Lists the given text files for every package; reading isn't needed here. */
+	private static ReadmeSource textFiles(String... files) {
+		return new ReadmeSource() {
+			public List<String> textFiles(Package p) { return List.of(files); }
+			public CompletableFuture<String> read(String path) { return new CompletableFuture<>(); }
+		};
+	}
+
+	private AbstractButton button(String text) {
+		List<Component> all = new ArrayList<>();
+		collect(panel, all);
+		return all.stream()
+			.filter(c -> c instanceof AbstractButton b && text.equals(b.getText()))
+			.map(c -> (AbstractButton) c).findFirst().orElseThrow();
+	}
+
+	private static void collect(Container c, List<Component> into) {
+		for (Component child : c.getComponents()) {
+			into.add(child);
+			if (child instanceof Container cc) {
+				collect(cc, into);
+			}
+		}
+	}
+
+	/** Visible: the component and all its parents up to the panel (the layout hides the other card). */
+	private boolean visible(Component c) {
+		for (Component p = c; p != panel; p = p.getParent()) {
+			if (!p.isVisible()) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** The visible buttons, by text ("" for the icon-only one). */
+	private List<String> visibleButtons() {
+		List<Component> all = new ArrayList<>();
+		collect(panel, all);
+		List<String> texts = new ArrayList<>();
+		for (Component c : all) {
+			if (c instanceof AbstractButton b && !(c.getParent() instanceof JComboBox) && visible(b)) {
+				texts.add(b.getText() == null ? "" : b.getText());
+			}
+		}
+		return texts;
+	}
+
+	private AbstractButton iconButton() {
+		List<Component> all = new ArrayList<>();
+		collect(panel, all);
+		for (Component c : all) {
+			if (c instanceof AbstractButton b && b.getIcon() instanceof TrashIcon) {
+				return b;
+			}
+		}
+		throw new AssertionError("no uninstall button");
+	}
+
+	private boolean startmapsVisible() {
+		List<Component> all = new ArrayList<>();
+		collect(panel, all);
+		return all.stream().anyMatch(c -> c instanceof JComboBox && visible(c));
+	}
+
+	@Test
+	public void notInstalledShowsOnlyTheInstallButton() throws Exception {
+		onEdt(() -> {
+			createPanel(pkg("jam9", false));
+
+			assertEquals(List.of("Install"), visibleButtons(), "no package name on the button");
+			assertFalse(startmapsVisible());
+		});
+	}
+
+	@Test
+	public void installedShowsPlayStartmapsUninstallIconAndReadme() throws Exception {
+		onEdt(() -> {
+			createPanel(pkg("jam9", true));
+
+			assertEquals(List.of("Play", "", "Readme"), visibleButtons());
+			assertTrue(startmapsVisible());
+			AbstractButton uninstall = iconButton();
+			assertEquals("Uninstall", uninstall.getToolTipText());
+		});
+	}
+
+	@Test
+	public void switchesWhenThePackageGetsInstalled() throws Exception {
+		Package pkg = pkg("jam9", false);
+		onEdt(() -> {
+			createPanel(pkg);
+			pkg.setInstalled(true);
+
+			assertEquals(List.of("Play", "", "Readme"), visibleButtons());
+		});
+	}
+
+	@Test
+	public void noButtonsWithoutASelection() throws Exception {
+		onEdt(() -> {
+			createPanel(null);
+
+			assertEquals(List.of(), visibleButtons());
+			assertFalse(startmapsVisible());
+		});
+	}
+
+	@Test
+	public void buttonsComeBackWhenAPackageGetsSelected() throws Exception {
+		onEdt(() -> {
+			createPanel(null);
+			vm.setSelectedPackage(pkg("jam9", false));
+
+			assertEquals(List.of("Install"), visibleButtons());
+
+			vm.setSelectedPackage(null);
+			assertEquals(List.of(), visibleButtons());
+		});
+	}
+
+	@Test
+	public void readmeIsEnabledWhenThePackageHasTextFiles() throws Exception {
+		onEdt(() -> {
+			createPanel(pkg("jam9", true), textFiles("jam9/jam9.txt"));
+
+			assertTrue(button("Readme").isEnabled());
+			assertNull(button("Readme").getToolTipText());
+		});
+	}
+
+	@Test
+	public void readmeIsDisabledWithoutTextFiles() throws Exception {
+		onEdt(() -> {
+			createPanel(pkg("jam9", true), textFiles());
+
+			assertFalse(button("Readme").isEnabled());
+			assertEquals("No text files", button("Readme").getToolTipText());
+		});
+	}
+}

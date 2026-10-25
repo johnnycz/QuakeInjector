@@ -1,0 +1,63 @@
+/*
+Copyright 2009 Hauke Rehfeld
+
+
+This file is part of QuakeInjector.
+
+QuakeInjector is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+QuakeInjector is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
+*/
+package de.haukerehfeld.quakeinjector.feature.install;
+
+import de.haukerehfeld.quakeinjector.utils.AsyncTask;
+import de.haukerehfeld.quakeinjector.utils.CancellationToken;
+import de.haukerehfeld.quakeinjector.utils.CancelledException;
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.ArchiveException;
+import org.apache.commons.compress.archivers.ArchiveInputStream;
+import org.apache.commons.compress.archivers.ArchiveStreamFactory;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Inspect an archive and gather all entries.
+ */
+public class InspectZipTask implements AsyncTask<List<ArchiveEntry>> {
+	private final InputStream input;
+	private final CancellationToken token;
+
+	public InspectZipTask(InputStream input, CancellationToken token) {
+		this.input = input;
+		this.token = token;
+	}
+
+	@Override
+	public List<ArchiveEntry> execute() throws IOException, ArchiveException, CancelledException {
+		token.throwIfCancelled();
+		try (ArchiveInputStream<? extends ArchiveEntry> archiveStream = new ArchiveStreamFactory()
+				.createArchiveInputStream(input)) {
+			List<ArchiveEntry> entries = new ArrayList<>();
+
+			ArchiveEntry entry;
+			while ((entry = archiveStream.getNextEntry()) != null) {
+				token.throwIfCancelled();
+				entries.add(entry);
+			}
+
+			return entries;
+		}
+	}
+}

@@ -1,5 +1,6 @@
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.utils.RelativePath;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;

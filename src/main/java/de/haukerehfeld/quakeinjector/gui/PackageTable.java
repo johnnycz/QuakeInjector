@@ -1,0 +1,182 @@
+/*
+Copyright 2009 Hauke Rehfeld
+
+
+This file is part of QuakeInjector.
+
+QuakeInjector is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+QuakeInjector is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
+*/
+package de.haukerehfeld.quakeinjector.gui;
+
+import java.awt.Dimension;
+import java.awt.Color;
+import java.awt.Component;
+
+import javax.swing.*;
+
+import javax.swing.border.EmptyBorder;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import javax.swing.event.TableModelEvent;
+import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableRowSorter;
+
+import de.haukerehfeld.quakeinjector.guimodel.Column;
+
+/**
+ * @todo check if dependency on de.haukerehfeld.quakeinjector.packagelist.model.PackageListModel is necessary
+ */
+public class PackageTable extends JTable {
+	private static final int ALTERNATING = 10;
+	private static final Color NORMALROWCOLOR = UIManager.getColor("Table.background");
+	private static final Color ALTERNATINGROWCOLOR = createAlternatingColor(NORMALROWCOLOR, ALTERNATING);
+	private static final int CELLPADDING = 2;
+
+	private final EmptyBorder border = new EmptyBorder(0, CELLPADDING, 0, CELLPADDING);
+
+	public PackageTable(PackageTableModel vm) {
+		super(vm);
+		
+		final TableRowSorter<PackageTableModel> sorter = new TableRowSorter<PackageTableModel>(vm);
+		setRowSorter(sorter);
+		sorter.toggleSortOrder(Column.RELEASEDATE.ordinal());
+		sorter.toggleSortOrder(Column.RELEASEDATE.ordinal());
+
+		setPreferredScrollableViewportSize(new Dimension(500, 500));
+		setFillsViewportHeight(true);
+		setColumnSelectionAllowed(false);
+		//setCellSelectionEnabled(false);
+		setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+		setShowGrid(false);
+		setIntercellSpacing(new Dimension(0, 0));
+		setRowHeight(getFontMetrics(getFont()).getHeight());
+
+		//getColumnModel().getColumn(Column.NORMALIZEDUSERSRATING.ordinal()).setCellRenderer(new PackageListModel.BarRenderer());
+		getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+			@Override
+			public void valueChanged(ListSelectionEvent e) {
+				ListSelectionModel lsm = (ListSelectionModel) e.getSource();
+
+				if (!lsm.isSelectionEmpty()) {
+					// selecting the package that is already selected does nothing
+					vm.selectPackageByRowIndex(convertRowIndexToModel(getSelection(lsm)));
+				}
+			}
+
+			/**
+			 * Find out what entry was selected
+			 */
+			public int getSelection(ListSelectionModel lsm) {
+				int selection = -1;
+				// Find out which indexes are selected.
+				int minIndex = lsm.getMinSelectionIndex();
+				int maxIndex = lsm.getMaxSelectionIndex();
+				for (int i = minIndex; i <= maxIndex; i++) {
+					if (lsm.isSelectedIndex(i)) {
+						selection = i;
+						break;
+					}
+				}
+				return selection;
+			}
+		});
+	}
+	
+	/**
+	 * A full refresh (e.g. a reloaded package database) clears the table's selection:
+	 * select the row of the selected package again.
+	 */
+	@Override
+	public void tableChanged(TableModelEvent e) {
+		super.tableChanged(e);
+		boolean allRows = e == null || e.getFirstRow() == TableModelEvent.HEADER_ROW
+			|| e.getLastRow() == Integer.MAX_VALUE;
+		if (allRows && getModel() instanceof PackageTableModel model) {
+			int modelRow = model.selectedRowIndex();
+			if (modelRow >= 0 && modelRow < model.getRowCount()) {
+				int viewRow = convertRowIndexToView(modelRow);
+				if (viewRow >= 0) {
+					setRowSelectionInterval(viewRow, viewRow);
+				}
+			}
+		}
+	}
+
+    /**
+     * Shades alternate rows in different colors.
+     */
+	public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
+		Component c = super.prepareRenderer(renderer, row, column);
+		if (!isRatingColumn(c)) {
+			prepareNonRatingColumnRenderer(row, column, c);
+		} else {
+			prepareRatingColumnRenderer(row, column, c);
+		}
+        return c;
+    }
+
+	private void prepareNonRatingColumnRenderer(int row, int column, Component c) {
+		if (!isCellSelected(row, column)) {
+			c.setBackground(colorForRow(row));
+			c.setForeground(UIManager.getColor("Table.foreground"));
+		} else {
+			c.setBackground(UIManager.getColor("Table.selectionBackground"));
+			c.setForeground(UIManager.getColor("Table.selectionForeground"));
+		}
+		//disable cell focus
+		if (c instanceof JComponent) {
+			((JComponent) c).setBorder(border);
+		}
+	}
+
+	private void prepareRatingColumnRenderer(int row, int column, Component c) {
+		if (isCellSelected(row, column)) {
+			c.setForeground(UIManager.getColor("Table.foreground"));
+		}
+		if (c instanceof JComponent) {
+			((JComponent) c).setBorder(new EmptyBorder(0, 0, 0, 0));
+		}
+	}
+
+	private static boolean isRatingColumn(Component c) {
+		return c instanceof PackageTableModel.BarRenderer;
+	}
+
+	/**
+     * Returns the appropriate background color for the given row.
+     */
+    protected Color colorForRow(int row) {
+        return (row % 2 == 0) ? NORMALROWCOLOR : ALTERNATINGROWCOLOR;
+    }
+
+	@Override
+	@SuppressWarnings("unchecked")
+	public TableRowSorter<PackageTableModel> getRowSorter() {
+		return (TableRowSorter<PackageTableModel>) super.getRowSorter();
+	}
+
+	/**
+	 * Calculate a darker or brighter version of a certain color
+	 */
+	public static Color createAlternatingColor(Color c, int amount) {
+		int r = c.getRed();
+		int g = c.getGreen();
+		int b = c.getBlue();
+
+		
+		return new Color(r > 127 ? r - amount : r + amount,
+		                 g > 127 ? g - amount : g + amount,
+		                 b > 127 ? b - amount : b + amount);		
+	}
+}
