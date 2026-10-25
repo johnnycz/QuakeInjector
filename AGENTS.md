@@ -124,7 +124,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 ### Unit Tests
 - Parser tests (`PackageDatabaseJsonParserTest`, `PackageDatabaseSolrJsonParserTest`) validate data transformation
 - Path tests (`RelativePathTest`) verify file operations on different OS
-- Install tests: `ExtractTaskTest`, `DownloadTaskTest`, `UninstallTaskTest` per stage; `InstallProcessTest` (whole `InstallPipeline`) and `InstallerTest` (queue, cancel, uninstall) end to end
+- Install tests: `ExtractTaskTest`, `DownloadTaskTest`, `UninstallTaskTest` per stage; `InstallProcessTest` (whole `InstallPipeline`) and `InstallerTest` (queue, cancel, uninstall) end to end; `PackageInstallUninstallServiceTest` (the service: install directory, prerequisites, overwrite question, failure messages, installed state saved)
 - Check for installed maps: `CheckInstalledTest` (the file check), `CheckForInstalledMapsTest` (the whole service flow)
 - Database loading: `PackageDatabaseDownloadTaskTest` (download, cache file, cancel), `PackageDatabaseServiceTest` (cache first then download, failures, cancel, installed state kept, one load at a time)
 - Readme: `ReadmeFilesTest` (which files, order), `ReadmeReaderTest` (encodings, line ends, size limit), `ReadmeServiceTest` (end to end: a zip whose extract mapping renames the readme), `ReadmeViewModelTest` (switching files, late or failed reads), `PackageInteractionPanelViewTest` (the Readme button)
@@ -135,7 +135,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - `TestZip` builds real zip files (also stored or corrupted entries); downloads use `file://` URLs, so no server or mocking is needed
 - `TestThreads` provides named single-thread executors standing in for the network, disk and UI threads; install tests assert that every listener call runs on the "UI" one
 - `RecordingInstallListener` records install callbacks, their order and threads
-- `RecordingDialogs` is a `DialogProvider` that shows nothing and records the dialogs asked for, and their threads
+- `RecordingDialogs` is a `DialogProvider` that shows nothing and records the dialogs asked for, and their threads; dialogs that return an answer (options, overwrite, engine config) fail unless the test sets one
 - GUI tests (`InstallQueuePanelTest`) build real Swing components on the EDT with `SwingUtilities.invokeAndWait`; they need no window, so they run headless (modal dialogs can't be tested this way)
 - Files and Windows: close every stream (also on failure), otherwise the `@TempDir` can't be deleted and the test fails
 
