@@ -16,6 +16,7 @@ This file provides guidance to coding agents (Claude Code, Codex, etc.) when wor
 
 ### Code Quality
 - **SpotBugs analysis**: `gradlew.bat spotbugsMain` or `./gradlew spotbugsMain`; report in `build/reports/spotbugs/main.html` (and `main.xml`). The task fails while there are findings (currently 132, mostly `EI_EXPOSE_REP*` and `PA_PUBLIC_PRIMITIVE_ATTRIBUTE`), so `check`/`build` fail too; `assemble`, `run` and `winDist` don't run it
+- **Code coverage (JaCoCo)**: `gradlew.bat test jacocoTestReport` or `./gradlew test jacocoTestReport`; report in `build/reports/jacoco/test/html/index.html` (and `jacocoTestReport.xml` / `.csv`). `test` alone records the data but doesn't write the report
 
 ### Build Artifacts
 - JAR output: `build/libs/`
@@ -151,6 +152,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - **Darklaf** (v2.7.3) — Modern dark/light look-and-feel support
 - **BrowserLauncher2** (v1.3) — Cross-platform web browser launching
 - **JUnit 5** (v5.10.2) — Testing framework
+- **JaCoCo** (v0.8.13) — Code coverage
 - **ArchUnit** (v1.4.1) — Architecture testing
 
 **Build Plugins:**

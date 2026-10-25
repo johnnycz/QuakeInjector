@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'eclipse'
     id 'application'
+    id 'jacoco'
 //    id 'com.palantir.graal' version '0.9.0'
     id "com.github.spotbugs" version "6.5.13"
     id 'edu.sc.seis.launch4j' version '2.5.0'
@@ -121,4 +122,19 @@ task winDist(type: Zip) {
 test {
     useJUnitPlatform()
     maxParallelForks = 1
+}
+
+jacoco {
+    // pinned, like spotbugs
+    toolVersion = '0.8.13'
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        // build/reports/jacoco/test/html/index.html to read, xml/csv for tools
+        html.required = true
+        xml.required = true
+        csv.required = true
+    }
 }
