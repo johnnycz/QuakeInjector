@@ -43,9 +43,13 @@ public class EngineOutputDialog extends JDialog {
 
 	private final JTextArea output;
 
+	/** A fullscreen game un-maximizes the main window; this maximizes it again when the game ends */
+	private final KeepMaximized keepParentMaximized;
+
 	public EngineOutputDialog(final Frame parent, final InputStream engineOut) {
 		super(parent, windowTitle, true);
 		this.engineOut = engineOut;
+		this.keepParentMaximized = new KeepMaximized(parent);
 
 		output = new JTextArea(30, 80);
 		output.setLineWrap(true);
@@ -108,8 +112,16 @@ public class EngineOutputDialog extends JDialog {
 			}
 			@Override
 			public void done() {
+				// the engine's output ended: the game has exited
+				keepParentMaximized.gameEnded();
 			}
 		}.execute();
+	}
+
+	@Override
+	public void dispose() {
+		keepParentMaximized.stop();
+		super.dispose();
 	}
 	
 	// from http://stackoverflow.com/questions/642925/swing-how-do-i-close-a-dialog-when-the-esc-key-is-pressed -Spirit
