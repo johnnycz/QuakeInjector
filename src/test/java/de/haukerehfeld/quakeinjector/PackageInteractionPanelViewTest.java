@@ -42,7 +42,6 @@ public class PackageInteractionPanelViewTest {
 			public void saveConfig() { }
 			public boolean isInstallInProgress(Package p) { return false; }
 			public void openPackageWebpage(Package p) { }
-			public void openScreenshotInBrowser(Package p) { }
 			public URI getScreenshotUri(Package p) { return null; }
 		};
 	}

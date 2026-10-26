@@ -161,14 +161,6 @@ public class QuakeInjector {
 		}
 
 		@Override
-		public void openScreenshotInBrowser(Package pkg) {
-			var uri = getScreenshotUri(pkg);
-			if (uri != null) {
-				BrowserLauncher.openURL(uri.toASCIIString());
-			}
-		}
-
-		@Override
 		public URI getScreenshotUri(Package pkg) {
 			try {
 				// URLs with spaces in the path need escaping to %20, not +. We can't use built in URLEncoder

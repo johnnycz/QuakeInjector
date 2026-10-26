@@ -27,7 +27,6 @@ public class PackageHeaderViewTest {
 			public void saveConfig() { }
 			public boolean isInstallInProgress(Package p) { Objects.requireNonNull(p); return false; }
 			public void openPackageWebpage(Package p) { Objects.requireNonNull(p); }
-			public void openScreenshotInBrowser(Package p) { Objects.requireNonNull(p); }
 			public URI getScreenshotUri(Package p) { Objects.requireNonNull(p); return null; }
 		};
 	}
@@ -40,9 +39,8 @@ public class PackageHeaderViewTest {
 			new PackageDescriptionView(vm);
 
 			assertNull(vm.getScreenshotUri());
-			// clicking the title area or the screenshot with nothing selected does nothing
+			// clicking the title area with nothing selected does nothing
 			vm.openPackageWebpage();
-			vm.openScreenshotInBrowser();
 		});
 	}
 }

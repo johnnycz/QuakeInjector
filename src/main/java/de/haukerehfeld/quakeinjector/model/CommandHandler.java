@@ -9,6 +9,5 @@ public interface CommandHandler {
 	void saveConfig();
 	boolean isInstallInProgress(Package aPackage);
 	void openPackageWebpage(Package pkg);
-	void openScreenshotInBrowser(Package pkg);
 	URI getScreenshotUri(Package pkg);
 }
