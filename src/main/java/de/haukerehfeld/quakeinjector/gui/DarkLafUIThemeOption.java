@@ -77,6 +77,12 @@ public enum DarkLafUIThemeOption {
         return null;
     }
 
+    /** The theme for the code; {@link #SYSTEM} for none or an unknown one. */
+    public static DarkLafUIThemeOption getByCodeOrDefault(String code) {
+        DarkLafUIThemeOption option = getByCode(code);
+        return option != null ? option : SYSTEM;
+    }
+
     @Override
     public String toString() {
         return title;

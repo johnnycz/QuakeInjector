@@ -104,7 +104,8 @@ public class QuakeInjector {
 		packageListViewModel.setMapList(packages);
 		maplist = new PackageTableModel(packageListViewModel, packageInteractionViewModel);
 		var jobTrackerProvider = new InstallQueueViewModel();
-		var configViewModel = new ConfigViewModel(router, getConfig());
+		var configViewModel = new ConfigViewModel(router, getConfig(),
+			code -> DarkLafUIThemeOption.getByCodeOrDefault(code).getCode());
 		var dialogVm = new DialogViewModel(configViewModel);
 		this.dialogProvider = dialogVm;
 		this.installUninstallService = new PackageInstallUninstallService(jobTrackerProvider, dialogVm);
@@ -183,13 +184,7 @@ public class QuakeInjector {
 	}
 
 	private void loadTheme() {
-		String stringOption = getConfig().uiTheme.get();
-		DarkLafUIThemeOption option = DarkLafUIThemeOption.getByCode(stringOption);
-		if (option != null) {
-			option.init();
-		} else {
-			DarkLafUIThemeOption.SYSTEM.init();
-		}
+		DarkLafUIThemeOption.getByCodeOrDefault(getConfig().uiTheme.get()).init();
 	}
 
 	/**

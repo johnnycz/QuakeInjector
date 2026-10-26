@@ -20,24 +20,27 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 package de.haukerehfeld.quakeinjector.gui;
 
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 
 import javax.swing.*;
 import javax.swing.border.Border;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
 
-import de.haukerehfeld.quakeinjector.feature.play.EngineStarter;
 import de.haukerehfeld.quakeinjector.guimodel.ConfigViewModel;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
+/**
+ * The settings dialog. Every control reports its value to the {@link ConfigViewModel}, which decides
+ * whether Okay and Apply are enabled: Apply only when something differs from the saved settings.
+ */
 public class EngineConfigDialog extends JDialog {
 	private final static String windowTitle = "Settings";
+
+	private final ConfigViewModel vm;
 
 	private final JPanel configPanel;
 	private final JPanel appearancePanel;
@@ -57,6 +60,7 @@ public class EngineConfigDialog extends JDialog {
 
 	public EngineConfigDialog(final Frame frame, ConfigViewModel vm) {
 		super(frame, windowTitle, true);
+		this.vm = vm;
 
 		configPanel = new JPanel();
 		configPanel.setBorder(LookAndFeelDefaults.PADDINGBORDER);
@@ -80,7 +84,7 @@ public class EngineConfigDialog extends JDialog {
 				gridheight = 1;
 				weightx = 0;
 				weighty = 0;
-				
+
 		}};
 		class InputConstraints extends GridBagConstraints {{
 				anchor = LINE_END;
@@ -98,11 +102,11 @@ public class EngineConfigDialog extends JDialog {
 		    .createEmptyBorder(0, 0, 0, LookAndFeelDefaults.FRAMEPADDING);
 
 		{
-			
+
 			JLabel cmdlineLabel = new JLabel("Quake commandline options");
 			cmdlineLabel.setBorder(leftBorder);
 
-			this.engineCommandline = new JTextField(vm.engineCommandLine, 40);
+			this.engineCommandline = new JTextField(vm.getEngineCommandLine(), 40);
 
 			final int row_ = row;
 			configPanel.add(cmdlineLabel, new LabelConstraints() {{ gridy = row_; }});
@@ -114,16 +118,16 @@ public class EngineConfigDialog extends JDialog {
 			//"Path to quake directory",
 			JLabel enginePathLabel = new JLabel("Quake Directory");
 			enginePathLabel.setBorder(leftBorder);
-			
+
 			enginePath = new JPathPanel(new JPathPanel.WritableDirectoryVerifier(),
-			                            vm.enginePath,
+			                            vm.getEnginePath(),
 			                            javax.swing.JFileChooser.DIRECTORIES_ONLY);
 			final int row_ = row;
 			configPanel.add(enginePathLabel, new LabelConstraints() {{ gridy = row_; }});
 			configPanel.add(enginePath, new InputConstraints() {{ gridy = row_; }});
 		}
 		++row;
-		
+
 		JLabel engineExeLabel = new JLabel("Quake Executable");
 		engineExeLabel.setBorder(leftBorder);
 		engineExecutable = new JPathPanel(
@@ -135,8 +139,8 @@ public class EngineConfigDialog extends JDialog {
 					return Utils.errorMessageForApplication(f);
 				}
 			},
-			vm.engineExecutable,
-			vm.enginePath,
+			vm.getEngineExecutable(),
+			vm.getEnginePath(),
 			javax.swing.JFileChooser.FILES_ONLY);
 
 		{
@@ -155,14 +159,14 @@ public class EngineConfigDialog extends JDialog {
 			JLabel downloadLabel = new JLabel("Download Directory");
 			downloadLabel.setBorder(leftBorder);
 			downloadPath = new JPathPanel(new JPathPanel.WritableDirectoryVerifier(),
-			                              vm.downloadPath,
+			                              vm.getDownloadPath(),
 			                              javax.swing.JFileChooser.DIRECTORIES_ONLY);
 			downloadPath.verify();
 
 			final int row_ = row;
 			configPanel.add(downloadLabel, new LabelConstraints() {{ gridy = row_; }});
 			configPanel.add(downloadPath, new InputConstraints() {{ gridy = row_; }});
-			
+
 		}
 		++row;
 
@@ -172,11 +176,11 @@ public class EngineConfigDialog extends JDialog {
 
 			rogue = new JCheckBox("rogue");
 			rogue.setMnemonic(KeyEvent.VK_R);
-			rogue.setSelected(vm.rogueInstalled);
+			rogue.setSelected(vm.isRogueInstalled());
 
 			hipnotic = new JCheckBox("hipnotic");
 			hipnotic.setMnemonic(KeyEvent.VK_H);
-			hipnotic.setSelected(vm.hipnoticInstalled);
+			hipnotic.setSelected(vm.isHipnoticInstalled());
 
 			final int row_ = row;
 			configPanel.add(expansionsInstalled, new LabelConstraints() {{ gridy = row_; }});
@@ -189,7 +193,7 @@ public class EngineConfigDialog extends JDialog {
 		}
 		++row;
 
-		workingDirOpts = new WorkingDirOpts(row, vm.workingDirAtExecutable);
+		workingDirOpts = new WorkingDirOpts(row, vm.isWorkingDirAtExecutable());
 
 		appearancePanel = new JPanel();
 		appearancePanel.setBorder(LookAndFeelDefaults.PADDINGBORDER);
@@ -197,20 +201,22 @@ public class EngineConfigDialog extends JDialog {
 
 		var themeLabel = new JLabel("Theme");
 		uiTheme = new JComboBox<>(DarkLafUIThemeOption.values());
-		if (DarkLafUIThemeOption.getByCode(vm.uiTheme) != null) {
-			uiTheme.setSelectedItem(DarkLafUIThemeOption.getByCode(vm.uiTheme));
-		} else {
-			uiTheme.setSelectedItem(DarkLafUIThemeOption.SYSTEM);
-		}
+		uiTheme.setSelectedItem(DarkLafUIThemeOption.getByCodeOrDefault(vm.getUiTheme()));
 
 		appearancePanel.add(themeLabel, new LabelConstraints() {{ gridy = 1; ipadx = 10; }});
 		appearancePanel.add(this.uiTheme, new InputConstraints() {{ gridy = 1; }});
 
-		var restartAdviceLabel = new JLabel("Restart Quake Injector to apply changes");
-		appearancePanel.add(restartAdviceLabel, new GridBagConstraints() {{
-			gridwidth = 3;
-			ipady = 10;
+		// below the theme list, left-aligned with it
+		final String restartAdvice = "Restart Quake Injector to use the new theme";
+		final var restartAdviceLabel = new JLabel(restartAdvice);
+		// keep its space while it shows nothing, so showing it doesn't move the theme list
+		restartAdviceLabel.setPreferredSize(restartAdviceLabel.getPreferredSize());
+		restartAdviceLabel.setMinimumSize(restartAdviceLabel.getPreferredSize());
+		appearancePanel.add(restartAdviceLabel, new LabelConstraints() {{
+			gridx = 1;
 			gridy = 2;
+			gridwidth = 2;
+			insets = new Insets(4, 0, 0, 0);
 		}});
 
 		JTabbedPane tabbedPane = new JTabbedPane();
@@ -221,101 +227,92 @@ public class EngineConfigDialog extends JDialog {
 		tabbedPane.setMnemonicAt(1, KeyEvent.VK_2);
 
 		add(tabbedPane, BorderLayout.CENTER);
-		
 
-		class EnableOkay implements ChangeListener, DocumentListener {
-			@Override
-			public void changedUpdate(DocumentEvent e) {
-				check();
+		//change basepath of the exe when quakedir changes
+		enginePath.addChangeListener(e -> engineExecutable.setBasePath(enginePath.getPath()));
+		//(un)set working dir opt visibility as appropriate
+		enginePath.addChangeListener(e -> workingDirOpts.checkDisplay());
+		engineExecutable.addChangeListener(e -> workingDirOpts.checkDisplay());
+
+		// Report every value to the view model. Listen to values only: a check box's ChangeListener
+		// also fires on hover and focus, and a path panel's on every check, changed or not.
+		engineCommandline.getDocument().addDocumentListener(onEdit(this::reportCommandLine));
+		enginePath.addChangeListener(e -> reportEnginePath());
+		enginePath.addErrorListener(e -> reportEnginePath());
+		engineExecutable.addChangeListener(e -> reportEngineExecutable());
+		engineExecutable.addErrorListener(e -> reportEngineExecutable());
+		downloadPath.addChangeListener(e -> reportDownloadPath());
+		downloadPath.addErrorListener(e -> reportDownloadPath());
+		rogue.addItemListener(e -> vm.setRogueInstalled(rogue.isSelected()));
+		hipnotic.addItemListener(e -> vm.setHipnoticInstalled(hipnotic.isSelected()));
+		uiTheme.addItemListener(e -> vm.setUiTheme(getUiTheme().getCode()));
+
+		okay.addActionListener(e -> {
+			if (vm.isDirty()) {
+				vm.applyConfig();
 			}
+			dispose();
+		});
+		apply.addActionListener(e -> vm.applyConfig());
+		cancel.addActionListener(e -> dispose());
+
+		add(new OkayCancelApplyPanel(okay, cancel, apply, true), BorderLayout.PAGE_END);
+
+		// The view model outlives the dialog, so stop listening once it is closed
+		final de.haukerehfeld.quakeinjector.utils.ChangeListener updateButtons = e -> {
+			Edt.check("EngineConfigDialog");
+			okay.setEnabled(vm.canOkay());
+			apply.setEnabled(vm.canApply());
+			restartAdviceLabel.setText(vm.isRestartNeededForTheme() ? restartAdvice : "");
+		};
+		vm.addChangeListener(updateButtons);
+		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+		addWindowListener(new WindowAdapter() {
+				@Override
+				public void windowClosed(WindowEvent e) {
+					vm.removeChangeListener(updateButtons);
+				}
+			});
+
+		// The fields as shown, and whether they are valid; reading them back isn't a change
+		reportCommandLine();
+		reportEnginePath();
+		reportEngineExecutable();
+		reportDownloadPath();
+		updateButtons.stateChanged(null);
+	}
+
+	private void reportCommandLine() {
+		vm.setEngineCommandLine(engineCommandline.getText());
+	}
+
+	private void reportEnginePath() {
+		vm.setEnginePath(enginePath.getPath(), enginePath.verifies());
+	}
+
+	private void reportEngineExecutable() {
+		vm.setEngineExecutable(engineExecutable.getPath(), engineExecutable.verifies());
+	}
+
+	private void reportDownloadPath() {
+		vm.setDownloadPath(downloadPath.getPath());
+	}
+
+	private static DocumentListener onEdit(Runnable r) {
+		return new DocumentListener() {
 			@Override
 			public void insertUpdate(DocumentEvent e) {
-				check();
+				r.run();
 			}
 			@Override
 			public void removeUpdate(DocumentEvent e) {
-				check();
+				r.run();
 			}
-
 			@Override
-			public void stateChanged(ChangeEvent e) {
-				check();
-			}
-			
-			private void check() {
-				if (enginePath.verifies() && engineExecutable.verifies()) {
-					okay.setEnabled(true);
-					apply.setEnabled(true);
-				}
+			public void changedUpdate(DocumentEvent e) {
+				r.run();
 			}
 		};
-		
-		final EnableOkay enableOkay = new EnableOkay() ;
-		
-
-		engineCommandline.getDocument().addDocumentListener(enableOkay);
-		
-		enginePath.addErrorListener(new ErrorListener() {
-				public void errorOccured(ErrorEvent e) {
-					okay.setEnabled(false);
-					apply.setEnabled(false);
-				}
-			});
-		//change basepath of the exe when quakedir changes
-		enginePath.addChangeListener( e -> engineExecutable.setBasePath(enginePath.getPath()));
-		//(un)set working dir opt visibility as appropriate
-		enginePath.addChangeListener(e -> workingDirOpts.checkDisplay());
-		enginePath.addChangeListener(e -> enableOkay.stateChanged(null));
-
-		engineExecutable.addErrorListener(new ErrorListener() {
-				public void errorOccured(ErrorEvent e) {
-					okay.setEnabled(false);
-					apply.setEnabled(false);
-				}
-			});
-		//(un)set working dir opt visibility as appropriate
-		engineExecutable.addChangeListener(e -> workingDirOpts.checkDisplay());
-		engineExecutable.addChangeListener(e -> enableOkay.stateChanged(null));
-
-		downloadPath.addChangeListener(e -> enableOkay.stateChanged(null));
-
-		rogue.addChangeListener(enableOkay);
-		hipnotic.addChangeListener(enableOkay);
-
-		ActionListener save = new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					vm.engineExecutable = engineExecutable.getPath();
-					vm.enginePath = enginePath.getPath();
-					vm.downloadPath = downloadPath.getPath();
-					vm.engineCommandLine = engineCommandline.getText();
-					vm.rogueInstalled = rogue.isSelected();
-					vm.hipnoticInstalled = hipnotic.isSelected();
-					vm.workingDirAtExecutable = workingDirOpts.getWorkingDirAtExecutable();
-					vm.uiTheme = ((DarkLafUIThemeOption) uiTheme.getSelectedItem()).getCode();
-					vm.applyConfig();
-					apply.setEnabled(false);
-				}
-			};
-		
-
-		okay.addActionListener(save);
-		apply.addActionListener(save);
-
-		ActionListener close = new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					setVisible(false);
-					dispose();
-				}
-			};
-
-		okay.addActionListener(close);
-		cancel.addActionListener(close);
-
-		{
-			JPanel okayCancelPanel = new OkayCancelApplyPanel(okay, cancel, apply, true);
-			add(okayCancelPanel, BorderLayout.PAGE_END);
-		}
-		
 	}
 
 	public DarkLafUIThemeOption getUiTheme() {
@@ -369,6 +366,7 @@ public class EngineConfigDialog extends JDialog {
 				"may require adding a -basedir argument to the command line.";
 			workAtExe.setToolTipText(exeBlurb);
 			workAtExe.setSelected(workAtExeDefault);
+			workAtExe.addItemListener(e -> vm.setWorkingDirAtExecutable(workAtExe.isSelected()));
 			ButtonGroup workingDirGroup = new ButtonGroup();
 			workingDirGroup.add(workInBase);
 			workingDirGroup.add(workAtExe);

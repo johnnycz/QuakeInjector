@@ -128,6 +128,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - Check for installed maps: `CheckInstalledTest` (the file check), `CheckForInstalledMapsTest` (the whole service flow)
 - Database loading: `PackageDatabaseDownloadTaskTest` (download, cache file, cancel), `PackageDatabaseServiceTest` (cache first then download, failures, cancel, installed state kept, one load at a time)
 - Readme: `ReadmeFilesTest` (which files, order), `ReadmeReaderTest` (encodings, line ends, size limit), `ReadmeServiceTest` (end to end: a zip whose extract mapping renames the readme), `ReadmeViewModelTest` (switching files, late or failed reads), `PackageInteractionPanelViewTest` (the Readme button)
+- Settings dialog: `ConfigViewModelTest` (Apply only when something differs from the saved settings and the paths are valid; reading the fields back as shown is no change)
 - Reloading the list: `RequirementListTest` (installed state carries over), `PackageTableSelectionTest` (selection survives), `InstallerTest` (queue by package id)
 - Prefer focused, single-concern tests over integration suites
 
