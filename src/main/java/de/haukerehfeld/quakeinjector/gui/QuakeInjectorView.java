@@ -9,6 +9,8 @@ import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +36,6 @@ public class QuakeInjectorView extends JFrame {
 	private JButton randomMapButton;
 	private PackageTable packageTable;
 	private final List<ActionListener> showEngineConfigListeners = new ArrayList<>();
-	private PackageDetailPanelView packageDetailPanelView;
 
 	public QuakeInjectorView(PackageTableModel maplist, PackageInteractionViewModel packageVm, Component packageInteractionPanelView,
 	                         Component installQueuePanel) {
@@ -155,22 +156,10 @@ public class QuakeInjectorView extends JFrame {
 		}});
 
 
-		JPanel infoPanel = new JPanel(new GridBagLayout());
-
-		packageDetailPanelView = new PackageDetailPanelView(packageVm);
-
-		infoPanel.add(packageDetailPanelView, new GridBagConstraints() {{
-			anchor = PAGE_START;
-			fill = BOTH;
-			weightx = 1;
-			weighty = 1;
-		}});
-
-		infoPanel.add(packageInteractionPanelView, new GridBagConstraints() {{
-			gridy = 1;
-			fill = BOTH;
-			weightx = 1;
-		}});
+		// title, date and size, and buttons stay at the top; only the screenshot and description scroll
+		JPanel infoPanel = new JPanel(new BorderLayout());
+		infoPanel.add(new PackageHeaderView(packageVm, packageInteractionPanelView), BorderLayout.PAGE_START);
+		infoPanel.add(new PackageDescriptionView(packageVm), BorderLayout.CENTER);
 
 		JScrollPane queueScroll = new JScrollPane(installQueuePanel);
 
@@ -180,8 +169,8 @@ public class QuakeInjectorView extends JFrame {
 		infoSplit.setOneTouchExpandable(true);
 		infoSplit.setResizeWeight(1);
 		infoSplit.setContinuousLayout(true);
-		infoSplit.setDividerLocation(700);
 		infoSplit.setMinimumSize(new Dimension(533, 600));
+		startWithSmallQueue(infoSplit, queueScroll);
 
 
 
@@ -196,6 +185,26 @@ public class QuakeInjectorView extends JFrame {
 		panel.add(splitPane);
 	}
 
+
+	/**
+	 * Puts the divider so that the queue gets only its preferred height (a couple of rows), once the split
+	 * pane has its size. After that the divider stays where the user puts it; the description gets the extra
+	 * height when the window grows (resize weight 1).
+	 */
+	private static void startWithSmallQueue(JSplitPane split, JComponent queue) {
+		split.addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentResized(ComponentEvent e) {
+				if (split.getHeight() <= 0) {
+					return;
+				}
+				split.removeComponentListener(this);
+				int location = split.getHeight() - split.getInsets().bottom - split.getDividerSize()
+					- queue.getPreferredSize().height;
+				split.setDividerLocation(Math.max(location, 0));
+			}
+		});
+	}
 
 	public void display() {
 		//pack();

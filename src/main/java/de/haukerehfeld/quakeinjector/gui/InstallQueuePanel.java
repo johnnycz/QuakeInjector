@@ -35,10 +35,12 @@ import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 
 
 public class InstallQueuePanel extends JPanel implements Scrollable, ChangeListener {
-	private final static int size = 5;
-	private final static int rowHeight = 20;
+	/** How many rows the queue shows before it scrolls, unless the user drags the divider above it. */
+	private final static int VISIBLE_ROWS = 4;
 	private final static int MARGIN = 3;
 	private final InstallQueueViewModel vm;
+	/** The height of one row: a Cancel button and its margins. */
+	private final int rowHeight = new JButton("Cancel").getPreferredSize().height + 2 * MARGIN;
 
 	private GridBagLayout layout = new GridBagLayout();
 	
@@ -67,7 +69,7 @@ public class InstallQueuePanel extends JPanel implements Scrollable, ChangeListe
 
 	@Override
 	public Dimension getPreferredScrollableViewportSize() {
-		return getPreferredSize();
+		return new Dimension(getPreferredSize().width, VISIBLE_ROWS * rowHeight);
 	}
 
 	@Override

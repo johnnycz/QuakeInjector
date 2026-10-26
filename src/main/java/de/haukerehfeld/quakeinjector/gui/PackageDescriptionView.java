@@ -14,22 +14,28 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
-public class PackageDetailPanelView extends JPanel implements ChangeListener {
+/**
+ * The screenshot of the selected package, its date and size, its authors and its description, scrolling
+ * together.
+ */
+public class PackageDescriptionView extends JPanel implements ChangeListener {
 
 	public static final Dimension DEFAULTIMAGESIZE = new Dimension(480, 360);
-	private static final Dimension NOIMAGESIZE = new Dimension(100, 500);
+	/** Shown instead of an empty text, so the row keeps the height of one line. */
+	private static final String BLANK = " ";
 	private final PackageInteractionViewModel vm;
 
-	private final JLabel title;
-	private final JLabel size;
-	private final JLabel date;
+	private final JLabel date = centeredLabel();
+	private final JLabel size = centeredLabel();
+	private final JEditorPane authors = centeredText();
 
 	private final ScrollablePanel content;
 
@@ -40,8 +46,8 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 
 	private boolean imageDisplayed = false;
 
-	public PackageDetailPanelView(PackageInteractionViewModel vm) {
-		super(new GridBagLayout());
+	public PackageDescriptionView(PackageInteractionViewModel vm) {
+		super(new BorderLayout());
 
 		this.vm = vm;
 		vm.addChangeListener(this);
@@ -49,28 +55,6 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 			setLayout(new GridBagLayout());
 		}};
 		content.setOpaque(false);
-		//content.setBackground();
-
-		title = new JLabel();
-		// larger than the Install/Play buttons (1.3 times the normal size)
-		title.setFont(title.getFont().deriveFont(title.getFont().getSize2D() * 1.6f));
-		title.setHorizontalAlignment(SwingConstants.CENTER);
-		title.setOpaque(true);
-		title.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		title.addMouseListener(new MouseAdapter() {
-			public void mouseClicked(MouseEvent arg0) {
-				vm.openPackageWebpage();
-			}
-		});
-
-		content.add(title, new GridBagConstraints() {{
-			weightx = 1;
-			weighty = 0;
-			fill = BOTH;
-			anchor = PAGE_START;
-			ipadx = 5;
-			ipady = 20;
-		}});
 
 		imagePanel = new JPanel();
 		imagePanel.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
@@ -114,6 +98,13 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 				}
 			}
 		});
+		content.add(detailsPanel(), new GridBagConstraints() {{
+			gridy = 1;
+			weightx = 1;
+			fill = HORIZONTAL;
+			anchor = PAGE_START;
+		}});
+
 		content.add(description, new GridBagConstraints() {{
 			gridy = 2;
 			weightx = 1;
@@ -128,47 +119,61 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 		descriptionScroll.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants
 				.VERTICAL_SCROLLBAR_ALWAYS);
 
-		add(descriptionScroll, new GridBagConstraints() {{
-			gridy = 0;
-			gridwidth = 2;
-			weightx = 1;
-			weighty = 1;
-			fill = BOTH;
-			anchor = PAGE_START;
-		}});
-
-		int detailHeight = 20;
-		date = new JLabel();
-		date.setHorizontalAlignment(SwingConstants.CENTER);
-		add(date, new GridBagConstraints() {{
-			gridy = 1;
-			gridx = 0;
-			weightx = 1;
-			weighty = 0;
-			fill = NONE;
-			anchor = CENTER;
-			ipadx = 5;
-			ipady = 3;
-		}});
-
-		size = new JLabel();
-		size.setHorizontalAlignment(SwingConstants.CENTER);
-		add(size, new GridBagConstraints() {{
-			gridy = 1;
-			gridx = 1;
-			weightx = 1;
-			weighty = 0;
-			fill = NONE;
-			anchor = CENTER;
-			ipadx = 5;
-			ipady = 3;
-		}});
+		add(descriptionScroll, BorderLayout.CENTER);
 	}
 
 
+	/** Date and size side by side, and the authors below them (wrapping when there are many). */
+	private JPanel detailsPanel() {
+		JPanel details = new JPanel(new GridBagLayout());
+		details.setOpaque(false);
+		details.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+
+		JPanel dateAndSize = new JPanel(new GridLayout(1, 2));
+		dateAndSize.setOpaque(false);
+		dateAndSize.add(date);
+		dateAndSize.add(size);
+		details.add(dateAndSize, new GridBagConstraints() {{
+			weightx = 1;
+			fill = HORIZONTAL;
+		}});
+
+		details.add(authors, new GridBagConstraints() {{
+			gridy = 1;
+			weightx = 1;
+			fill = HORIZONTAL;
+			insets = new Insets(2, 0, 0, 0);
+		}});
+		return details;
+	}
+
+	/** An HTML pane like the description, so it gets the same font and color. */
+	private static JEditorPane centeredText() {
+		JEditorPane text = new JEditorPane("text/html", "");
+		text.setEditable(false);
+		text.setOpaque(false);
+		text.setBorder(null);
+		return text;
+	}
+
+	private static void setCenteredText(JEditorPane pane, String text) {
+		// a non-breaking space keeps the height of one line when there's no text
+		pane.setText("<div align=\"center\">" + (text.isBlank() ? "&nbsp;" : escapeHtml(text)) + "</div>");
+	}
+
+	private static String escapeHtml(String text) {
+		return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+	}
+
+	private static JLabel centeredLabel() {
+		JLabel label = new JLabel();
+		label.setHorizontalAlignment(SwingConstants.CENTER);
+		return label;
+	}
+
 	private void addImage() {
 		content.add(imagePanel, new GridBagConstraints() {{
-			gridy = 1;
+			gridy = 0;
 			weightx = 1;
 			weighty = 1;
 			fill = NONE;
@@ -183,9 +188,11 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 	}
 
 	private void refreshUi() {
-		title.setText(vm.getTitle());
-		date.setText(toString(vm.getDate()));
-		size.setText(vm.getSize() / 1000f + " MB");
+		boolean selected = !vm.getPackageId().isEmpty();
+		date.setText(orBlank(toString(vm.getDate())));
+		size.setText(selected ? vm.getSize() / 1000f + " MB" : BLANK);
+		String author = vm.getAuthor();
+		setCenteredText(authors, author.isEmpty() ? BLANK : "by " + author);
 
 		image.setIcon(null);
 
@@ -253,7 +260,7 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 				}
 				else {
 					image.setIcon(icon);
-					image.setMinimumSize(PackageDetailPanelView.DEFAULTIMAGESIZE);
+					image.setMinimumSize(DEFAULTIMAGESIZE);
 				}
 
 				revalidate();
@@ -262,7 +269,11 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 		}.execute();
 	}
 
-	private String toString(Date date) {
+	private static String orBlank(String text) {
+		return text.isEmpty() ? BLANK : text;
+	}
+
+	private static String toString(Date date) {
 		if (date == null) {
 			return "";
 		}
@@ -284,7 +295,7 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 
 	@Override
 	public void stateChanged(ChangeEvent e) {
-		Edt.check("PackageDetailPanelView");
+		Edt.check("PackageDescriptionView");
 		refreshUi();
 	}
 }

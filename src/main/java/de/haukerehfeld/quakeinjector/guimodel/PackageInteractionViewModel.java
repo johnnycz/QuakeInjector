@@ -118,6 +118,11 @@ public class PackageInteractionViewModel implements ChangeListener {
 		return selectedPackage != null ? selectedPackage.getTitle() : "";
 	}
 
+	public String getAuthor() {
+		String author = selectedPackage != null ? selectedPackage.getAuthor() : null;
+		return author != null ? author : "";
+	}
+
 	public Date getDate() {
 		return selectedPackage != null ? selectedPackage.getDate() : null;
 	}
