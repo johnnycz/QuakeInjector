@@ -57,16 +57,23 @@ public class PackageInteractionViewModel implements ChangeListener {
 		commandHandler.play(selectedPackage, startmap);
 	}
 
+	/** Does nothing when no package is selected. */
 	public void openPackageWebpage() {
-		commandHandler.openPackageWebpage(selectedPackage);
+		if (selectedPackage != null) {
+			commandHandler.openPackageWebpage(selectedPackage);
+		}
 	}
 
+	/** Does nothing when no package is selected. */
 	public void openScreenshotInBrowser() {
-		commandHandler.openScreenshotInBrowser(selectedPackage);
+		if (selectedPackage != null) {
+			commandHandler.openScreenshotInBrowser(selectedPackage);
+		}
 	}
 
+	/** Null when no package is selected. */
 	public URI getScreenshotUri() {
-		return commandHandler.getScreenshotUri(selectedPackage);
+		return selectedPackage != null ? commandHandler.getScreenshotUri(selectedPackage) : null;
 	}
 	/**
 	 * When the underlying model has changed

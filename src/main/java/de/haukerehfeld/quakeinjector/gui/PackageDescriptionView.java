@@ -4,17 +4,11 @@ import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -23,12 +17,11 @@ import java.util.List;
 import java.util.TimeZone;
 
 /**
- * The screenshot of the selected package, its date and size, its authors and its description, scrolling
- * together.
+ * The date and size of the selected package, its authors and its description, scrolling together. The
+ * screenshot is behind the title ({@link PackageHeaderView}).
  */
 public class PackageDescriptionView extends JPanel implements ChangeListener {
 
-	public static final Dimension DEFAULTIMAGESIZE = new Dimension(480, 360);
 	/** Shown instead of an empty text, so the row keeps the height of one line. */
 	private static final String BLANK = " ";
 	private final PackageInteractionViewModel vm;
@@ -39,12 +32,7 @@ public class PackageDescriptionView extends JPanel implements ChangeListener {
 
 	private final ScrollablePanel content;
 
-	private final JLabel image;
-	private final JPanel imagePanel;
-
 	private final JEditorPane description;
-
-	private boolean imageDisplayed = false;
 
 	public PackageDescriptionView(PackageInteractionViewModel vm) {
 		super(new BorderLayout());
@@ -55,31 +43,6 @@ public class PackageDescriptionView extends JPanel implements ChangeListener {
 			setLayout(new GridBagLayout());
 		}};
 		content.setOpaque(false);
-
-		imagePanel = new JPanel();
-		imagePanel.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
-		imagePanel.setOpaque(true);
-		imagePanel.setBackground(java.awt.Color.DARK_GRAY);
-
-		imagePanel.setPreferredSize(DEFAULTIMAGESIZE);
-		imagePanel.setMinimumSize(DEFAULTIMAGESIZE);
-		//imagePanel.setSize(DEFAULTIMAGESIZE);
-
-		image = new JLabel();
-		EmptyBorder border = new EmptyBorder(0,0,0,0);
-		image.setBorder(border);
-		image.setHorizontalAlignment(SwingConstants.CENTER);
-		image.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		image.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mouseClicked(MouseEvent arg0) {
-				vm.openScreenshotInBrowser();
-			}
-		});
-
-		imagePanel.add(image);
-
-
 
 		description = new JEditorPane("text/html", "");
 		description.setEditable(false);
@@ -99,17 +62,17 @@ public class PackageDescriptionView extends JPanel implements ChangeListener {
 			}
 		});
 		content.add(detailsPanel(), new GridBagConstraints() {{
-			gridy = 1;
+			gridy = 0;
 			weightx = 1;
 			fill = HORIZONTAL;
 			anchor = PAGE_START;
 		}});
 
 		content.add(description, new GridBagConstraints() {{
-			gridy = 2;
+			gridy = 1;
 			weightx = 1;
-			weighty = 0;
-			fill = BOTH;
+			weighty = 1;
+			fill = HORIZONTAL;
 			anchor = PAGE_START;
 		}});
 
@@ -171,44 +134,12 @@ public class PackageDescriptionView extends JPanel implements ChangeListener {
 		return label;
 	}
 
-	private void addImage() {
-		content.add(imagePanel, new GridBagConstraints() {{
-			gridy = 0;
-			weightx = 1;
-			weighty = 1;
-			fill = NONE;
-			anchor = CENTER;
-		}});
-		imageDisplayed = true;
-	}
-
-	private void removeImage() {
-		content.remove(imagePanel);
-		imageDisplayed = false;
-	}
-
 	private void refreshUi() {
 		boolean selected = !vm.getPackageId().isEmpty();
 		date.setText(orBlank(toString(vm.getDate())));
 		size.setText(selected ? vm.getSize() / 1000f + " MB" : BLANK);
 		String author = vm.getAuthor();
 		setCenteredText(authors, author.isEmpty() ? BLANK : "by " + author);
-
-		image.setIcon(null);
-
-		URI screenshotUri = vm.getScreenshotUri();
-		if (screenshotUri == null) {
-			// nothing selected, or no screenshot
-			if (imageDisplayed) {
-				removeImage();
-			}
-		}
-		else {
-			if (!imageDisplayed) {
-				addImage();
-			}
-			loadScreenshot(screenshotUri, vm.getTitle());
-		}
 
 		description.getEditorKit().createDefaultDocument();
 		description.setText(vm.getDescription()
@@ -218,55 +149,6 @@ public class PackageDescriptionView extends JPanel implements ChangeListener {
 
 		revalidate();
 		repaint();
-	}
-
-	/** Loads the screenshot in the background and shows it, unless another package got selected meanwhile. */
-	private void loadScreenshot(URI screenshotUri, String imageTitle) {
-		new SwingWorker<ImageIcon,Void>() {
-			@Override
-			public ImageIcon doInBackground() {
-				try {
-					URL cleanUrl = new URL(screenshotUri.toASCIIString());
-					return new ImageIcon(new ImageIcon(cleanUrl, imageTitle).getImage()
-						.getScaledInstance(DEFAULTIMAGESIZE.width, DEFAULTIMAGESIZE.height, Image.SCALE_SMOOTH));
-				}
-				catch (MalformedURLException e) {
-					return null;
-				}
-			}
-			@Override
-			public void done() {
-				// the selection may have changed while loading
-				if (isCancelled() || !screenshotUri.equals(vm.getScreenshotUri())) {
-					return;
-				}
-
-				ImageIcon icon;
-				try {
-					icon = get();
-				}
-				catch (java.lang.InterruptedException e) {
-					icon = null;
-				}
-				catch (java.util.concurrent.ExecutionException e) {
-					icon = null;
-				}
-
-				if (icon == null || (icon.getImageLoadStatus() & java.awt.MediaTracker.COMPLETE) == 0) {
-					if (imageDisplayed) {
-						removeImage();
-					}
-					System.err.println("Couldn't load image " + screenshotUri);
-				}
-				else {
-					image.setIcon(icon);
-					image.setMinimumSize(DEFAULTIMAGESIZE);
-				}
-
-				revalidate();
-				repaint();
-			}
-		}.execute();
 	}
 
 	private static String orBlank(String text) {
