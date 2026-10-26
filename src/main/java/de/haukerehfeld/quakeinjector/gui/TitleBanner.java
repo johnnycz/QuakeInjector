@@ -4,7 +4,12 @@ import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.image.BufferedImage;
+import java.awt.font.FontRenderContext;
+import java.awt.font.LineBreakMeasurer;
+import java.awt.font.TextAttribute;
+import java.awt.font.TextLayout;
+import java.text.AttributedCharacterIterator;
+import java.text.AttributedString;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -124,47 +129,41 @@ public class TitleBanner extends JComponent {
 		}
 		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 		Font font = getFont().deriveFont(getFont().getSize2D() * FONT_SCALE);
-		FontMetrics metrics = g.getFontMetrics(font);
-		List<String> lines = wrap(title, metrics, Math.max(1, width - 2 * PADDING));
+		List<TextLayout> lines = lines(title, font, g.getFontRenderContext(), Math.max(1, width - 2 * PADDING));
 
-		g.setFont(font);
-		int lineHeight = metrics.getHeight();
-		int y = (height - lines.size() * lineHeight) / 2 + metrics.getAscent();
-		for (String line : lines) {
-			int x = (width - metrics.stringWidth(line)) / 2;
+		float textHeight = 0;
+		for (TextLayout line : lines) {
+			textHeight += line.getAscent() + line.getDescent() + line.getLeading();
+		}
+		float y = (height - textHeight) / 2;
+		for (TextLayout line : lines) {
+			y += line.getAscent();
+			// the visible advance leaves out the space at the end of a line
+			float x = (width - line.getVisibleAdvance()) / 2;
 			g.setColor(SHADOW);
-			g.drawString(line, x + SHADOW_OFFSET, y + SHADOW_OFFSET);
+			line.draw(g, x + SHADOW_OFFSET, y + SHADOW_OFFSET);
 			g.setColor(TEXT);
-			g.drawString(line, x, y);
-			y += lineHeight;
+			line.draw(g, x, y);
+			y += line.getDescent() + line.getLeading();
 		}
 	}
 
 	/**
-	 * Breaks the text into lines at spaces so each line is at most {@code maxWidth} wide; a single word that is
-	 * wider gets a line of its own.
+	 * The text broken into lines at most {@code width} wide, by Java's own line breaking (between words where
+	 * possible; a word wider than the width is split).
 	 */
-	public static List<String> wrap(String text, FontMetrics metrics, int maxWidth) {
-		List<String> lines = new ArrayList<>();
-		StringBuilder line = new StringBuilder();
-		for (String word : text.trim().split("\\s+")) {
-			if (word.isEmpty()) {
-				continue;
-			}
-			if (line.length() == 0) {
-				line.append(word);
-			}
-			else if (metrics.stringWidth(line + " " + word) <= maxWidth) {
-				line.append(' ').append(word);
-			}
-			else {
-				lines.add(line.toString());
-				line.setLength(0);
-				line.append(word);
-			}
+	public static List<TextLayout> lines(String text, Font font, FontRenderContext context, float width) {
+		List<TextLayout> lines = new ArrayList<>();
+		String trimmed = text.trim();
+		if (trimmed.isEmpty()) {
+			return lines;
 		}
-		if (line.length() > 0) {
-			lines.add(line.toString());
+		AttributedString attributed = new AttributedString(trimmed);
+		attributed.addAttribute(TextAttribute.FONT, font);
+		AttributedCharacterIterator characters = attributed.getIterator();
+		LineBreakMeasurer measurer = new LineBreakMeasurer(characters, context);
+		while (measurer.getPosition() < characters.getEndIndex()) {
+			lines.add(measurer.nextLayout(width));
 		}
 		return lines;
 	}

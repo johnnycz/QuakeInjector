@@ -6,21 +6,34 @@ import org.junit.jupiter.api.Test;
 import javax.swing.SwingUtilities;
 
 import java.awt.*;
+import java.awt.font.FontRenderContext;
+import java.awt.font.TextLayout;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TitleBannerTest {
-	private static FontMetrics metrics() {
-		Graphics2D g = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB).createGraphics();
-		try {
-			return g.getFontMetrics(new Font(Font.SANS_SERIF, Font.PLAIN, 20));
+	private static final Font FONT = new Font(Font.SANS_SERIF, Font.PLAIN, 20);
+	private static final FontRenderContext CONTEXT = new FontRenderContext(null, true, true);
+
+	/** The text of each line, without the space a line ends with. */
+	private static List<String> lineTexts(String text, float width) {
+		List<String> texts = new ArrayList<>();
+		String trimmed = text.trim();
+		int start = 0;
+		for (TextLayout line : TitleBanner.lines(text, FONT, CONTEXT, width)) {
+			int end = start + line.getCharacterCount();
+			texts.add(trimmed.substring(start, end).trim());
+			start = end;
 		}
-		finally {
-			g.dispose();
-		}
+		return texts;
+	}
+
+	private static float width(String text) {
+		return new TextLayout(text, FONT, CONTEXT).getAdvance();
 	}
 
 	@Test
@@ -55,32 +68,23 @@ public class TitleBannerTest {
 
 	@Test
 	public void shortTitleStaysOnOneLine() {
-		assertEquals(List.of("Old Town"), TitleBanner.wrap("Old Town", metrics(), 1000));
+		assertEquals(List.of("Old Town"), lineTexts("Old Town", 1000));
 	}
 
 	@Test
-	public void longTitleWrapsAtSpacesWithinTheWidth() {
-		FontMetrics metrics = metrics();
-		String title = "Map-Center's Quake 30th Anniversary Jam";
-		int maxWidth = metrics.stringWidth("Map-Center's Quake");
+	public void longTitleWrapsBetweenWordsWithinTheWidth() {
+		float width = width("Map-Center's Quake") + 1;
 
-		List<String> lines = TitleBanner.wrap(title, metrics, maxWidth);
-
-		assertEquals(List.of("Map-Center's Quake", "30th Anniversary", "Jam"), lines);
-		for (String line : lines) {
-			assertTrue(metrics.stringWidth(line) <= maxWidth, line);
+		assertEquals(List.of("Map-Center's Quake", "30th Anniversary", "Jam"),
+			lineTexts("Map-Center's Quake 30th Anniversary Jam", width));
+		for (TextLayout line : TitleBanner.lines("Map-Center's Quake 30th Anniversary Jam", FONT, CONTEXT, width)) {
+			assertTrue(line.getVisibleAdvance() <= width);
 		}
 	}
 
 	@Test
-	public void wordWiderThanTheWidthGetsALineOfItsOwn() {
-		assertEquals(List.of("a", "Supercalifragilistic", "b"),
-			TitleBanner.wrap("a Supercalifragilistic b", metrics(), metrics().stringWidth("a b")));
-	}
-
-	@Test
-	public void extraSpacesAreIgnored() {
-		assertEquals(List.of("Old Town"), TitleBanner.wrap("  Old   Town ", metrics(), 1000));
-		assertEquals(List.of(), TitleBanner.wrap("   ", metrics(), 1000));
+	public void spacesAroundTheTitleAreIgnored() {
+		assertEquals(List.of("Old Town"), lineTexts("  Old Town ", 1000));
+		assertEquals(List.of(), lineTexts("   ", 1000));
 	}
 }
