@@ -42,7 +42,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -214,21 +213,6 @@ public class QuakeInjector {
 		view.addWindowListener(new QuakeInjectorWindowListener());
 
 		addMenuActionListeners();
-
-		view.addRandomMapButtonActionListener((e) -> {
-			// TODO
-			/*
-			// Package list index != current table index, which can change based on the column used to sort the
-			// table. Therefore, it has to be converted.
-			int mapTableRowIdx = new Random().nextInt(maplist.getRowCount());
-			int mapListIdx = view.getPackageTable().getRowSorter().convertRowIndexToModel(mapTableRowIdx);
-			Package map = maplist.getPackage(mapListIdx);
-			if(!maplist.isPackageInstalled(map)) {
-				installUninstallService.install(map, false);
-			}
-			view.selectRowInMainTable(mapTableRowIdx);
-			 */
-		});
 
 		view.addShowEngineConfigListener((e) -> showEngineConfig());
 	}

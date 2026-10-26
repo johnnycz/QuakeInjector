@@ -14,6 +14,7 @@ import java.awt.event.ComponentEvent;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class QuakeInjectorView extends JFrame {
 	/**
@@ -33,7 +34,6 @@ public class QuakeInjectorView extends JFrame {
 
 	private final Menu menu;
 	private final PackageInteractionViewModel packageVm;
-	private JButton randomMapButton;
 	private PackageTable packageTable;
 	private final List<ActionListener> showEngineConfigListeners = new ArrayList<>();
 
@@ -65,15 +65,6 @@ public class QuakeInjectorView extends JFrame {
 
 	public Menu getMenu() {
 		return menu;
-	}
-
-	public void selectRowInMainTable(int mapTableRowIdx) {
-		packageTable.setRowSelectionInterval(mapTableRowIdx, mapTableRowIdx);
-		packageTable.scrollRectToVisible(new Rectangle(packageTable.getCellRect(mapTableRowIdx, 0, true)));
-	}
-
-	public void addRandomMapButtonActionListener(ActionListener listener) {
-		randomMapButton.addActionListener(listener);
 	}
 
 	private void addMainPane(Container panel) {
@@ -133,8 +124,8 @@ public class QuakeInjectorView extends JFrame {
 				anchor = LINE_END;
 			}});
 
-			randomMapButton = new JButton("Install Random Map");
-
+			JButton randomMapButton = new JButton("Install Random Map");
+			randomMapButton.addActionListener(new InstallRandomMap(packageTable, packageVm, new Random()));
 
 			filterPanel.add(randomMapButton, new GridBagConstraints() {{
 				anchor = LINE_END;
@@ -288,9 +279,5 @@ public class QuakeInjectorView extends JFrame {
 
 	public void addShowEngineConfigListener(ActionListener listener) {
 		showEngineConfigListeners.add(listener);
-	}
-
-	public PackageTable getPackageTable() {
-		return packageTable;
 	}
 }
