@@ -9,9 +9,6 @@ import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
-import javax.swing.text.Style;
-import javax.swing.text.html.HTMLEditorKit;
-import javax.swing.text.html.StyleSheet;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -124,20 +121,6 @@ public class PackageDetailPanelView extends JPanel implements ChangeListener {
 			fill = BOTH;
 			anchor = PAGE_START;
 		}});
-
-		{
-			HTMLEditorKit doc = ((HTMLEditorKit) description.getEditorKit());
-			StyleSheet styles = doc.getStyleSheet();
-
-			Enumeration rules = styles.getStyleNames();
-			while (rules.hasMoreElements()) {
-				String name = (String) rules.nextElement();
-				Style rule = styles.getStyle(name);
-				//System.out.println(rule.toString());
-			}
-		}
-
-
 
 		//Put the editor pane in a scroll pane.
 		JScrollPane descriptionScroll = new JScrollPane(content);

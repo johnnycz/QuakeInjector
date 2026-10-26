@@ -172,23 +172,7 @@ public class QuakeInjectorView extends JFrame {
 			weightx = 1;
 		}});
 
-// 		JLabel queueLabel = new JLabel("Install Queue");
-// 		infoPanel.add(queueLabel, new GridBagConstraints() {{
-// 			anchor = PAGE_END;
-// 			fill = BOTH;
-// 			gridy = 2;
-// 			weightx = 1;
-// 		}});
-
-
 		JScrollPane queueScroll = new JScrollPane(installQueuePanel);
-		infoPanel.add(queueScroll, new GridBagConstraints() {{
-			anchor = PAGE_END;
-			fill = BOTH;
-			gridy = 3;
-			weightx = 1;
-			weighty = 1;
-		}});
 
 		JSplitPane infoSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
 				infoPanel,
