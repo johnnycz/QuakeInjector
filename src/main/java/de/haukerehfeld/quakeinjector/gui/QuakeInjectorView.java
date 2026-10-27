@@ -241,8 +241,6 @@ public class QuakeInjectorView extends JFrame {
 		                             getConfig().WorkingDirAtExecutable,
 		                             getConfig().DownloadPath,
 		                             getConfig().EngineCommandLine,
-		                             getConfig().RogueInstalled,
-		                             getConfig().HipnoticInstalled,
 				             getConfig().uiTheme
 	- this use case would then be also passed to other use cases so that they can execute it
 	*/

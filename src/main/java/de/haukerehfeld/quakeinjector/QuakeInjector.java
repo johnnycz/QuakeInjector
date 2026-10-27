@@ -49,7 +49,6 @@ public class QuakeInjector {
 
 	private final static String installedMapsFileName = "installedMaps.xml";
 	private final static File installedMapsFile = new File(installedMapsFileName);
-	private final SaveInstalled saveInstalled = new SaveInstalled(installedMapsFile);
 	
 	final static File configFile = new File("config.properties");
 	private final PackageInstallUninstallService installUninstallService;
@@ -342,7 +341,7 @@ public class QuakeInjector {
 			workingDir = c.EnginePath.get();
 		}
 
-		setEngineConfig(workingDir, engineExecutable, getConfig().EngineCommandLine, c.RogueInstalled.get(), c.HipnoticInstalled.get());
+		setEngineConfig(workingDir, engineExecutable, getConfig().EngineCommandLine);
 
 
 		try {
@@ -372,21 +371,10 @@ public class QuakeInjector {
 	 */
 	private void setEngineConfig(File workingDir,
 								 File engineExecutable,
-	                             Configuration.EngineCommandLine commandline,
-	                             boolean rogueInstalled,
-	                             boolean hipnoticInstalled) {
+	                             Configuration.EngineCommandLine commandline) {
 		starter.setWorkingDirectory(workingDir);
 		starter.setQuakeApplication(engineExecutable);
 		starter.setQuakeCommandline(commandline);
-
-		maps.get("rogue").setInstalled(rogueInstalled);
-		maps.get("hipnotic").setInstalled(hipnoticInstalled);
-		try {
-			synchronized (maps) {
-				saveInstalled.write(maps);
-			}
-		}
-		catch (java.io.IOException e) {}
 	}
 
 

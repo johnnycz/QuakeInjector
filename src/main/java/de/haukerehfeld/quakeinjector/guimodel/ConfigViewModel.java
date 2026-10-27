@@ -27,8 +27,6 @@ public class ConfigViewModel {
 	                boolean workingDirAtExecutable,
 	                File downloadPath,
 	                String engineCommandLine,
-	                boolean rogueInstalled,
-	                boolean hipnoticInstalled,
 	                String uiTheme) {
 
 		boolean sameAs(Settings o) {
@@ -37,8 +35,6 @@ public class ConfigViewModel {
 				&& workingDirAtExecutable == o.workingDirAtExecutable
 				&& samePath(downloadPath, o.downloadPath)
 				&& Objects.equals(orEmpty(engineCommandLine), orEmpty(o.engineCommandLine))
-				&& rogueInstalled == o.rogueInstalled
-				&& hipnoticInstalled == o.hipnoticInstalled
 				&& Objects.equals(uiTheme, o.uiTheme);
 		}
 
@@ -83,8 +79,6 @@ public class ConfigViewModel {
 	private boolean workingDirAtExecutable;
 	private File downloadPath;
 	private String engineCommandLine;
-	private boolean rogueInstalled;
-	private boolean hipnoticInstalled;
 	private String uiTheme;
 
 	private boolean enginePathValid = true;
@@ -111,16 +105,12 @@ public class ConfigViewModel {
 			config.WorkingDirAtExecutable.get(),
 			config.DownloadPath.get(),
 			config.EngineCommandLine.get(),
-			config.RogueInstalled.get(),
-			config.HipnoticInstalled.get(),
 			uiThemeOrDefault.apply(config.uiTheme.get()));
 		enginePath = saved.enginePath();
 		engineExecutable = saved.engineExecutable();
 		workingDirAtExecutable = saved.workingDirAtExecutable();
 		downloadPath = saved.downloadPath();
 		engineCommandLine = saved.engineCommandLine();
-		rogueInstalled = saved.rogueInstalled();
-		hipnoticInstalled = saved.hipnoticInstalled();
 		uiTheme = saved.uiTheme();
 		enginePathValid = true;
 		engineExecutableValid = true;
@@ -135,8 +125,6 @@ public class ConfigViewModel {
 		config.WorkingDirAtExecutable.set(workingDirAtExecutable);
 		config.DownloadPath.set(downloadPath);
 		config.EngineCommandLine.set(engineCommandLine);
-		config.RogueInstalled.set(rogueInstalled);
-		config.HipnoticInstalled.set(hipnoticInstalled);
 		config.uiTheme.set(uiTheme);
 
 		commandHandler.saveConfig();
@@ -175,7 +163,7 @@ public class ConfigViewModel {
 
 	private Settings edited() {
 		return new Settings(enginePath, engineExecutable, workingDirAtExecutable, downloadPath,
-			engineCommandLine, rogueInstalled, hipnoticInstalled, uiTheme);
+			engineCommandLine, uiTheme);
 	}
 
 	public File getEnginePath() {
@@ -239,30 +227,6 @@ public class ConfigViewModel {
 			return;
 		}
 		this.engineCommandLine = engineCommandLine;
-		notifyChangeListeners();
-	}
-
-	public boolean isRogueInstalled() {
-		return rogueInstalled;
-	}
-
-	public void setRogueInstalled(boolean rogueInstalled) {
-		if (this.rogueInstalled == rogueInstalled) {
-			return;
-		}
-		this.rogueInstalled = rogueInstalled;
-		notifyChangeListeners();
-	}
-
-	public boolean isHipnoticInstalled() {
-		return hipnoticInstalled;
-	}
-
-	public void setHipnoticInstalled(boolean hipnoticInstalled) {
-		if (this.hipnoticInstalled == hipnoticInstalled) {
-			return;
-		}
-		this.hipnoticInstalled = hipnoticInstalled;
 		notifyChangeListeners();
 	}
 

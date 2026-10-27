@@ -45,7 +45,7 @@ public class ConfigViewModelTest {
 		config = new Configuration(tmp.resolve("config.properties").toFile());
 		config.EnginePath.set(quakeDir);
 		config.EngineExecutable.set(new File("quakespasm.exe"));
-		config.RogueInstalled.set(true);
+		config.WorkingDirAtExecutable.set(true);
 		vm = new ConfigViewModel(commands, config, code -> code == null ? "system" : code);
 		vm.addChangeListener(e -> changes++);
 	}
@@ -77,7 +77,7 @@ public class ConfigViewModelTest {
 	public void changingAValueEnablesApply() {
 		reportFieldsAsShown();
 
-		vm.setHipnoticInstalled(true);
+		vm.setWorkingDirAtExecutable(false);
 
 		assertTrue(vm.isDirty());
 		assertTrue(vm.canApply());
@@ -87,8 +87,8 @@ public class ConfigViewModelTest {
 	public void changingItBackDisablesApply() {
 		reportFieldsAsShown();
 
-		vm.setRogueInstalled(false);
-		vm.setRogueInstalled(true);
+		vm.setWorkingDirAtExecutable(false);
+		vm.setWorkingDirAtExecutable(true);
 		vm.setEngineCommandLine("-heapsize 64000");
 		vm.setEngineCommandLine("");
 
@@ -101,7 +101,7 @@ public class ConfigViewModelTest {
 		reportFieldsAsShown();
 		changes = 0;
 
-		vm.setRogueInstalled(true);
+		vm.setWorkingDirAtExecutable(true);
 		vm.setEnginePath(quakeDir, true);
 
 		assertEquals(0, changes);
@@ -115,9 +115,7 @@ public class ConfigViewModelTest {
 			() -> vm.setEnginePath(tmp.toFile(), true),
 			() -> vm.setEngineExecutable(new File(quakeDir, "vkquake.exe"), true),
 			() -> vm.setDownloadPath(tmp.toFile()),
-			() -> vm.setRogueInstalled(false),
-			() -> vm.setHipnoticInstalled(true),
-			() -> vm.setWorkingDirAtExecutable(true),
+			() -> vm.setWorkingDirAtExecutable(false),
 			() -> vm.setUiTheme("darcula"),
 		};
 		for (Runnable edit : edits) {
@@ -131,7 +129,7 @@ public class ConfigViewModelTest {
 	@Test
 	public void anInvalidPathBlocksSaving() {
 		reportFieldsAsShown();
-		vm.setRogueInstalled(false);
+		vm.setWorkingDirAtExecutable(false);
 
 		vm.setEngineExecutable(new File(quakeDir, "missing.exe"), false);
 
@@ -153,7 +151,7 @@ public class ConfigViewModelTest {
 	@Test
 	public void applySavesAndTheEditsBecomeTheSavedSettings() {
 		reportFieldsAsShown();
-		vm.setHipnoticInstalled(true);
+		vm.setWorkingDirAtExecutable(false);
 		vm.setEngineExecutable(new File(quakeDir, "bin" + File.separator + "vkquake.exe"), true);
 		vm.setUiTheme("darcula");
 
@@ -162,7 +160,7 @@ public class ConfigViewModelTest {
 		assertEquals(1, saves);
 		assertFalse(vm.isDirty());
 		assertFalse(vm.canApply());
-		assertTrue(config.HipnoticInstalled.get());
+		assertFalse(config.WorkingDirAtExecutable.get());
 		assertEquals(new File("bin", "vkquake.exe"), config.EngineExecutable.get());
 		assertEquals("darcula", config.uiTheme.get());
 	}
@@ -170,7 +168,7 @@ public class ConfigViewModelTest {
 	@Test
 	public void onlyANewThemeNeedsARestart() {
 		reportFieldsAsShown();
-		vm.setRogueInstalled(false);
+		vm.setWorkingDirAtExecutable(false);
 		assertFalse(vm.isRestartNeededForTheme());
 
 		vm.setUiTheme("darcula");
@@ -194,11 +192,11 @@ public class ConfigViewModelTest {
 	@Test
 	public void reopeningDropsUnsavedEdits() {
 		reportFieldsAsShown();
-		vm.setRogueInstalled(false);
+		vm.setWorkingDirAtExecutable(false);
 
 		vm.updateFromConfig();
 
-		assertTrue(vm.isRogueInstalled());
+		assertTrue(vm.isWorkingDirAtExecutable());
 		assertFalse(vm.isDirty());
 	}
 }

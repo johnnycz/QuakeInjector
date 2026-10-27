@@ -53,8 +53,6 @@ public class EngineConfigDialog extends JDialog {
 	private final JPathPanel downloadPath;
 
 
-	private final JCheckBox rogue;
-	private final JCheckBox hipnotic;
 
 	private final WorkingDirOpts workingDirOpts;
 	private final JComboBox<DarkLafUIThemeOption> uiTheme;
@@ -139,7 +137,7 @@ public class EngineConfigDialog extends JDialog {
 		enginePath.verify();
 		engineExecutable.verify();
 
-		// Advanced: Download Directory, command line, expansion packs, working directory
+		// Advanced: Download Directory, command line, working directory
 		JLabel downloadLabel = new JLabel("Download Directory");
 		downloadLabel.setBorder(leftBorder);
 		downloadPath = new JPathPanel(new JPathPanel.WritableDirectoryVerifier(),
@@ -155,24 +153,8 @@ public class EngineConfigDialog extends JDialog {
 		advancedPanel.add(cmdlineLabel, new LabelConstraints() {{ gridy = 1; }});
 		advancedPanel.add(engineCommandline, new InputConstraints() {{ gridy = 1; }});
 
-		JLabel expansionsInstalled = new JLabel("Expansion packs installed");
-		expansionsInstalled.setBorder(leftBorder);
-		rogue = new JCheckBox("rogue");
-		rogue.setMnemonic(KeyEvent.VK_R);
-		rogue.setSelected(vm.isRogueInstalled());
-		hipnotic = new JCheckBox("hipnotic");
-		hipnotic.setMnemonic(KeyEvent.VK_H);
-		hipnotic.setSelected(vm.isHipnoticInstalled());
-		advancedPanel.add(expansionsInstalled, new LabelConstraints() {{ gridy = 2; }});
-		advancedPanel.add(rogue, new InputConstraints() {{ gridy = 2; gridwidth = 1; }});
-		advancedPanel.add(hipnotic, new InputConstraints() {{
-			gridy = 2;
-			gridx = 2;
-			gridwidth = 1;
-		}});
-
 		// one label column width for both groups, so their fields line up
-		JLabel[] labels = { enginePathLabel, engineExeLabel, downloadLabel, cmdlineLabel, expansionsInstalled };
+		JLabel[] labels = { enginePathLabel, engineExeLabel, downloadLabel, cmdlineLabel };
 		int labelWidth = 0;
 		for (JLabel l : labels) {
 			labelWidth = Math.max(labelWidth, l.getPreferredSize().width);
@@ -183,7 +165,7 @@ public class EngineConfigDialog extends JDialog {
 			l.setMinimumSize(d);
 		}
 
-		workingDirOpts = new WorkingDirOpts(3, vm.isWorkingDirAtExecutable());
+		workingDirOpts = new WorkingDirOpts(2, vm.isWorkingDirAtExecutable());
 
 		appearancePanel = new JPanel();
 		appearancePanel.setBorder(LookAndFeelDefaults.PADDINGBORDER);
@@ -233,8 +215,6 @@ public class EngineConfigDialog extends JDialog {
 		engineExecutable.addErrorListener(e -> reportEngineExecutable());
 		downloadPath.addChangeListener(e -> reportDownloadPath());
 		downloadPath.addErrorListener(e -> reportDownloadPath());
-		rogue.addItemListener(e -> vm.setRogueInstalled(rogue.isSelected()));
-		hipnotic.addItemListener(e -> vm.setHipnoticInstalled(hipnotic.isSelected()));
 		uiTheme.addItemListener(e -> vm.setUiTheme(getUiTheme().getCode()));
 
 		okay.addActionListener(e -> {

@@ -145,16 +145,6 @@ public class Configuration {
 	}
 	public final ScreenshotRepositoryPath ScreenshotRepositoryPath = new ScreenshotRepositoryPath();
 
-	public static class RogueInstalled extends BooleanValue {
-		private RogueInstalled() { super("rogueInstalled", false); }
-	}
-	public final RogueInstalled RogueInstalled = new RogueInstalled();
-
-	public static class HipnoticInstalled extends BooleanValue {
-		private HipnoticInstalled() { super("hipnoticInstalled", false); }
-	}
-	public final HipnoticInstalled HipnoticInstalled = new HipnoticInstalled();
-
 	public static class MainWindowPositionX extends IntegerValue {
 		private MainWindowPositionX() { super("mainWindowPositionX", null); }
 	}
