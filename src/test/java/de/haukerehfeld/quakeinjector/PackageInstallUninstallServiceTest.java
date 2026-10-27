@@ -7,6 +7,7 @@ import de.haukerehfeld.quakeinjector.guimodel.InstallQueueViewModel;
 import de.haukerehfeld.quakeinjector.guimodel.InstallQueueViewModel.JobVm;
 import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.ExtractMapping;
+import de.haukerehfeld.quakeinjector.model.OfficialExpansionRequirement;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.model.Requirement;
@@ -361,6 +362,37 @@ public class PackageInstallUninstallServiceTest {
 
 		assertEquals(List.of("options: Prerequisites not available for automatic install"), dialogs.calls);
 		assertEquals(List.of(), jobList());
+		assertNothingInstalledOrSaved(pkg);
+	}
+
+	@Test
+	public void anOfficialExpansionInTheQuakeDirectoryIsntAskedAbout() throws Exception {
+		Files.createFile(Files.createDirectories(engineDir.resolve("hipnotic")).resolve("pak0.pak"));
+		Package pkg = remotePackage("a", new TestZip().file("maps/a.bsp", "A"));
+		pkg.setRequirements(List.of(OfficialExpansionRequirement.forMissingPackage("hipnotic", engineDir::toFile)));
+		packages(pkg);
+		// no answer set: any question fails the test
+
+		onUi(() -> service.install(pkg));
+		awaitFinished(1);
+
+		assertEquals(List.of(), dialogs.calls);
+		assertTrue(pkg.isInstalled());
+	}
+
+	@Test
+	public void aMissingOfficialExpansionIsAskedAboutByItsFullName() throws Exception {
+		Package pkg = remotePackage("a", new TestZip().file("maps/a.bsp", "A"));
+		pkg.setRequirements(List.of(OfficialExpansionRequirement.forMissingPackage("hipnotic", engineDir::toFile)));
+		packages(pkg);
+		dialogs.optionAnswer = 1; // "Cancel Install"
+
+		onUi(() -> service.install(pkg));
+
+		assertEquals(List.of("options: Prerequisites not available for automatic install"), dialogs.calls);
+		assertTrue(dialogs.optionsMessage.contains(
+			"- Scourge of Armagon (Mission Pack 1): official expansion, not found in your Quake directory"),
+			dialogs.optionsMessage);
 		assertNothingInstalledOrSaved(pkg);
 	}
 

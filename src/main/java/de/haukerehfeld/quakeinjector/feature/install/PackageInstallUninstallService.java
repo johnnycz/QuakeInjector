@@ -87,8 +87,8 @@ public class PackageInstallUninstallService {
 			String msg = "The following prerequisites to play "
 			    + selectedMap.getId()
 			    + " can't be installed automatically:\n"
-			    + Utils.join(unmet, ",\n")
-			    + ".\n";
+			    + MissingPrerequisites.describe(unmet)
+			    + "\n";
 			String[] options = {"Install anyways", "Cancel Install"};
 			var selectedOption = dialogProvider.showOptions(
 					msg, "Prerequisites not available for automatic install", options, options[1]);

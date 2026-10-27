@@ -164,13 +164,14 @@ public class PackageDescriptionView extends JPanel implements ChangeListener {
 		return dfm.format(date);
 	}
 
-	private String toString(java.util.List<String> requirements) {
+	private String toString(java.util.List<PackageInteractionViewModel.Prerequisite> requirements) {
 		if (requirements.isEmpty()) {
 			return "";
 		}
 		List<String> links = new ArrayList<String>(requirements.size());
-		for (String r: requirements) {
-			links.add("<a href=\"" + r + ".html\">" + r + "</a>");
+		for (PackageInteractionViewModel.Prerequisite r: requirements) {
+			// official expansions have no Quaddicted page: just their name
+			links.add(r.hasWebpage() ? "<a href=\"" + r.id() + ".html\">" + r.name() + "</a>" : r.name());
 		}
 		return "<p>Requires: " + Utils.join(links, ", ") + ".</p>";
 	}

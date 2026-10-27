@@ -4,11 +4,14 @@ import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseParser;
 import de.haukerehfeld.quakeinjector.feature.list.PackageDatabaseSolrJsonParser;
 import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.OfficialExpansionRequirement;
 import de.haukerehfeld.quakeinjector.model.Requirement;
+import de.haukerehfeld.quakeinjector.model.UnavailableRequirement;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.InputStream;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -53,6 +56,26 @@ public class PackageDatabaseSolrJsonParserTest {
 				assertEquals("start", p.getStartmaps().get(0));
 			}
 		}
+	}
+
+	@Test
+	public void prerequisitesMissingFromTheDatabaseAreOfficialExpansionsIfKnown() {
+		String json = "[{\"bytes\":100,\"description\":\"A map.\","
+			+ "\"files\":{\"limbo2.bsp\":{\"bytes\":10,\"sha256\":\"ab\",\"timestamp\":\"2001-01-01T00:00:00.000Z\"}},"
+			+ "\"install\":{\"extract\":\"{base}/hipnotic/maps/\"},"
+			+ "\"sha256\":\"cd\","
+			+ "\"tags\":[\"author=someone\",\"filename=limbo2.zip\",\"release_date=2001-01-01\",\"title=Limbo\","
+			+ "\"type=map\",\"dependency=hipnotic\",\"dependency=drake\"],"
+			+ "\"urls\":[\"https://example.com/limbo2.zip\"]}]";
+
+		var result = parser.parse(new java.io.ByteArrayInputStream(json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+		assertEquals(1, result.size());
+		List<Requirement> requirements = ((Package) result.get(0)).getRequirements();
+		assertInstanceOf(OfficialExpansionRequirement.class, requirements.get(0));
+		assertEquals("Scourge of Armagon (Mission Pack 1)", requirements.get(0).toString());
+		assertInstanceOf(UnavailableRequirement.class, requirements.get(1));
+		assertEquals("drake", requirements.get(1).getId());
 	}
 
     private InputStream testResource(String path) {

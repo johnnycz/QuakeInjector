@@ -41,6 +41,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - `Package`, `Requirement`, `Configuration`, `InstalledPackages`
   - Immutable where possible; change-event notification via listeners
   - `CommandHandler` — central router for async operations
+  - `OfficialExpansion` — the hardcoded list of official expansions (rogue, hipnotic): sold, so not in the package database. A prerequisite on the list becomes an `OfficialExpansionRequirement` (made by the parsers), which is installed when `<Quake dir>/<id>/pak0.pak` exists (any case), checked on every `isInstalled()`; the installed packages list has no say. `MissingPrerequisites` names them in full in the Install/Play dialogs
   - `JobTracker` — one row in the install queue panel, which shows all background work (installs, uninstalls, loading the database, "Check for installed maps"); there are no progress popups: `setProgress` (0..100 or `UNKNOWN_PROGRESS`, shown as a busy bar), `finish`; call it on the EDT
 
 - **`feature/`** — Feature-specific implementations organized by user-facing workflows
@@ -130,6 +131,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - Readme: `ReadmeFilesTest` (which files, order), `ReadmeReaderTest` (encodings, line ends, size limit), `ReadmeServiceTest` (end to end: a zip whose extract mapping renames the readme), `ReadmeViewModelTest` (switching files, late or failed reads), `PackageInteractionPanelViewTest` (the Readme button)
 - Settings dialog: `ConfigViewModelTest` (Apply only when something differs from the saved settings and the paths are valid; reading the fields back as shown is no change)
 - Reloading the list: `RequirementListTest` (installed state carries over), `PackageTableSelectionTest` (selection survives), `InstallerTest` (queue by package id)
+- Official expansions: `OfficialExpansionTest` (the list, finding the files), `OfficialExpansionRequirementTest` (installed state, messages), plus cases in `PackageDatabaseSolrJsonParserTest` and `PackageInstallUninstallServiceTest`
 - Prefer focused, single-concern tests over integration suites
 
 ### Test helpers

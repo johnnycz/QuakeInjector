@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.type.CollectionType;
 import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.Requirement;
-import de.haukerehfeld.quakeinjector.model.UnavailableRequirement;
+import de.haukerehfeld.quakeinjector.model.OfficialExpansionRequirement;
 import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 
 import java.io.IOException;
@@ -295,7 +295,7 @@ public class PackageDatabaseJsonParser implements PackageDatabaseParser {
             for (String id: reqs) {
                 Requirement resolved = packages.get(id);
                 if (resolved == null) {
-                    resolved = new UnavailableRequirement(id);
+                    resolved = OfficialExpansionRequirement.forMissingPackage(id, configuration.EnginePath::get);
                     packages.put(id, resolved);
                 }
                 resolvedRequirements.add(resolved);

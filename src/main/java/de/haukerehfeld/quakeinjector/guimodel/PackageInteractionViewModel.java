@@ -2,6 +2,7 @@ package de.haukerehfeld.quakeinjector.guimodel;
 
 import de.haukerehfeld.quakeinjector.model.CommandHandler;
 import de.haukerehfeld.quakeinjector.model.ReadmeSource;
+import de.haukerehfeld.quakeinjector.model.OfficialExpansionRequirement;
 import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.utils.ChangeListenerList;
 import de.haukerehfeld.quakeinjector.model.Package;
@@ -135,7 +136,23 @@ public class PackageInteractionViewModel implements ChangeListener {
 		return selectedPackage != null ? selectedPackage.getDescription() : "";
 	}
 
-	public List<String> getRequirements() {
-		return selectedPackage != null ? selectedPackage.getRequirements().stream().map(Requirement::getId).toList() : Collections.emptyList();
+	/**
+	 * A prerequisite as the package description shows it.
+	 * @param hasWebpage whether it has a Quaddicted page to link to; official expansions don't
+	 */
+	public record Prerequisite(String id, String name, boolean hasWebpage) {}
+
+	public List<Prerequisite> getRequirements() {
+		if (selectedPackage == null) {
+			return Collections.emptyList();
+		}
+		return selectedPackage.getRequirements().stream().map(PackageInteractionViewModel::toPrerequisite).toList();
+	}
+
+	private static Prerequisite toPrerequisite(Requirement r) {
+		if (r instanceof OfficialExpansionRequirement expansion) {
+			return new Prerequisite(r.getId(), expansion.getName(), false);
+		}
+		return new Prerequisite(r.getId(), r.getId(), true);
 	}
 }

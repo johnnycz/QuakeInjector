@@ -25,6 +25,9 @@ public class RecordingDialogs implements DialogProvider {
 	/** Answers {@link #askAndshowEngineConfigWindow}; null: not expected. */
 	public volatile BooleanSupplier engineConfigAnswer;
 
+	/** The message of the last {@link #showOptions} call. */
+	public volatile String optionsMessage;
+
 	/** The arguments of the last {@link #showOverwriteDialog} call. */
 	public volatile List<String> askedToOverwrite;
 	public volatile List<String> askedToWrite;
@@ -50,6 +53,7 @@ public class RecordingDialogs implements DialogProvider {
 			throw new UnsupportedOperationException("not expected in this test: " + title);
 		}
 		record("options: " + title);
+		optionsMessage = message;
 		return optionAnswer;
 	}
 

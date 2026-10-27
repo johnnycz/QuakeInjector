@@ -1,9 +1,9 @@
 package de.haukerehfeld.quakeinjector.feature.play;
 
 import de.haukerehfeld.quakeinjector.model.DialogProvider;
+import de.haukerehfeld.quakeinjector.model.MissingPrerequisites;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.Requirement;
-import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import java.util.List;
 
@@ -31,9 +31,9 @@ public class PackageLauncher {
 		if (!unmet.isEmpty()) {
 			String msg = "The following prerequisites to play "
 					+ selectedMap.getId()
-					+ " don't seem to be installed: \n"
-					+ Utils.join(unmet, ",\n ")
-					+ ".\nYou probably can't play this package.";
+					+ " don't seem to be installed:\n"
+					+ MissingPrerequisites.describe(unmet)
+					+ "\nYou probably can't play this package.";
 			String[] options = {"Start anyways",
 					"Cancel Start"};
 			int selectedOption = dialogProvider.showOptions(msg, "Prerequisites not installed", options, options[1]);
