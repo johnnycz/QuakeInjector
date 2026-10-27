@@ -23,11 +23,13 @@ public class OfficialExpansionTest {
 	private final OfficialExpansion rogue = OfficialExpansion.forId("rogue").orElseThrow();
 
 	@Test
-	public void theMissionPacksAreOnTheListWithTheirNames() {
+	public void theOfficialExpansionsAreOnTheListWithTheirNames() {
 		assertEquals("Scourge of Armagon (Mission Pack 1)",
 			OfficialExpansion.forId("hipnotic").orElseThrow().name());
 		assertEquals("Dissolution of Eternity (Mission Pack 2)", rogue.name());
-		assertEquals(2, OfficialExpansion.ALL.size());
+		assertEquals("Dimension of the Machine", OfficialExpansion.forId("mg1").orElseThrow().name());
+		assertEquals("Dawn of the Machine", OfficialExpansion.forId("mg3").orElseThrow().name());
+		assertEquals(4, OfficialExpansion.ALL.size());
 	}
 
 	@Test

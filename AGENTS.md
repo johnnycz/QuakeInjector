@@ -41,7 +41,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - `Package`, `Requirement`, `Configuration`, `InstalledPackages`
   - Immutable where possible; change-event notification via listeners
   - `CommandHandler` — central router for async operations
-  - `OfficialExpansion` — the hardcoded list of official expansions (rogue, hipnotic): sold, so not in the package database. A prerequisite on the list becomes an `OfficialExpansionRequirement` (made by the parsers), which is installed when `<Quake dir>/<id>/pak0.pak` exists (any case), checked on every `isInstalled()`; the installed packages list has no say. `MissingPrerequisites` names them in full in the Install/Play dialogs
+  - `OfficialExpansion` — the hardcoded list of official expansions (hipnotic, rogue, mg1, mg3), which the package database can't install. A prerequisite on the list becomes an `OfficialExpansionRequirement` (made by the parsers), which is installed when `<Quake dir>/<id>/pak0.pak` exists (any case), checked on every `isInstalled()`; the installed packages list has no say. `MissingPrerequisites` names them in full in the Install/Play dialogs
   - `JobTracker` — one row in the install queue panel, which shows all background work (installs, uninstalls, loading the database, "Check for installed maps"); there are no progress popups: `setProgress` (0..100 or `UNKNOWN_PROGRESS`, shown as a busy bar), `finish`; call it on the EDT
 
 - **`feature/`** — Feature-specific implementations organized by user-facing workflows

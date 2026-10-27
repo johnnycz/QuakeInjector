@@ -5,9 +5,10 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * An official Quake expansion, like the mission packs. They are sold, so they aren't in the package
+ * An official Quake expansion, like the mission packs. Most are sold, so they aren't in the package
  * database and can't be installed automatically. Whether one is installed is found out by looking in the
- * Quake directory, not from the installed packages list.
+ * Quake directory, not from the installed packages list. This applies only where the database has no
+ * package of that id: a database package always wins.
  * <p>
  * Installed means {@code <Quake directory>/<id>/pak0.pak} exists; the names are matched ignoring case,
  * because many Quake installs use upper case names and some file systems are case sensitive.
@@ -18,7 +19,9 @@ public record OfficialExpansion(String id, String name) {
 	/** Every official expansion the app knows; ids as used by the package database. */
 	public static final List<OfficialExpansion> ALL = List.of(
 		new OfficialExpansion("hipnotic", "Scourge of Armagon (Mission Pack 1)"),
-		new OfficialExpansion("rogue", "Dissolution of Eternity (Mission Pack 2)"));
+		new OfficialExpansion("rogue", "Dissolution of Eternity (Mission Pack 2)"),
+		new OfficialExpansion("mg1", "Dimension of the Machine"),
+		new OfficialExpansion("mg3", "Dawn of the Machine"));
 
 	private static final String PAK_FILE = "pak0.pak";
 
