@@ -251,7 +251,7 @@ public class QuakeInjectorView extends JFrame {
 		String msg = "Quake directory is not set correctly.\n"
 				+ "It needs to be set before trying to install (or play).";
 
-		Object[] options = {"Open Engine Configuration",
+		Object[] options = {"Open Settings",
 				"Cancel"};
 		int openEngineConfig =
 				JOptionPane.showOptionDialog(null,

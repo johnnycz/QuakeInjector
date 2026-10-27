@@ -99,7 +99,7 @@ public class DialogViewModel implements DialogProvider {
 				+ "It needs to be set before trying to install (or play).";
 		this.title = "Quake directory incorrect";
 
-		this.options = new String[] {"Open Engine Configuration", "Cancel"};
+		this.options = new String[] {"Open Settings", "Cancel"};
 		this.defaultOption = options[0];
 		this.selectedOption = -1;
 		notifyChangeListeners();

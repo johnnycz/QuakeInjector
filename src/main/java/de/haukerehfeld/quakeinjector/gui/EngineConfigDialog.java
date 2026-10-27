@@ -228,6 +228,12 @@ public class EngineConfigDialog extends JDialog {
 
 		add(new OkayCancelApplyPanel(okay, cancel, apply, true), BorderLayout.PAGE_END);
 
+		// Enter presses Okay (does nothing while it is disabled), Escape cancels
+		getRootPane().setDefaultButton(okay);
+		getRootPane().registerKeyboardAction(e -> dispose(),
+			KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
+			JComponent.WHEN_IN_FOCUSED_WINDOW);
+
 		// The view model outlives the dialog, so stop listening once it is closed
 		final de.haukerehfeld.quakeinjector.utils.ChangeListener updateButtons = e -> {
 			Edt.check("EngineConfigDialog");
