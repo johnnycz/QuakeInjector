@@ -254,7 +254,7 @@ public class QuakeInjector {
 		Configuration.EngineExecutable engineExecutable = getConfig().EngineExecutable;
 		if (engineExecutable.existsOrDefault()) {
 			if (engineExecutable.get().isAbsolute()) {
-				dialogProvider.showWarning("The Quake Executable path should be set relative to the Quake Directory, not as an absolute path.","Quake Executable invalid");
+				dialogProvider.showWarning("The Quake Engine path should be set relative to the Quake Directory, not as an absolute path.","Quake Engine invalid");
 				engineExe = engineExecutable.get();
 			} else {
 				engineExe = new File(enginePath.get()

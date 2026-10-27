@@ -43,6 +43,7 @@ public class EngineConfigDialog extends JDialog {
 	private final ConfigViewModel vm;
 
 	private final JPanel configPanel;
+	private final JPanel advancedPanel;
 	private final JPanel appearancePanel;
 
 	private final JPathPanel enginePath;
@@ -66,10 +67,19 @@ public class EngineConfigDialog extends JDialog {
 		configPanel.setBorder(LookAndFeelDefaults.PADDINGBORDER);
 		configPanel.setLayout(new GridBagLayout());
 
-		JLabel description = new JLabel("Configure engine specific settings");
-		description.setLabelFor(this);
-		description.setBorder(LookAndFeelDefaults.DIALOGDESCRIPTIONBORDER);
-		configPanel.add(description, new GridBagConstraints());
+		final JPanel requiredPanel = groupPanel("Required");
+		advancedPanel = groupPanel("Advanced");
+		configPanel.add(requiredPanel, new GridBagConstraints() {{
+			gridy = 0;
+			fill = HORIZONTAL;
+			weightx = 1;
+		}});
+		configPanel.add(advancedPanel, new GridBagConstraints() {{
+			gridy = 1;
+			fill = HORIZONTAL;
+			weightx = 1;
+			insets = new Insets(LookAndFeelDefaults.FRAMEPADDING, 0, 0, 0);
+		}});
 
 		final JButton okay = new JButton("Okay");
 		final JButton cancel = new JButton("Cancel");
@@ -96,39 +106,19 @@ public class EngineConfigDialog extends JDialog {
 				weighty = 0;
 		}};
 
-		int row = 1;
-
 		Border leftBorder = BorderFactory
 		    .createEmptyBorder(0, 0, 0, LookAndFeelDefaults.FRAMEPADDING);
 
-		{
+		// Required: Quake Directory, Quake Engine
+		JLabel enginePathLabel = new JLabel("Quake Directory");
+		enginePathLabel.setBorder(leftBorder);
+		enginePath = new JPathPanel(new JPathPanel.WritableDirectoryVerifier(),
+		                            vm.getEnginePath(),
+		                            javax.swing.JFileChooser.DIRECTORIES_ONLY);
+		requiredPanel.add(enginePathLabel, new LabelConstraints() {{ gridy = 0; }});
+		requiredPanel.add(enginePath, new InputConstraints() {{ gridy = 0; }});
 
-			JLabel cmdlineLabel = new JLabel("Quake commandline options");
-			cmdlineLabel.setBorder(leftBorder);
-
-			this.engineCommandline = new JTextField(vm.getEngineCommandLine(), 40);
-
-			final int row_ = row;
-			configPanel.add(cmdlineLabel, new LabelConstraints() {{ gridy = row_; }});
-			configPanel.add(engineCommandline, new InputConstraints() {{ gridy = row_; }});
-		}
-		++row;
-
-		{
-			//"Path to quake directory",
-			JLabel enginePathLabel = new JLabel("Quake Directory");
-			enginePathLabel.setBorder(leftBorder);
-
-			enginePath = new JPathPanel(new JPathPanel.WritableDirectoryVerifier(),
-			                            vm.getEnginePath(),
-			                            javax.swing.JFileChooser.DIRECTORIES_ONLY);
-			final int row_ = row;
-			configPanel.add(enginePathLabel, new LabelConstraints() {{ gridy = row_; }});
-			configPanel.add(enginePath, new InputConstraints() {{ gridy = row_; }});
-		}
-		++row;
-
-		JLabel engineExeLabel = new JLabel("Quake Executable");
+		JLabel engineExeLabel = new JLabel("Quake Engine");
 		engineExeLabel.setBorder(leftBorder);
 		engineExecutable = new JPathPanel(
 			new JPathPanel.Verifier() {
@@ -143,57 +133,57 @@ public class EngineConfigDialog extends JDialog {
 			vm.getEnginePath(),
 			javax.swing.JFileChooser.FILES_ONLY);
 
-		{
-			final int row_ = row;
-			configPanel.add(engineExeLabel, new LabelConstraints() {{ gridy = row_; }});
-			configPanel.add(engineExecutable, new InputConstraints() {{ gridy = row_; }});
-		}
+		requiredPanel.add(engineExeLabel, new LabelConstraints() {{ gridy = 1; }});
+		requiredPanel.add(engineExecutable, new InputConstraints() {{ gridy = 1; }});
 
 		enginePath.verify();
 		engineExecutable.verify();
 
-		++row;
+		// Advanced: Download Directory, command line, expansion packs, working directory
+		JLabel downloadLabel = new JLabel("Download Directory");
+		downloadLabel.setBorder(leftBorder);
+		downloadPath = new JPathPanel(new JPathPanel.WritableDirectoryVerifier(),
+		                              vm.getDownloadPath(),
+		                              javax.swing.JFileChooser.DIRECTORIES_ONLY);
+		downloadPath.verify();
+		advancedPanel.add(downloadLabel, new LabelConstraints() {{ gridy = 0; }});
+		advancedPanel.add(downloadPath, new InputConstraints() {{ gridy = 0; }});
 
-		{
-			//"Path to quake directory",
-			JLabel downloadLabel = new JLabel("Download Directory");
-			downloadLabel.setBorder(leftBorder);
-			downloadPath = new JPathPanel(new JPathPanel.WritableDirectoryVerifier(),
-			                              vm.getDownloadPath(),
-			                              javax.swing.JFileChooser.DIRECTORIES_ONLY);
-			downloadPath.verify();
+		JLabel cmdlineLabel = new JLabel("Quake commandline options");
+		cmdlineLabel.setBorder(leftBorder);
+		this.engineCommandline = new JTextField(vm.getEngineCommandLine(), 40);
+		advancedPanel.add(cmdlineLabel, new LabelConstraints() {{ gridy = 1; }});
+		advancedPanel.add(engineCommandline, new InputConstraints() {{ gridy = 1; }});
 
-			final int row_ = row;
-			configPanel.add(downloadLabel, new LabelConstraints() {{ gridy = row_; }});
-			configPanel.add(downloadPath, new InputConstraints() {{ gridy = row_; }});
+		JLabel expansionsInstalled = new JLabel("Expansion packs installed");
+		expansionsInstalled.setBorder(leftBorder);
+		rogue = new JCheckBox("rogue");
+		rogue.setMnemonic(KeyEvent.VK_R);
+		rogue.setSelected(vm.isRogueInstalled());
+		hipnotic = new JCheckBox("hipnotic");
+		hipnotic.setMnemonic(KeyEvent.VK_H);
+		hipnotic.setSelected(vm.isHipnoticInstalled());
+		advancedPanel.add(expansionsInstalled, new LabelConstraints() {{ gridy = 2; }});
+		advancedPanel.add(rogue, new InputConstraints() {{ gridy = 2; gridwidth = 1; }});
+		advancedPanel.add(hipnotic, new InputConstraints() {{
+			gridy = 2;
+			gridx = 2;
+			gridwidth = 1;
+		}});
 
+		// one label column width for both groups, so their fields line up
+		JLabel[] labels = { enginePathLabel, engineExeLabel, downloadLabel, cmdlineLabel, expansionsInstalled };
+		int labelWidth = 0;
+		for (JLabel l : labels) {
+			labelWidth = Math.max(labelWidth, l.getPreferredSize().width);
 		}
-		++row;
-
-		{
-			JLabel expansionsInstalled = new JLabel("Expansion packs installed");
-			expansionsInstalled.setBorder(leftBorder);
-
-			rogue = new JCheckBox("rogue");
-			rogue.setMnemonic(KeyEvent.VK_R);
-			rogue.setSelected(vm.isRogueInstalled());
-
-			hipnotic = new JCheckBox("hipnotic");
-			hipnotic.setMnemonic(KeyEvent.VK_H);
-			hipnotic.setSelected(vm.isHipnoticInstalled());
-
-			final int row_ = row;
-			configPanel.add(expansionsInstalled, new LabelConstraints() {{ gridy = row_; }});
-			configPanel.add(rogue, new InputConstraints() {{ gridy = row_; gridwidth = 1; }});
-			configPanel.add(hipnotic, new InputConstraints() {{
-				gridy = row_;
-				gridx = 2;
-				gridwidth = 1;
-			}});
+		for (JLabel l : labels) {
+			Dimension d = new Dimension(labelWidth, l.getPreferredSize().height);
+			l.setPreferredSize(d);
+			l.setMinimumSize(d);
 		}
-		++row;
 
-		workingDirOpts = new WorkingDirOpts(row, vm.isWorkingDirAtExecutable());
+		workingDirOpts = new WorkingDirOpts(3, vm.isWorkingDirAtExecutable());
 
 		appearancePanel = new JPanel();
 		appearancePanel.setBorder(LookAndFeelDefaults.PADDINGBORDER);
@@ -221,7 +211,7 @@ public class EngineConfigDialog extends JDialog {
 
 		JTabbedPane tabbedPane = new JTabbedPane();
 		tabbedPane.setBorder(LookAndFeelDefaults.PADDINGBORDER);
-		tabbedPane.addTab("Engine Specifics", null, configPanel, "Configure Engine Specifics");
+		tabbedPane.addTab("Game", null, configPanel, "Game settings");
 		tabbedPane.addTab("Appearance", null, appearancePanel, "Appearance");
 		tabbedPane.setMnemonicAt(0, KeyEvent.VK_1);
 		tabbedPane.setMnemonicAt(1, KeyEvent.VK_2);
@@ -298,6 +288,15 @@ public class EngineConfigDialog extends JDialog {
 		vm.setDownloadPath(downloadPath.getPath());
 	}
 
+	/** A group of settings under a title (with Darklaf, a line at the top) */
+	private static JPanel groupPanel(String title) {
+		JPanel panel = new JPanel(new GridBagLayout());
+		panel.setBorder(BorderFactory.createCompoundBorder(
+			BorderFactory.createTitledBorder(title),
+			LookAndFeelDefaults.PADDINGBORDER));
+		return panel;
+	}
+
 	private static DocumentListener onEdit(Runnable r) {
 		return new DocumentListener() {
 			@Override
@@ -328,12 +327,12 @@ public class EngineConfigDialog extends JDialog {
 		private final GridBagConstraints choicesConstraints;
 		private final JRadioButton workAtExe;
 		private boolean visible;
-		public WorkingDirOpts(int configPanelRow, boolean workAtExeDefault) {
+		public WorkingDirOpts(int advancedPanelRow, boolean workAtExeDefault) {
 			// Separator
 			workingDirBoxSep = new JSeparator(JSeparator.HORIZONTAL);
 			sepConstraints = new GridBagConstraints();
 			sepConstraints.gridx = 0;
-			sepConstraints.gridy = configPanelRow;
+			sepConstraints.gridy = advancedPanelRow;
 			sepConstraints.gridwidth = GridBagConstraints.REMAINDER;
 			sepConstraints.fill = GridBagConstraints.HORIZONTAL;
 			sepConstraints.insets = new Insets(10, 0, 10, 0);
@@ -341,14 +340,14 @@ public class EngineConfigDialog extends JDialog {
 			// Explanatory text
 			String workingDirBlurb =
 				"<html><body><nobr>" +
-				"<b>Notice:</b> your Quake Executable is not located in " +
+				"<b>Notice:</b> your Quake Engine is not located in " +
 				"your Quake Directory.<br/>Choose where the runtime " +
 				"\"working directory\" for Quake should be located:" +
 				"</nobr></body></html>";
 			workingDirTitle = new JLabel(workingDirBlurb);
 			titleConstraints = new GridBagConstraints();
 			titleConstraints.gridx = 0;
-			titleConstraints.gridy = configPanelRow + 1;
+			titleConstraints.gridy = advancedPanelRow + 1;
 			titleConstraints.gridwidth = GridBagConstraints.REMAINDER;
 			// Container for the choices
 			workingDirChoices = new Box(BoxLayout.Y_AXIS);
@@ -360,7 +359,7 @@ public class EngineConfigDialog extends JDialog {
 				"located with the engine.";
 			workInBase.setToolTipText(baseBlurb);
 			workInBase.setSelected(!workAtExeDefault);
-			workAtExe = new JRadioButton("at Quake Executable");
+			workAtExe = new JRadioButton("at Quake Engine");
 			String exeBlurb =
 				"Using the Quake Engine's location as the working directory " +
 				"may require adding a -basedir argument to the command line.";
@@ -374,7 +373,7 @@ public class EngineConfigDialog extends JDialog {
 			workingDirChoices.add(workAtExe);
 			choicesConstraints = new GridBagConstraints();
 			choicesConstraints.gridx = 0;
-			choicesConstraints.gridy = configPanelRow + 2;
+			choicesConstraints.gridy = advancedPanelRow + 2;
 			choicesConstraints.gridwidth = GridBagConstraints.REMAINDER;
 			choicesConstraints.insets = new Insets(5, 0, 5, 0);
 			// Start visible if appropriate
@@ -396,18 +395,18 @@ public class EngineConfigDialog extends JDialog {
 				validPaths && !(enginePath.getPath().equals(exeDir));
 			if (showOpt) {
 				if (!visible) {
-					configPanel.add(workingDirBoxSep, sepConstraints);
-					configPanel.add(workingDirTitle, titleConstraints);
-					configPanel.add(workingDirChoices, choicesConstraints);
+					advancedPanel.add(workingDirBoxSep, sepConstraints);
+					advancedPanel.add(workingDirTitle, titleConstraints);
+					advancedPanel.add(workingDirChoices, choicesConstraints);
 					verticalRepack();
 					visible = true;
 				}
 			}
 			else {
 				if (visible) {
-					configPanel.remove(workingDirBoxSep);
-					configPanel.remove(workingDirTitle);
-					configPanel.remove(workingDirChoices);
+					advancedPanel.remove(workingDirBoxSep);
+					advancedPanel.remove(workingDirTitle);
+					advancedPanel.remove(workingDirChoices);
 					verticalRepack();
 					visible = false;
 				}
