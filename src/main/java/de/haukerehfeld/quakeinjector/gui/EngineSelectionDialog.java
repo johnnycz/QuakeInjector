@@ -45,13 +45,17 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
+import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.event.HyperlinkEvent;
 
 import de.haukerehfeld.quakeinjector.utils.CancellationToken;
 import de.haukerehfeld.quakeinjector.utils.CancelledException;
@@ -70,6 +74,8 @@ public class EngineSelectionDialog extends JDialog {
 	private static final String windowTitle = "Quake Engine";
 
 	private static final Executor UI = SwingUtilities::invokeLater;
+
+	private static final String VKQUAKE_URL = "https://github.com/Novum/vkQuake";
 
 	private final File quakeDir;
 	private final JPathPanel engineExecutable;
@@ -211,6 +217,47 @@ public class EngineSelectionDialog extends JDialog {
 		results = found;
 		// the engine from the settings is selected if it is shown
 		fillList(engineExecutable.getPath());
+
+		if (found.stream().noneMatch(r -> r.getType() == EngineType.MODERN)) {
+			whenShown(this::showNoRecommendedEngine);
+		}
+	}
+
+	/** Run r now if the dialog is on screen, otherwise once it opens */
+	private void whenShown(Runnable r) {
+		if (isShowing()) {
+			r.run();
+			return;
+		}
+		addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowOpened(WindowEvent e) {
+				removeWindowListener(this);
+				r.run();
+			}
+		});
+	}
+
+	private void showNoRecommendedEngine() {
+		JEditorPane message = new JEditorPane("text/html",
+			"<html><body>"
+			+ "No recommended Quake engine was found in the Quake Directory,<br>"
+			+ "so a lot of the packages won't be playable.<br><br>"
+			+ "We recommend downloading a modern Quake engine such as<br>"
+			+ "<a href=\"" + VKQUAKE_URL + "\">vkQuake</a> (" + VKQUAKE_URL + ")."
+			+ "</body></html>");
+		message.setEditable(false);
+		message.setOpaque(false);
+		// the look and feel's label font instead of the HTML default
+		message.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
+		message.setFont(UIManager.getFont("Label.font"));
+		message.addHyperlinkListener(e -> {
+			if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+				BrowserLauncher.openURL(e.getDescription());
+			}
+		});
+		JOptionPane.showMessageDialog(this, message, "No Recommended Engine Found",
+		                              JOptionPane.WARNING_MESSAGE);
 	}
 
 	/**
