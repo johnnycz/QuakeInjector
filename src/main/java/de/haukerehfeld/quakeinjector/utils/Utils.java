@@ -146,6 +146,10 @@ public class Utils {
 		return true;
 	}
 
+	public static boolean isWindows() {
+		return System.getProperty("os.name").startsWith("Windows");
+	}
+
 	private static boolean isMacOSX() {
 		return System.getProperty("os.name").startsWith("Mac OS X");
 	}

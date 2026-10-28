@@ -130,6 +130,18 @@ public class EngineConfigDialog extends JDialog {
 			vm.getEngineExecutable(),
 			vm.getEnginePath(),
 			javax.swing.JFileChooser.FILES_ONLY);
+		// Windows only, and only with a valid Quake Directory to search; otherwise the file chooser
+		if (Utils.isWindows()) {
+			engineExecutable.setSelectAction(() -> {
+				if (enginePath.verifies()) {
+					new EngineSelectionDialog(this, enginePath.getPath(), engineExecutable)
+						.setVisible(true);
+				}
+				else {
+					engineExecutable.chooseFile(engineExecutable);
+				}
+			});
+		}
 
 		requiredPanel.add(engineExeLabel, new LabelConstraints() {{ gridy = 1; }});
 		requiredPanel.add(engineExecutable, new InputConstraints() {{ gridy = 1; }});

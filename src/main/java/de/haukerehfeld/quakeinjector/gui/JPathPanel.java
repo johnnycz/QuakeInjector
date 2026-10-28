@@ -19,8 +19,6 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector.gui;
 
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.File;
 import java.util.ArrayList;
 
@@ -112,18 +110,32 @@ public class JPathPanel extends JPanel {
 		chooser.setFileSelectionMode(filesAndOrDirectories);
 		
 		this.fileChooserButton = new JButton("Select");
-        fileChooserButton.addActionListener(new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					int returnVal = chooser.showOpenDialog(JPathPanel.this);
-
-					if (returnVal == JFileChooser.APPROVE_OPTION) {
-						File file = chooser.getSelectedFile();
-
-						setPath(file);
-					}
-				}
-			});
+		fileChooserButton.addActionListener(e -> selectAction.run());
 		add(fileChooserButton);
+	}
+
+	/** What the Select button does; by default it opens the file chooser */
+	private Runnable selectAction = () -> chooseFile(this);
+
+	/**
+	 * Replace what the Select button does
+	 */
+	public void setSelectAction(Runnable selectAction) {
+		this.selectAction = selectAction;
+	}
+
+	/**
+	 * Open the file chooser over parent and set the chosen path
+	 *
+	 * @return whether a file was chosen
+	 */
+	public boolean chooseFile(java.awt.Component parent) {
+		int returnVal = chooser.showOpenDialog(parent);
+		if (returnVal == JFileChooser.APPROVE_OPTION) {
+			setPath(chooser.getSelectedFile());
+			return true;
+		}
+		return false;
 	}
 
 	/**
