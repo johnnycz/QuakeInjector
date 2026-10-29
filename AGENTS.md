@@ -71,6 +71,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - `Download`, `ProgressListener*` — HTTP fetching with progress reporting
   - `ChangeListener` / `ChangeListenerList` — custom observable pattern (predates Java Beans)
   - `Utils` — file operations, path handling
+  - `SafePath` — turns a relative path from a package or the database (zip entry, extract mapping, file list, package id) into a file inside a base directory, throwing `UnsafePathException` for anything outside (`..`, absolute, drive or UNC paths). Use it wherever such a path meets the disk: extract and inspect (an unsafe entry fails the whole install as `InstallFailure.Kind.UNSAFE_PATH` before anything is written), the download file, "Check for installed maps" (counts as missing), uninstall (skipped) and readme (not listed, not read). Tested in `SafePathTest` plus cases in the install, uninstall, check and readme tests
 
 ### Architectural Constraints
 

@@ -7,6 +7,7 @@ import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 import de.haukerehfeld.quakeinjector.model.FileInfo;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.utils.UnsafePathException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -114,6 +115,21 @@ public class ReadmeServiceTest {
 		pkg.setSupposedFileList(supposed);
 
 		assertEquals(List.of("testmap/testmap_readme.txt"), service.textFiles(pkg));
+	}
+
+	@Test
+	public void filesOutsideTheQuakeDirectoryAreNeitherListedNorRead() throws Exception {
+		Files.writeString(tmp.resolve("secret.txt"), "SECRET");
+		Package pkg = TestZip.testPackage("testmap", new ExtractMapping(), "file:///unused.zip");
+		PackageFileList supposed = new PackageFileList("testmap");
+		supposed.add(new FileInfo("../secret.txt", 0, 6));
+		supposed.add(new FileInfo("testmap.txt", 0, 4));
+		pkg.setSupposedFileList(supposed);
+
+		assertEquals(List.of("testmap.txt"), service.textFiles(pkg));
+		ExecutionException e = assertThrows(ExecutionException.class,
+			() -> service.read("../secret.txt").get(5, TimeUnit.SECONDS));
+		assertInstanceOf(UnsafePathException.class, e.getCause());
 	}
 
 	@Test

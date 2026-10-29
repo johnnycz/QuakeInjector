@@ -21,6 +21,8 @@ package de.haukerehfeld.quakeinjector.model;
 
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
 import de.haukerehfeld.quakeinjector.utils.RelativePath;
+import de.haukerehfeld.quakeinjector.utils.SafePath;
+import de.haukerehfeld.quakeinjector.utils.UnsafePathException;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import java.io.File;
@@ -41,14 +43,16 @@ public class Configuration {
 	public static class EnginePath extends FileValue {
 		private EnginePath() { super("enginePath", null); }
 		
-		public File getUnzipFile(Package map, String entryName) {
+		/**
+		 * @return where the zip entry gets extracted to, or null if the extract mapping skips it
+		 * @throws UnsafePathException if it would end up outside the Quake directory
+		 */
+		public File getUnzipFile(Package map, String entryName) throws UnsafePathException {
 			String relativePath = map.getExtractMapping().remap(entryName);
-			String baseDir = get().getAbsolutePath();
-			if (relativePath != null) {
-				return new File(baseDir + File.separator + relativePath);
-			} else {
-                return null;
+			if (relativePath == null) {
+				return null;
 			}
+			return SafePath.resolve(get(), relativePath);
 		}
 	}
 	public final EnginePath EnginePath = new EnginePath();

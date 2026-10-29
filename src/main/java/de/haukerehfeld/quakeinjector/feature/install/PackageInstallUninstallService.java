@@ -203,6 +203,11 @@ public class PackageInstallUninstallService {
 										  dialogProvider.showError("Couldn't write to harddisk! " + reason,
 										      "Couldn't write to harddisk");
 									  }
+									  case UNSAFE_PATH -> {
+										  job.finish("Unsafe package");
+										  dialogProvider.showError("The package wasn't installed, because it would put"
+										      + " a file outside its directory.\n" + reason, "Unsafe package");
+									  }
 									  case IO -> {
 										  job.finish("File Error");
 										  dialogProvider.showError("Couldn't open file! " + reason, "Couldn't open file!");

@@ -7,6 +7,7 @@ import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.utils.AsyncProgressListener;
 import de.haukerehfeld.quakeinjector.utils.CancellationToken;
 import de.haukerehfeld.quakeinjector.utils.CancelledException;
+import de.haukerehfeld.quakeinjector.utils.UnsafePathException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -164,6 +165,26 @@ public class ExtractTaskTest {
 		Path zip = new TestZip().directory("maps").writeTo(tmp.resolve("in.zip"));
 
 		assertThrows(ZipException.class, () -> extract(zip, new ExtractMapping(), null));
+	}
+
+	@Test
+	public void anEntryLeadingOutOfTheDirectoryStopsTheExtraction() throws Exception {
+		Path zip = new TestZip().file("../outside.txt", "EVIL").writeTo(tmp.resolve("in.zip"));
+
+		assertThrows(UnsafePathException.class, () -> extract(zip, new ExtractMapping(), null));
+
+		assertFalse(Files.exists(tmp.resolve("outside.txt")));
+	}
+
+	@Test
+	public void anExtractMappingLeadingOutOfTheDirectoryStopsTheExtraction() throws Exception {
+		Path zip = new TestZip().file("maps/a.bsp", "A").writeTo(tmp.resolve("in.zip"));
+		ExtractMapping mapping = new ExtractMapping();
+		mapping.addMapping("maps", "../elsewhere");
+
+		assertThrows(UnsafePathException.class, () -> extract(zip, mapping, null));
+
+		assertFalse(Files.exists(tmp.resolve("elsewhere")));
 	}
 
 	@Test

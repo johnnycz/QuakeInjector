@@ -92,4 +92,19 @@ public class UninstallTaskTest {
 		assertFalse(Files.exists(engineDir.resolve("maps")));
 		assertFalse(Files.exists(engineDir.resolve("maps-extra")));
 	}
+
+	@Test
+	public void neverDeletesFilesOutsideTheDirectory() throws Exception {
+		// engineDir is a temp dir of its own, so its parent is shared: use a subdirectory as the base
+		Path quake = Files.createDirectories(engineDir.resolve("quake"));
+		Files.writeString(engineDir.resolve("outside.txt"), "MINE");
+		PackageFileList files = files();
+		// as "Check for installed maps" saves a database file list: no CRC, size unknown or matching
+		files.add(new FileInfo("../outside.txt", 0, 0));
+		files.add(new FileInfo("../outside.txt", 0, 4));
+
+		new UninstallTask(files, quake.toString()).execute();
+
+		assertEquals("MINE", Files.readString(engineDir.resolve("outside.txt")));
+	}
 }

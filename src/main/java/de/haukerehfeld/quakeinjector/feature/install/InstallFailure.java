@@ -4,6 +4,8 @@ import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.HTTPException;
 import de.haukerehfeld.quakeinjector.utils.OnlineFileNotFoundException;
+import de.haukerehfeld.quakeinjector.utils.SafePath;
+import de.haukerehfeld.quakeinjector.utils.UnsafePathException;
 import org.apache.commons.compress.archivers.ArchiveException;
 
 import java.io.IOException;
@@ -20,6 +22,8 @@ public final class InstallFailure {
 		NOT_FOUND,
 		/** A file in the install directory couldn't be written. */
 		NOT_WRITABLE,
+		/** A file of the package would end up outside its directory (see {@link SafePath}). */
+		UNSAFE_PATH,
 		/** The download failed. */
 		NETWORK,
 		/** The downloaded archive couldn't be read. */
@@ -64,6 +68,9 @@ public final class InstallFailure {
 		}
 		if (cause instanceof FileNotWritableException) {
 			return Kind.NOT_WRITABLE;
+		}
+		if (cause instanceof UnsafePathException) {
+			return Kind.UNSAFE_PATH;
 		}
 		if (cause instanceof SocketException || cause instanceof HTTPException) {
 			return Kind.NETWORK;

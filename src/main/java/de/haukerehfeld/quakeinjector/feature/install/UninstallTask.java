@@ -23,6 +23,8 @@ import de.haukerehfeld.quakeinjector.model.FileInfo;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
 import de.haukerehfeld.quakeinjector.utils.AsyncProgressListener;
+import de.haukerehfeld.quakeinjector.utils.SafePath;
+import de.haukerehfeld.quakeinjector.utils.UnsafePathException;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import java.io.File;
@@ -72,7 +74,15 @@ public class UninstallTask implements AsyncTask<Void> {
 
 		while (it.hasNext()) {
 			FileInfo file = it.next();
-			File f = new File(baseDirectory + File.separator + file.getName());
+			File f;
+			try {
+				// the names can come from the database ("Check for installed maps"), so they may point anywhere
+				f = SafePath.resolve(new File(baseDirectory), file.getName());
+			}
+			catch (UnsafePathException e) {
+				System.err.println("Not deleting " + file.getName() + ": " + e.getMessage());
+				continue;
+			}
 
 			long supposedCrc = file.getChecksum();
 			String skipMsg = "Couldn't check CRC for " + f + ", deleting...";

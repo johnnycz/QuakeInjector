@@ -229,4 +229,29 @@ public class InstallProcessTest {
 		assertEquals(List.of("failed:IO"), listener.calls);
 		assertEquals(InstallFailure.Kind.IO, listener.failure.getKind());
 	}
+
+	@Test
+	public void aZipWithAFileOutsideTheQuakeDirectoryIsNotInstalledAtAll() throws Exception {
+		String url = remoteZip(new TestZip().file("maps/a.bsp", "A").file("../evil.bat", "EVIL"));
+
+		run(pipeline(url));
+
+		assertEquals(List.of("failed:UNSAFE_PATH"), listener.calls);
+		assertFalse(Files.exists(tmp.resolve("evil.bat")));
+		// caught while inspecting, before anything was extracted
+		assertFalse(Files.exists(engineDir.resolve("maps")));
+		assertTrue(listener.failure.getPartialFiles().isEmpty());
+	}
+
+	@Test
+	public void aPackageIdLeadingOutOfTheDownloadDirectoryIsNotDownloaded() throws Exception {
+		String url = remoteZip(new TestZip().file("maps/a.bsp", "A"));
+		pkg = TestZip.testPackage("../evil", new ExtractMapping(), url);
+
+		run(new InstallPipeline(url, pkg, listener, config.DownloadPath, config.EnginePath, threads.executors()));
+
+		assertEquals(List.of("failed:UNSAFE_PATH"), listener.calls);
+		assertFalse(Files.exists(tmp.resolve("evil.zip")));
+		assertFalse(Files.exists(engineDir.resolve("maps")));
+	}
 }

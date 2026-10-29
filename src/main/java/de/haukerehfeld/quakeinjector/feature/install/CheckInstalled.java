@@ -6,6 +6,8 @@ import de.haukerehfeld.quakeinjector.utils.AsyncProgressListener;
 import de.haukerehfeld.quakeinjector.utils.AsyncTask;
 import de.haukerehfeld.quakeinjector.utils.CancellationToken;
 import de.haukerehfeld.quakeinjector.utils.CancelledException;
+import de.haukerehfeld.quakeinjector.utils.SafePath;
+import de.haukerehfeld.quakeinjector.utils.UnsafePathException;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -75,8 +77,11 @@ public class CheckInstalled implements AsyncTask<List<PackageFileList>> {
 			String filename = entry.getName();
 			File f;
 			try {
-				f = new File(installDirectory, filename);
-			} catch (Exception e) {
+				// a database file list may name files anywhere; those never count, so the package can't
+				// become installed with them (and get them deleted on uninstall)
+				f = SafePath.resolve(installDirectory, filename);
+			} catch (UnsafePathException e) {
+				System.err.println(list.getId() + ": " + e.getMessage());
 				missingFiles.add(filename);
 				continue;
 			}

@@ -27,6 +27,8 @@ import de.haukerehfeld.quakeinjector.utils.CancellationToken;
 import de.haukerehfeld.quakeinjector.utils.CancelledException;
 import de.haukerehfeld.quakeinjector.utils.Download;
 import de.haukerehfeld.quakeinjector.utils.RelativePath;
+import de.haukerehfeld.quakeinjector.utils.SafePath;
+import de.haukerehfeld.quakeinjector.utils.UnsafePathException;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 
 import java.io.BufferedInputStream;
@@ -129,8 +131,8 @@ public class InstallPipeline {
 
 	private Archive download() throws Exception {
 		token.throwIfCancelled();
-		final File downloadFile = new File(downloadDirectory.get().getAbsolutePath() + File.separator +
-			installedPackage.getId() + ".zip");
+		// the id comes from the database, so it mustn't lead out of the download directory
+		final File downloadFile = SafePath.resolve(downloadDirectory.get(), installedPackage.getId() + ".zip");
 
 		if (downloadFile.exists()) {
 			System.out.println("Skipping download, already existing with length " + downloadFile.length());
@@ -165,18 +167,20 @@ public class InstallPipeline {
 	}
 
 	/** @return all files of the package by relative path, or null if none of them exists yet */
-	private Map<String, File> findExistingFiles(List<ArchiveEntry> entries) {
+	private Map<String, File> findExistingFiles(List<ArchiveEntry> entries) throws UnsafePathException {
 		final Map<String, File> files = new HashMap<>();
+		final File base = installDirectory.get().toPath().toAbsolutePath().normalize().toFile();
 		boolean existingFile = false;
 		for (ArchiveEntry z : entries) {
 			if (z.isDirectory()) {
 				continue;
 			}
+			// stops the install before anything is written if an entry would end up outside the Quake directory
 			File f = installDirectory.getUnzipFile(installedPackage, z.getName());
 			if (f == null) {
 				continue;
 			}
-			String name = RelativePath.getRelativePath(installDirectory.get(), f).toString();
+			String name = RelativePath.getRelativePath(base, f).toString();
 			files.put(name, f);
 			if (f.exists()) {
 				existingFile = true;

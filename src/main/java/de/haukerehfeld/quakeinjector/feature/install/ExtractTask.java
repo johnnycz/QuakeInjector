@@ -89,7 +89,8 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 		this.token = token;
 		this.input = input;
 		this.downloadSize = inputSize;
-		this.baseDirectory = baseDirectory;
+		// absolute and normalized like the files SafePath returns, so relative names can be taken from it
+		this.baseDirectory = baseDirectory.toPath().toAbsolutePath().normalize().toFile();
 		this.extractMapping = extractMapping;
 		this.overwrites = overwrites;
 		this.progressListener = progressListener;
@@ -102,7 +103,7 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 		System.out.println("Extracting " + map.getId());
 
 		// Only extracts; marking the package as installed is up to whoever runs the install
-		unzip(input, baseDirectory, map.getId(), overwrites);
+		unzip(input, baseDirectory, overwrites);
 		// the zip reader stops at the central directory, so the archive is never read to its very end
 		reportProgress(100);
 
@@ -112,7 +113,7 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 	/**
 	 * Unzip from the input stream to the quake base directory.
 	 */
-	private void unzip(InputStream in, File basedir, String mapid, List<File> overwrites)
+	private void unzip(InputStream in, File basedir, List<File> overwrites)
 	        throws IOException, FileNotFoundException, CancelledException, ArchiveException {
 		// Progress is the share of the (compressed) archive read so far. Counting the uncompressed
 		// bytes written against the archive size would pass 100% for any file that compresses well.
@@ -220,10 +221,14 @@ public class ExtractTask implements AsyncTask<PackageFileList> {
 		}
 	}
 
-	private File getTargetFile(ArchiveEntry sourceEntry) {
+	/**
+	 * @return where the entry goes, or null if the extract mapping skips it
+	 * @throws UnsafePathException if it would end up outside the install directory; the install stops
+	 */
+	private File getTargetFile(ArchiveEntry sourceEntry) throws UnsafePathException {
 		String extractPath = extractMapping.remap(sourceEntry.getName());
 		if (extractPath != null) {
-			return new File(baseDirectory, extractPath);
+			return SafePath.resolve(baseDirectory, extractPath);
 		}
 		return null;
 	}

@@ -78,6 +78,17 @@ public class CheckInstalledTest {
 	}
 
 	@Test
+	public void aFileOutsideTheQuakeDirectoryNeverCounts() throws Exception {
+		// otherwise the package would be marked installed and uninstalling it would delete that file
+		Files.writeString(tmp.resolve("outside.txt"), "MINE");
+		PackageFileList pkg = testmap("a");
+		installFiles(pkg);
+		pkg.add(new FileInfo("../outside.txt", 0, 0));
+
+		assertEquals(List.of(), check(pkg));
+	}
+
+	@Test
 	public void aFileOfTheWrongSizeMeansNotInstalled() throws Exception {
 		PackageFileList pkg = testmap("a");
 		installFiles(pkg);

@@ -4,6 +4,7 @@ import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
 import de.haukerehfeld.quakeinjector.model.FileInfo;
 import de.haukerehfeld.quakeinjector.model.ReadmeSource;
+import de.haukerehfeld.quakeinjector.utils.SafePath;
 
 import java.io.File;
 import java.io.IOException;
@@ -52,21 +53,25 @@ public class ReadmeService implements ReadmeSource {
 			return List.of();
 		}
 		List<String> names = new ArrayList<>(files.size());
+		File base = quakeDirectory.get();
 		for (FileInfo file : files) {
-			names.add(file.getName());
+			// only files in the Quake directory, whatever the database says
+			if (SafePath.isInside(base, file.getName())) {
+				names.add(file.getName());
+			}
 		}
 		return ReadmeFiles.order(pkg.getId(), pkg.getStartmaps(), names);
 	}
 
 	@Override
 	public CompletableFuture<String> read(String path) {
-		File file = new File(quakeDirectory.get(), path);
+		File quakeDir = quakeDirectory.get();
 		// completed on the UI thread, so callers' callbacks run there too
 		CompletableFuture<String> result = new CompletableFuture<>();
 		CompletableFuture
 			.supplyAsync(() -> {
 				try {
-					return ReadmeReader.read(file);
+					return ReadmeReader.read(SafePath.resolve(quakeDir, path));
 				}
 				catch (IOException e) {
 					throw new UncheckedIOException(e);
