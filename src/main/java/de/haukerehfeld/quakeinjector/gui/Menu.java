@@ -21,7 +21,6 @@ package de.haukerehfeld.quakeinjector.gui;
 
 //import java.awt.*;
 
-import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 
@@ -33,12 +32,14 @@ public class Menu extends JMenuBar {
 	private final JMenuItem engine;
 	private final JMenuItem quit;
 
-	public Menu() {
+	public Menu(JMenu recentMenu) {
 		setOpaque(true);
 		// 		setPreferredSize(new Dimension(200, 20));
 
 		JMenu fileMenu = new JMenu("File");
+		fileMenu.setMnemonic(KeyEvent.VK_F);
 		add(fileMenu);
+		add(recentMenu);
 
 		reparseDatabase = new JMenuItem("Reload database", KeyEvent.VK_R);
 		fileMenu.add(reparseDatabase);
@@ -46,12 +47,10 @@ public class Menu extends JMenuBar {
 		checkInstalled = new JMenuItem("Check for installed maps", KeyEvent.VK_C);
 		fileMenu.add(checkInstalled);
 
-		engine = new JMenuItem("Settings...");
+		engine = new JMenuItem("Settings...", KeyEvent.VK_S);
 		fileMenu.add(engine);
 
-		quit = new JMenuItem("Quit", KeyEvent.VK_T);
-		quit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1, ActionEvent.ALT_MASK));
-		quit.getAccessibleContext().setAccessibleDescription("This doesn't really do anything");
+		quit = new JMenuItem("Quit", KeyEvent.VK_Q);
 		fileMenu.add(quit);
 	}
 

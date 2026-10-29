@@ -176,6 +176,12 @@ public class Configuration {
 	}
 	public final SelectedPackage SelectedPackage = new SelectedPackage();
 
+	/** The ids of the recently installed or played packages, newest first ({@link de.haukerehfeld.quakeinjector.model.RecentPackages#toSetting}) */
+	public static class RecentPackagesSetting extends StringValue {
+		private RecentPackagesSetting() { super("recentPackages", null); }
+	}
+	public final RecentPackagesSetting RecentPackages = new RecentPackagesSetting();
+
 	public static class RepositoryBasePath extends StringValue {
 		private final static String onlineRepositoryExtension = ".zip";
 		

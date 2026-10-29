@@ -10,6 +10,7 @@ import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 import de.haukerehfeld.quakeinjector.model.OfficialExpansionRequirement;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.model.RecentPackages;
 import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.model.RequirementList;
 import de.haukerehfeld.quakeinjector.model.UnavailableRequirement;
@@ -53,6 +54,7 @@ public class PackageInstallUninstallServiceTest {
 	/** Released once per job that finished. */
 	private final Semaphore finishedJobs = new Semaphore(0);
 	private final Set<Integer> finishedIds = ConcurrentHashMap.newKeySet();
+	private final RecentPackages recent = new RecentPackages();
 
 	private Path engineDir;
 	private Path remoteDir;
@@ -77,7 +79,7 @@ public class PackageInstallUninstallServiceTest {
 				finishedJobs.release();
 			}
 		});
-		service = new PackageInstallUninstallService(jobs, dialogs);
+		service = new PackageInstallUninstallService(jobs, dialogs, recent);
 	}
 
 	@AfterEach
@@ -550,6 +552,96 @@ public class PackageInstallUninstallServiceTest {
 		assertFalse(pkg.isInstalled());
 		assertEquals(List.of(), savedIds());
 		assertEquals(List.of(), dialogs.calls);
+	}
+
+	// --- recent packages ---
+
+	private List<String> recentIds() throws Exception {
+		return onUi(recent::ids);
+	}
+
+	@Test
+	public void anInstalledPackageBecomesTheMostRecent() throws Exception {
+		Package a = remotePackage("a", new TestZip().file("maps/a.bsp", "A"));
+		Package b = remotePackage("b", new TestZip().file("maps/b.bsp", "B"));
+		packages(a, b);
+
+		onUi(() -> service.install(a));
+		awaitFinished(1);
+		onUi(() -> service.install(b));
+		awaitFinished(1);
+
+		assertEquals(List.of("b", "a"), recentIds());
+	}
+
+	@Test
+	public void aPrerequisiteInstalledAlongDoesntBecomeRecent() throws Exception {
+		Package prerequisite = remotePackage("base", new TestZip().file("maps/base.bsp", "BASE"));
+		Package pkg = remotePackage("a", new TestZip().file("maps/a.bsp", "A"));
+		pkg.setRequirements(List.of(prerequisite));
+		packages(pkg, prerequisite);
+
+		onUi(() -> service.install(pkg));
+		awaitFinished(2);
+
+		assertTrue(prerequisite.isInstalled());
+		assertEquals(List.of("a"), recentIds());
+	}
+
+	@Test
+	public void aPrerequisiteInstalledOnItsOwnBecomesRecent() throws Exception {
+		Package prerequisite = remotePackage("base", new TestZip().file("maps/base.bsp", "BASE"));
+		packages(prerequisite);
+
+		onUi(() -> service.install(prerequisite));
+		awaitFinished(1);
+
+		assertEquals(List.of("base"), recentIds());
+	}
+
+	@Test
+	public void aFailedInstallDoesntBecomeRecent() throws Exception {
+		Package pkg = missingPackage("a");
+		packages(pkg);
+		onUi(() -> recent.add("other"));
+
+		onUi(() -> service.install(pkg));
+		awaitFinished(1);
+
+		assertEquals("File not found", onlyJob().getFinishedMessage());
+		assertEquals(List.of("other"), recentIds());
+	}
+
+	@Test
+	public void aCancelledInstallDoesntBecomeRecent() throws Exception {
+		Package pkg = remotePackage("a", new TestZip().file("maps/a.bsp", "A"));
+		packages(pkg);
+		CountDownLatch release = blockDiskThread();
+		onUi(() -> service.install(pkg));
+
+		onUi(onlyJob()::cancel);
+		release.countDown();
+		awaitFinished(1);
+
+		assertEquals("Canceled", onlyJob().getFinishedMessage());
+		assertEquals(List.of(), recentIds());
+	}
+
+	@Test
+	public void anUninstalledPackageIsTakenOffTheRecentList() throws Exception {
+		Package a = remotePackage("a", new TestZip().file("maps/a.bsp", "A"));
+		Package b = remotePackage("b", new TestZip().file("maps/b.bsp", "B"));
+		packages(a, b);
+		onUi(() -> service.install(a));
+		awaitFinished(1);
+		onUi(() -> service.install(b));
+		awaitFinished(1);
+
+		onUi(() -> service.uninstall(a));
+		awaitFinished(1);
+
+		assertFalse(a.isInstalled());
+		assertEquals(List.of("b"), recentIds());
 	}
 
 	@Test

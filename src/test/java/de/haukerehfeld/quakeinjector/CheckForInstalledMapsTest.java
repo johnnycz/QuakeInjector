@@ -10,6 +10,7 @@ import de.haukerehfeld.quakeinjector.model.ExtractMapping;
 import de.haukerehfeld.quakeinjector.model.FileInfo;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.model.PackageFileList;
+import de.haukerehfeld.quakeinjector.model.RecentPackages;
 import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.model.RequirementList;
 import org.junit.jupiter.api.AfterEach;
@@ -66,7 +67,7 @@ public class CheckForInstalledMapsTest {
 				finished.complete(job.getFinishedMessage());
 			}
 		});
-		service = new PackageInstallUninstallService(jobs, dialogs);
+		service = new PackageInstallUninstallService(jobs, dialogs, new RecentPackages());
 	}
 
 	@AfterEach

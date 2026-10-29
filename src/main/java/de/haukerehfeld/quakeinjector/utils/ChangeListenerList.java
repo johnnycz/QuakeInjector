@@ -41,9 +41,14 @@ public class ChangeListenerList {
 		listeners.remove(l);
 	}
 	
+	/**
+	 * Listeners may add or remove listeners while they are notified (e.g. PackageListViewModel registers
+	 * itself again when the package list changes): the event goes to the listeners there were when it
+	 * was sent.
+	 */
 	public void notifyChangeListeners(Object source) {
 		ChangeEvent e = new ChangeEvent(source);
-		for (ChangeListener l: listeners) {
+		for (ChangeListener l: new ArrayList<>(listeners)) {
 			l.stateChanged(e);
 		}
 	}

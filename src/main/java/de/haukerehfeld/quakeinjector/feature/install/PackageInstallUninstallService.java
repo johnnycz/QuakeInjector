@@ -36,6 +36,7 @@ public class PackageInstallUninstallService {
 
 	private final JobTrackerProvider jobTrackerProvider;
 	private final DialogProvider dialogProvider;
+	private final RecentPackages recentPackages;
 
 	private RequirementList requirements;
 
@@ -46,9 +47,15 @@ public class PackageInstallUninstallService {
 	/** Whether "check for installed maps" is running. Only touched on the UI thread. */
 	private boolean checkingInstalled = false;
 
-	public PackageInstallUninstallService(JobTrackerProvider jobTrackerProvider, DialogProvider dialogProvider) {
+	/**
+	 * @param recentPackages a package the user installed (not a prerequisite installed along with it)
+	 *                       becomes the most recent one; an uninstalled package is taken off
+	 */
+	public PackageInstallUninstallService(JobTrackerProvider jobTrackerProvider, DialogProvider dialogProvider,
+	                                      RecentPackages recentPackages) {
 		this.jobTrackerProvider = jobTrackerProvider;
 		this.dialogProvider = dialogProvider;
+		this.recentPackages = recentPackages;
 	}
 
 	public void init(Installer installer,
@@ -172,6 +179,9 @@ public class PackageInstallUninstallService {
 									  ((de.haukerehfeld.quakeinjector.model.Package) r).setFileList(installedFiles);
 								  }
 								  r.setInstalled(true);
+								  if (!becauseRequired) {
+									  recentPackages.add(installedFiles.getId());
+								  }
 
 								  saveInstalledMaps();
 								  job.setProgress(100);
@@ -239,6 +249,7 @@ public class PackageInstallUninstallService {
 								public void success() {
 									job.finish("success");
 									map.setInstalled(false);
+									recentPackages.remove(files.getId());
 									saveInstalledMaps();
 								}
 

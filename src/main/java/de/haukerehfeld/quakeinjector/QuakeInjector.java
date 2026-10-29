@@ -64,6 +64,7 @@ public class QuakeInjector {
 	private final PackageListViewModel packageListViewModel;
 	private final InstalledPackages installedMaps = new InstalledPackages();
 	private final Configuration config;
+	private final RecentPackages recentPackages;
 
 	private final QuakeInjectorView view;
 
@@ -87,6 +88,13 @@ public class QuakeInjector {
 		}
 		this.config = cfg;
 
+		// kept in the settings, which are written when the app closes
+		recentPackages = RecentPackages.fromSetting(getConfig().RecentPackages.get());
+		recentPackages.addChangeListener(e -> {
+			String setting = recentPackages.toSetting();
+			getConfig().RecentPackages.set(setting.isEmpty() ? null : setting);
+		});
+
 
 		this.router = new CommandRouter();
 		maps = new RequirementList();
@@ -107,12 +115,13 @@ public class QuakeInjector {
 			code -> DarkLafUIThemeOption.getByCodeOrDefault(code).getCode());
 		var dialogVm = new DialogViewModel(configViewModel);
 		this.dialogProvider = dialogVm;
-		this.installUninstallService = new PackageInstallUninstallService(jobTrackerProvider, dialogVm);
+		this.installUninstallService = new PackageInstallUninstallService(jobTrackerProvider, dialogVm, recentPackages);
 		// the installed maps file is read once the first package list is there; installer exists by then
 		this.packageDatabaseService = new PackageDatabaseService(getConfig(), maps, jobTrackerProvider, dialogVm,
 			this::loadInstalledStatus, javax.swing.SwingUtilities::invokeLater);
 
-		view = new QuakeInjectorView(maplist, packageInteractionViewModel, new PackageInteractionPanelView(packageInteractionViewModel), new InstallQueuePanel(jobTrackerProvider));
+		view = new QuakeInjectorView(maplist, packageInteractionViewModel, new PackageInteractionPanelView(packageInteractionViewModel), new InstallQueuePanel(jobTrackerProvider),
+			new RecentPackagesViewModel(recentPackages, packages));
 
 		setWindowSize();
 		new DialogView(dialogVm, view);
@@ -279,7 +288,7 @@ public class QuakeInjector {
 		                            engineExe,
 		                            getConfig().EngineCommandLine);
 
-		packageLauncher = new PackageLauncher(this.dialogProvider, starter);
+		packageLauncher = new PackageLauncher(this.dialogProvider, starter, recentPackages);
 
 		if (!installer.checkInstallDirectory()) {
 			// Engine path not set - show config dialog

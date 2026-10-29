@@ -1,6 +1,7 @@
 package de.haukerehfeld.quakeinjector.gui;
 
 import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
+import de.haukerehfeld.quakeinjector.guimodel.RecentPackagesViewModel;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import javax.swing.*;
@@ -35,10 +36,11 @@ public class QuakeInjectorView extends JFrame {
 	private final Menu menu;
 	private final PackageInteractionViewModel packageVm;
 	private PackageTable packageTable;
+	private JTextField filter;
 	private final List<ActionListener> showEngineConfigListeners = new ArrayList<>();
 
 	public QuakeInjectorView(PackageTableModel maplist, PackageInteractionViewModel packageVm, Component packageInteractionPanelView,
-	                         Component installQueuePanel) {
+	                         Component installQueuePanel, RecentPackagesViewModel recentVm) {
 		super(applicationName);
 
 		this.maplist = maplist;
@@ -53,7 +55,9 @@ public class QuakeInjectorView extends JFrame {
 
 		setIconImages(createIconList(ICON_SIZES, ICON_URL, ICON_SIZE_PLACEHOLDER));
 
-		menu = new Menu();
+		RecentMenu recentMenu = new RecentMenu(recentVm);
+		recentMenu.setSelectListener(this::showPackage);
+		menu = new Menu(recentMenu);
 		setJMenuBar(menu);
 
 		setMinimumSize(new Dimension(minWidth, minHeight));
@@ -65,6 +69,29 @@ public class QuakeInjectorView extends JFrame {
 
 	public Menu getMenu() {
 		return menu;
+	}
+
+	/**
+	 * Select the package with this id in the table and scroll to it. Clears the filter if it hides the
+	 * package. Does nothing if the package isn't in the list.
+	 */
+	private void showPackage(String packageId) {
+		int modelRow = maplist.rowIndexOf(packageId);
+		if (modelRow < 0) {
+			return;
+		}
+		int viewRow = packageTable.convertRowIndexToView(modelRow);
+		if (viewRow < 0) {
+			// the filter's document listener sets the row filter right away
+			filter.setText("");
+			viewRow = packageTable.convertRowIndexToView(modelRow);
+			if (viewRow < 0) {
+				return;
+			}
+		}
+		// the table's selection listener makes this the selected package
+		packageTable.setRowSelectionInterval(viewRow, viewRow);
+		packageTable.scrollRectToVisible(packageTable.getCellRect(viewRow, 0, true));
 	}
 
 	private void addMainPane(Container panel) {
@@ -85,7 +112,7 @@ public class QuakeInjectorView extends JFrame {
 			final JButton clearFilter = new JButton("Clear");
 			clearFilter.setEnabled(false);  // disabled until there's text in filter textfield
 
-			final JTextField filter = new JTextField();
+			filter = new JTextField();
 			filter.getDocument().addDocumentListener(
 					new DocumentListener() {
 						public void changedUpdate(DocumentEvent e) { filter(); }

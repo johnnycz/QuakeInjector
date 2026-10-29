@@ -25,6 +25,9 @@ public class RecordingDialogs implements DialogProvider {
 	/** Answers {@link #askAndshowEngineConfigWindow}; null: not expected. */
 	public volatile BooleanSupplier engineConfigAnswer;
 
+	/** The message of the last {@link #showError} call. */
+	public volatile String errorMessage;
+
 	/** The message of the last {@link #showOptions} call. */
 	public volatile String optionsMessage;
 
@@ -45,6 +48,7 @@ public class RecordingDialogs implements DialogProvider {
 	@Override
 	public void showError(String message, String title) {
 		record("error: " + title);
+		errorMessage = message;
 	}
 
 	@Override
@@ -59,7 +63,13 @@ public class RecordingDialogs implements DialogProvider {
 
 	@Override
 	public void showEngineOutout(InputStream engineOutput) {
-		throw new UnsupportedOperationException("not expected in this test");
+		record("engine output");
+		// read it to the end, so the engine process can finish, and close it
+		try (engineOutput) {
+			engineOutput.transferTo(java.io.OutputStream.nullOutputStream());
+		} catch (java.io.IOException e) {
+			throw new java.io.UncheckedIOException(e);
+		}
 	}
 
 	@Override

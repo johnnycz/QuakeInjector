@@ -97,6 +97,15 @@ public class PackageListViewModel implements ChangeListener {
 		return selected == null || data == null ? -1 : data.indexOf(selected);
 	}
 
+	/** @return the row of the package with this id, or -1 if it isn't in the list */
+	public int rowIndexOf(String packageId) {
+		if (data == null || packageId == null) {
+			return -1;
+		}
+		Package pkg = data.get(packageId);
+		return pkg == null ? -1 : data.indexOf(pkg);
+	}
+
 	public void stateChanged(ChangeEvent e) {
 		if (e.getSource() instanceof PackageList) {
 			setMapList((PackageList) e.getSource());

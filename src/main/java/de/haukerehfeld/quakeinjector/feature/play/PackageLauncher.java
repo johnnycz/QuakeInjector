@@ -3,6 +3,7 @@ package de.haukerehfeld.quakeinjector.feature.play;
 import de.haukerehfeld.quakeinjector.model.DialogProvider;
 import de.haukerehfeld.quakeinjector.model.MissingPrerequisites;
 import de.haukerehfeld.quakeinjector.model.Package;
+import de.haukerehfeld.quakeinjector.model.RecentPackages;
 import de.haukerehfeld.quakeinjector.model.Requirement;
 
 import java.util.List;
@@ -11,11 +12,15 @@ public class PackageLauncher {
 
 	private final DialogProvider dialogProvider;
 
+	private final RecentPackages recentPackages;
+
 	private EngineStarter starter;
 
-	public PackageLauncher(DialogProvider dialogProvider, EngineStarter starter) {
+	/** @param recentPackages a package becomes the most recent one once its engine was started */
+	public PackageLauncher(DialogProvider dialogProvider, EngineStarter starter, RecentPackages recentPackages) {
 		this.dialogProvider = dialogProvider;
 		this.starter = starter;
+		this.recentPackages = recentPackages;
 	}
 
 	private boolean checkPlayRequirements(de.haukerehfeld.quakeinjector.model.Package selectedMap) {
@@ -55,6 +60,7 @@ public class PackageLauncher {
 
 		try {
 			Process p = starter.start(pkg.getCommandline(), startmap);
+			recentPackages.add(pkg.getId());
 			dialogProvider.showEngineOutout(p.getInputStream());
 		}
 		catch (java.io.IOException e) {

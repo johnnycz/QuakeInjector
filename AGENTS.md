@@ -43,10 +43,11 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - `CommandHandler` — central router for async operations
   - `OfficialExpansion` — the hardcoded list of official expansions (hipnotic, rogue, mg1, mg3), which the package database can't install. A prerequisite on the list becomes an `OfficialExpansionRequirement` (made by the parsers), which is installed when `<Quake dir>/<id>/pak0.pak` exists (any case), checked on every `isInstalled()`; the installed packages list has no say. `MissingPrerequisites` names them in full in the Install/Play dialogs
   - `JobTracker` — one row in the install queue panel, which shows all background work (installs, uninstalls, loading the database, "Check for installed maps"); there are no progress popups: `setProgress` (0..100 or `UNKNOWN_PROGRESS`, shown as a busy bar), `finish`; call it on the EDT
+  - `RecentPackages` — the ids of the packages installed or played most recently, newest first, at most `MAX_SIZE` (10). A successful install of the package the user picked (not a prerequisite installed along with it) and a started engine (`PackageLauncher`) move it to the top; an uninstall takes it off. Saved in the settings (`recentPackages`, comma-separated) when the app closes. Shown in the Recent menu (`gui.RecentMenu`, next to File) through `guimodel.RecentPackagesViewModel`, which leaves out ids not in the loaded package list and numbers the items 1-9, 0; clicking one selects it in the table (`QuakeInjectorView.showPackage`, clearing the filter if it hides the package)
 
 - **`feature/`** — Feature-specific implementations organized by user-facing workflows
   - **`feature.list/`** — Package database fetching, parsing, and search
-    - `PackageDatabaseService` — main entry point, showing a row in the install queue panel (no popup): `loadCachedThenDownload` (startup) shows the cached database right away, then downloads and replaces the list; `download` ("Reparse database") only downloads. A failed download keeps the list already shown; there is no fallback to the cache after a download
+    - `PackageDatabaseService` — main entry point, showing a row in the install queue panel (no popup): `loadCachedThenDownload` (startup) shows the cached database right away, then downloads and replaces the list; `download` ("Reparse database") only downloads. A failed download keeps the list already shown; there is no fallback to the cache after a download. An error while showing the cached list (a bug in a package list listener) is logged and the download still runs; one while showing the downloaded list fails the row with its own error ("Showing the package list failed"), not as a download failure. The row is finished only after the list is shown
     - `PackageDatabaseJsonParser` / `PackageDatabaseSolrJsonParser` — API parsers
     - `PackageDatabaseCache` — reads the cache file (`database.json`); missing or broken reads as empty
     - `PackageDatabaseDownloadTask` — downloads and parses the database, and keeps the download as the new cache file
@@ -134,6 +135,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - Settings dialog: `ConfigViewModelTest` (Apply only when something differs from the saved settings and the paths are valid; reading the fields back as shown is no change)
 - Reloading the list: `RequirementListTest` (installed state carries over), `PackageTableSelectionTest` (selection survives, selection of the last session restored), `InstallerTest` (queue by package id)
 - Official expansions: `OfficialExpansionTest` (the list, finding the files), `OfficialExpansionRequirementTest` (installed state, messages), plus cases in `PackageDatabaseSolrJsonParserTest` and `PackageInstallUninstallServiceTest`
+- Recent packages: `RecentPackagesTest` (order, size limit, settings value), `PackageLauncherTest` (playing; the engine is the test's own java executable), `RecentPackagesViewModelTest` (the menu's items, updates, `PackageListViewModel.rowIndexOf`), plus cases in `PackageInstallUninstallServiceTest`
 - Prefer focused, single-concern tests over integration suites
 
 ### Test helpers

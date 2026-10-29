@@ -95,9 +95,15 @@ public class PackageDatabaseService {
 		// the server doesn't send the size of the database
 		job.setProgress(JobTracker.UNKNOWN_PROGRESS);
 
+		// whatever goes wrong with the cached copy, the download still runs
 		CompletableFuture<Void> cached = cacheFirst
 			? CompletableFuture.supplyAsync(new PackageDatabaseCache(config)::read, background)
 				.thenAcceptAsync(list -> list.ifPresent(this::showList), ui)
+				.exceptionally(error -> {
+					System.err.println("Showing the cached package database failed, downloading it anyway:");
+					unwrap(error).printStackTrace();
+					return null;
+				})
 			: CompletableFuture.completedFuture(null);
 
 		PackageDatabaseDownloadTask download = new PackageDatabaseDownloadTask(config, token);
@@ -111,13 +117,26 @@ public class PackageDatabaseService {
 			}, background)
 			.whenCompleteAsync((downloaded, error) -> {
 				loading = false;
-				if (error == null) {
-					job.finish("Done");
-					showList(downloaded);
+				if (error != null) {
+					downloadFailed(job, unwrap(error));
 					return;
 				}
-				downloadFailed(job, unwrap(error));
+				try {
+					showList(downloaded);
+				} catch (RuntimeException e) {
+					showingFailed(job, e);
+					return;
+				}
+				job.finish("Done");
 			}, ui);
+	}
+
+	/** The download worked, but putting it into the package list failed: a bug, not a network problem. */
+	private void showingFailed(JobTracker job, RuntimeException e) {
+		System.err.println("Showing the downloaded package database failed:");
+		e.printStackTrace();
+		job.finish("Failed");
+		dialogs.showError("Showing the package list failed! " + e, "Showing the package list failed");
 	}
 
 	/** Replace the package list; the installed state carries over (see {@link RequirementList#setRequirements}). */

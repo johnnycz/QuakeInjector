@@ -44,7 +44,10 @@ public class PackageDatabaseServiceTest {
 	private final InstallQueueViewModel jobs = new InstallQueueViewModel();
 	private final RecordingDialogs dialogs = new RecordingDialogs();
 	private final RequirementList packages = new RequirementList();
-	/** For each time the list was replaced: whether the load's row was finished by then. */
+	/**
+	 * For each time the list was replaced: whether the load's row was finished by then. Always false: the
+	 * row is finished only once the list is shown, so a failure showing it can still be reported.
+	 */
 	private final List<Boolean> replacedWhenFinished = new CopyOnWriteArrayList<>();
 	/** For each call of whenFirstLoaded: how often the list had been replaced by then. */
 	private final List<Integer> firstLoadedAfter = new CopyOnWriteArrayList<>();
@@ -157,7 +160,7 @@ public class PackageDatabaseServiceTest {
 		onUi(service::loadCachedThenDownload);
 
 		assertEquals("Done", awaitFinished(0));
-		assertEquals(List.of(false, true), replacedWhenFinished, "the cached list, then the downloaded one");
+		assertEquals(List.of(false, false), replacedWhenFinished, "the cached list, then the downloaded one");
 		assertEquals(List.of(1), firstLoadedAfter, "installed state is read once, after the cached list");
 		assertTrue(packages.size() > 0);
 		assertEquals(List.of(), dialogs.calls);
@@ -182,7 +185,7 @@ public class PackageDatabaseServiceTest {
 		onUi(service::loadCachedThenDownload);
 
 		assertEquals("Done", awaitFinished(0));
-		assertEquals(List.of(true), replacedWhenFinished);
+		assertEquals(List.of(false), replacedWhenFinished);
 		assertEquals(List.of(1), firstLoadedAfter);
 		assertTrue(Files.size(cache) > 0, "the download is cached");
 	}
@@ -207,7 +210,7 @@ public class PackageDatabaseServiceTest {
 		onUi(service::loadCachedThenDownload);
 
 		assertEquals("Done", awaitFinished(0));
-		assertEquals(List.of(true), replacedWhenFinished);
+		assertEquals(List.of(false), replacedWhenFinished);
 		assertTrue(packages.size() > 0);
 	}
 
@@ -292,5 +295,56 @@ public class PackageDatabaseServiceTest {
 
 		assertEquals("Done", awaitFinished(1));
 		assertEquals(2, (int) onUi(() -> jobs.jobs.size()));
+	}
+
+	// --- a failure showing the list (a bug in a listener of the package list) ---
+
+	/** The next {@code times} replacements of the list fail in a listener, as a bug in the GUI would. */
+	private void failShowingTheList(int times) {
+		int[] left = {times};
+		packages.addChangeListener(e -> {
+			if (left[0] > 0) {
+				left[0]--;
+				throw new IllegalStateException("broken listener");
+			}
+		});
+	}
+
+	@Test
+	public void aFailureShowingTheCachedListStillDownloads() throws Exception {
+		cacheTheServersDatabase();
+		failShowingTheList(1);
+
+		onUi(service::loadCachedThenDownload);
+
+		assertEquals("Done", awaitFinished(0));
+		assertEquals(List.of(false, false), replacedWhenFinished, "the cached list, then the downloaded one");
+		assertEquals(List.of(2), firstLoadedAfter, "the list first counts as loaded after the download");
+		assertEquals(List.of(), dialogs.calls, "nothing to tell: the downloaded list is shown");
+	}
+
+	@Test
+	public void aFailureShowingTheDownloadedListShowsAnError() throws Exception {
+		failShowingTheList(1);
+
+		onUi(service::loadCachedThenDownload);
+
+		assertEquals("Failed", awaitFinished(0));
+		assertEquals(List.of("error: Showing the package list failed"), dialogs.calls,
+			"not reported as a download or parsing failure");
+		assertEquals(List.of(TestThreads.UI), dialogs.threads);
+		assertTrue(dialogs.errorMessage.contains("broken listener"), dialogs.errorMessage);
+	}
+
+	@Test
+	public void afterAFailureShowingTheListItCanBeDownloadedAgain() throws Exception {
+		failShowingTheList(1);
+		onUi(service::loadCachedThenDownload);
+		assertEquals("Failed", awaitFinished(0));
+
+		onUi(service::download);
+
+		assertEquals("Done", awaitFinished(1));
+		assertEquals(List.of(2), firstLoadedAfter, "loaded with the second replacement; the first failed");
 	}
 }

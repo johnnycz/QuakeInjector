@@ -146,6 +146,11 @@ public class PackageTableModel extends AbstractTableModel implements ChangeListe
 		return vm.selectedRowIndex();
 	}
 
+	/** @return the model row of the package with this id, or -1 */
+	public int rowIndexOf(String packageId) {
+		return vm.rowIndexOf(packageId);
+	}
+
 	/** @return true once after the selection of the last session was restored */
 	public boolean takeScrollRequest() {
 		return vm.takeScrollRequest();
