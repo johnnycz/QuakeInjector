@@ -18,12 +18,24 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.3'
     implementation 'org.apache.commons:commons-compress:1.27.1'
     implementation 'com.github.weisj:darklaf-core:2.7.3'
+    // draws the SVG icons; darklaf brings the same version, but we use it directly
+    implementation 'com.formdev:svgSalamander:1.1.2.4'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testImplementation 'com.tngtech.archunit:archunit:1.4.1'
 }
 
 application {
     mainClass.set('de.haukerehfeld.quakeinjector.QuakeInjector')
+}
+
+distributions {
+    main {
+        contents {
+            // our license and those of the third-party material (icons)
+            from("COPYING")
+            from("licenses")
+        }
+    }
 }
 
 spotbugs {
@@ -42,6 +54,11 @@ spotbugsMain {
 jar {
     manifest {
         attributes["Main-Class"] = application.mainClass.get()
+    }
+    // our license and those of the third-party material (icons), next to the code they cover
+    into("META-INF") {
+        from("COPYING")
+        from("licenses")
     }
 }
 
@@ -107,6 +124,9 @@ task setupWinDist(type: Copy) {
         }
     }
     from("$buildDir/launch4j")
+    // our license and those of the third-party material (icons)
+    from("COPYING")
+    from("licenses")
     into(targetDir)
 }
 

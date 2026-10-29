@@ -155,6 +155,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - **Jackson** (v2.13.3) — JSON parsing for package database API responses
 - **Apache Commons Compress** (v1.27.1) — ZIP extraction during installation
 - **Darklaf** (v2.7.3) — Modern dark/light look-and-feel support
+- **svgSalamander** (v1.1.2.4, also used by Darklaf) — draws the SVG icons (`gui.SvgIcon`: a single-color SVG from the resources in the button's text color, e.g. the Uninstall trash can `delete_icon.svg`)
 - **BrowserLauncher2** (v1.3) — Cross-platform web browser launching
 - **JUnit 5** (v5.10.2) — Testing framework
 - **JaCoCo** (v0.8.13) — Code coverage
@@ -182,6 +183,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - **Windows EXE** — Includes bundled OpenJDK 17 (32-bit via Launch4j); distributed as a zip archive
 - Build process downloads the JRE during `winDist` task (one-time cost, cached in `build/jre`)
 - See `setupWinDist` task in build.gradle for distribution assembly details
+- Licenses: `COPYING` and everything in `licenses/` (`THIRD_PARTY_NOTICES.txt`, `LICENSE-APACHE-2.0.txt`) go into the JAR (`META-INF/`), the `distZip` zip and the Windows zip. When adding third-party material (icons, images), add it to `THIRD_PARTY_NOTICES.txt`, plus its license text if it is a new one
 
 ## Known Issues and TODOs
 

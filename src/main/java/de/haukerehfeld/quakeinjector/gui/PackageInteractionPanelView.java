@@ -48,17 +48,16 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 		setLayout(cards);
 
 		installButton = coloredButton("Install", INSTALL_COLOR);
+		setTextIcon(installButton, "/download_icon.svg");
 		installButton.addActionListener((e) -> vm.install());
 
 		playButton = coloredButton("Play", PLAY_COLOR);
-		// a bit smaller than the text, on its left (the default)
-		playButton.setIcon(new PlayIcon(Math.round(playButton.getFont().getSize() * 0.8f)));
-		playButton.setIconTextGap(6);
+		setTextIcon(playButton, "/play_icon.svg");
 		startmaps = new JComboBox<>();
 		playButton.addActionListener((e) -> vm.play(startmaps.getItemAt(startmaps.getSelectedIndex())));
 
 		uninstallButton = coloredButton(null, UNINSTALL_COLOR);
-		uninstallButton.setIcon(new TrashIcon(installButton.getFont().getSize() + 7));
+		uninstallButton.setIcon(new SvgIcon("/delete_icon.svg", installButton.getFont().getSize() + 7));
 		// just the icon, so no extra room on the sides
 		uninstallButton.setMargin(new Insets(4, 4, 4, 4));
 		uninstallButton.setToolTipText("Uninstall");
@@ -74,6 +73,15 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 
 		vm.addChangeListener(this);
 		updateElements();
+	}
+
+	/**
+	 * An icon on the left of the text (the default). The icons have empty space around the shape, so a bit
+	 * larger than the font makes the shape as high as the text.
+	 */
+	private static void setTextIcon(JButton button, String svg) {
+		button.setIcon(new SvgIcon(svg, Math.round(button.getFont().getSize() * 1.3f)));
+		button.setIconTextGap(6);
 	}
 
 	private static JButton coloredButton(String text, Color color) {

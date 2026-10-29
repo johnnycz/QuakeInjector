@@ -1,0 +1,24 @@
+Third-party material in QuakeInjector
+=====================================
+
+QuakeInjector itself is licensed under the GNU General Public License,
+version 3 or later (see COPYING).
+
+It contains the following material from others, under its own license.
+
+
+Material Symbols
+----------------
+
+These icons are from Material Symbols:
+
+  src/main/resources/delete_icon.svg     the "delete" icon (Uninstall button)
+  src/main/resources/download_icon.svg   the "download" icon (Install button)
+  src/main/resources/play_icon.svg       the "play_arrow" icon (Play button)
+
+  Copyright Google LLC
+  Source:  https://github.com/google/material-design-icons
+  License: Apache License, Version 2.0 (see LICENSE-APACHE-2.0.txt,
+           or https://www.apache.org/licenses/LICENSE-2.0)
+
+The files are unchanged. The program draws them in the current theme's text color.

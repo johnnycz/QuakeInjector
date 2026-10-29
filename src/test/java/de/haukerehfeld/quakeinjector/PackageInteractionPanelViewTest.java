@@ -1,7 +1,7 @@
 package de.haukerehfeld.quakeinjector;
 
 import de.haukerehfeld.quakeinjector.gui.PackageInteractionPanelView;
-import de.haukerehfeld.quakeinjector.gui.TrashIcon;
+import de.haukerehfeld.quakeinjector.gui.SvgIcon;
 import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
 import de.haukerehfeld.quakeinjector.model.CommandHandler;
 import de.haukerehfeld.quakeinjector.model.ExtractMapping;
@@ -68,14 +68,6 @@ public class PackageInteractionPanelViewTest {
 		};
 	}
 
-	private AbstractButton button(String text) {
-		List<Component> all = new ArrayList<>();
-		collect(panel, all);
-		return all.stream()
-			.filter(c -> c instanceof AbstractButton b && text.equals(b.getText()))
-			.map(c -> (AbstractButton) c).findFirst().orElseThrow();
-	}
-
 	private static void collect(Container c, List<Component> into) {
 		for (Component child : c.getComponents()) {
 			into.add(child);
@@ -108,15 +100,22 @@ public class PackageInteractionPanelViewTest {
 		return texts;
 	}
 
+	/** The icon-only button (Uninstall). */
 	private AbstractButton iconButton() {
+		return button("");
+	}
+
+	/** The visible button with the text ("" for the icon-only one). */
+	private AbstractButton button(String text) {
 		List<Component> all = new ArrayList<>();
 		collect(panel, all);
 		for (Component c : all) {
-			if (c instanceof AbstractButton b && b.getIcon() instanceof TrashIcon) {
+			if (c instanceof AbstractButton b && !(c.getParent() instanceof JComboBox) && visible(b)
+				&& text.equals(b.getText() == null ? "" : b.getText())) {
 				return b;
 			}
 		}
-		throw new AssertionError("no uninstall button");
+		throw new AssertionError("no button \"" + text + "\"");
 	}
 
 	private boolean startmapsVisible() {
@@ -132,6 +131,7 @@ public class PackageInteractionPanelViewTest {
 
 			assertEquals(List.of("Install"), visibleButtons(), "no package name on the button");
 			assertFalse(startmapsVisible());
+			assertInstanceOf(SvgIcon.class, button("Install").getIcon(), "download icon");
 		});
 	}
 
@@ -144,6 +144,9 @@ public class PackageInteractionPanelViewTest {
 			assertTrue(startmapsVisible());
 			AbstractButton uninstall = iconButton();
 			assertEquals("Uninstall", uninstall.getToolTipText());
+			assertInstanceOf(SvgIcon.class, uninstall.getIcon(), "trash can icon");
+			assertInstanceOf(SvgIcon.class, button("Play").getIcon(), "play icon");
+			assertNull(button("Readme").getIcon());
 		});
 	}
 

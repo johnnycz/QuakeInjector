@@ -28,6 +28,8 @@ On Windows you can use a self-contained executable. On Linux and MacOS you need 
 
 *Keep in mind this software is still in heavy development. The alpha tag hints at it not being feature complete, and possibly buggy.* See the included licence (`COPYING`) for more details on warranties, etc. (there are none).
 
+The icons are from [Material Symbols](https://github.com/google/material-design-icons) by Google, licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0). See `THIRD_PARTY_NOTICES.txt`.
+
 ## Basic Manual
 ### Filtering, Sorting and the Package Table
 Right above the table of available packages you see a filter field. Here you can specify a filter for the listing. Let's say you want to see only maps from 2001? Enter "`2001`" without the quotes. Or for all maps by Vondur, enter "`Vondur`". You can also enter multiple words, they will be connect by a logical AND. So "`czg 2000`" would show you all maps czg made in 2000. To reset the filter simply delete all text from it.
