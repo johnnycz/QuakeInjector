@@ -61,6 +61,7 @@ public class QuakeInjector {
 	private final PackageTableModel maplist;
 	private Installer installer;
 	private final PackageInteractionViewModel packageInteractionViewModel;
+	private final PackageListViewModel packageListViewModel;
 	private final InstalledPackages installedMaps = new InstalledPackages();
 	private final Configuration config;
 
@@ -98,7 +99,7 @@ public class QuakeInjector {
 
 		var readmeService = new ReadmeService(() -> getConfig().EnginePath.get(), javax.swing.SwingUtilities::invokeLater);
 		packageInteractionViewModel = new PackageInteractionViewModel(router, readmeService);
-		PackageListViewModel packageListViewModel = new PackageListViewModel(packageInteractionViewModel);
+		packageListViewModel = new PackageListViewModel(packageInteractionViewModel);
 		packageListViewModel.setMapList(packages);
 		maplist = new PackageTableModel(packageListViewModel, packageInteractionViewModel);
 		var jobTrackerProvider = new InstallQueueViewModel();
@@ -245,6 +246,10 @@ public class QuakeInjector {
 				new SaveInstalled(installedMapsFile)
 	    );
 
+		// select the package of the last session again once the list is there
+		if (getConfig().SelectedPackage.exists()) {
+			packageListViewModel.restoreSelection(getConfig().SelectedPackage.get());
+		}
 		packageDatabaseService.loadCachedThenDownload();
 
 		Configuration.EnginePath enginePath = getConfig().EnginePath;
@@ -460,6 +465,11 @@ public class QuakeInjector {
 			config.MainWindowWidth.set((int) bounds.getWidth());
 			config.MainWindowHeight.set((int) bounds.getHeight());
 			config.MainWindowState.set(view.getExtendedState());
+			// nothing selected (e.g. the list never loaded): keep the package of the last session
+			String selectedId = packageListViewModel.selectedPackageId();
+			if (selectedId != null) {
+				config.SelectedPackage.set(selectedId);
+			}
 
 			try {
 				config.write();

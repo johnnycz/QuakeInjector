@@ -24,6 +24,9 @@ public class PackageListViewModel implements ChangeListener {
 
 	private final PackageInteractionViewModel packageInteractionViewModel;
 	private PackageList data;
+	/** The package to select once the first non-empty list arrives; null when there is none (any more) */
+	private String packageToRestore;
+	private boolean scrollToSelection;
 
 	public PackageListViewModel(PackageInteractionViewModel packageInteractionViewModel) {
 		this.packageInteractionViewModel = packageInteractionViewModel;
@@ -54,7 +57,38 @@ public class PackageListViewModel implements ChangeListener {
 			packageInteractionViewModel.setSelectedPackage(data.get(selected.getId()));
 		}
 
+		// tried on the first list with packages only: later lists (the download after the cache) don't
+		if (packageToRestore != null && data.size() > 0) {
+			Package restored = data.get(packageToRestore);
+			packageToRestore = null;
+			if (restored != null && packageInteractionViewModel.getSelectedPackage() == null) {
+				packageInteractionViewModel.setSelectedPackage(restored);
+				scrollToSelection = true;
+			}
+		}
+
 		notifyChangeListeners(-1);
+	}
+
+	/**
+	 * Select this package (e.g. the one selected in the last session) when the first list with
+	 * packages arrives, if it is in that list and nothing is selected yet.
+	 */
+	public void restoreSelection(String packageId) {
+		packageToRestore = packageId;
+	}
+
+	/** @return true once after {@link #restoreSelection} selected a package: the view should scroll to it */
+	public boolean takeScrollRequest() {
+		boolean scroll = scrollToSelection;
+		scrollToSelection = false;
+		return scroll;
+	}
+
+	/** @return the id of the selected package, or null */
+	public String selectedPackageId() {
+		Package selected = packageInteractionViewModel.getSelectedPackage();
+		return selected == null ? null : selected.getId();
 	}
 
 	/** @return the row of the selected package, or -1 if none is selected */

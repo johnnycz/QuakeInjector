@@ -146,6 +146,11 @@ public class PackageTableModel extends AbstractTableModel implements ChangeListe
 		return vm.selectedRowIndex();
 	}
 
+	/** @return true once after the selection of the last session was restored */
+	public boolean takeScrollRequest() {
+		return vm.takeScrollRequest();
+	}
+
 	@Override
 	public void stateChanged(ChangeEvent e) {
 		Edt.check("PackageTableModel");

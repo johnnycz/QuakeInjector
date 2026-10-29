@@ -170,6 +170,12 @@ public class Configuration {
 	}
 	public final MainWindowState MainWindowState = new MainWindowState();
 
+	/** The id of the package selected when the app was closed */
+	public static class SelectedPackage extends StringValue {
+		private SelectedPackage() { super("selectedPackage", null); }
+	}
+	public final SelectedPackage SelectedPackage = new SelectedPackage();
+
 	public static class RepositoryBasePath extends StringValue {
 		private final static String onlineRepositoryExtension = ".zip";
 		

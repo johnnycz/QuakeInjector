@@ -95,7 +95,7 @@ public class PackageTable extends JTable {
 	
 	/**
 	 * A full refresh (e.g. a reloaded package database) clears the table's selection:
-	 * select the row of the selected package again.
+	 * select the row of the selected package again. Scrolls to it when it was the selection of the last session.
 	 */
 	@Override
 	public void tableChanged(TableModelEvent e) {
@@ -108,6 +108,9 @@ public class PackageTable extends JTable {
 				int viewRow = convertRowIndexToView(modelRow);
 				if (viewRow >= 0) {
 					setRowSelectionInterval(viewRow, viewRow);
+					if (model.takeScrollRequest()) {
+						scrollRectToVisible(getCellRect(viewRow, 0, true));
+					}
 				}
 			}
 		}

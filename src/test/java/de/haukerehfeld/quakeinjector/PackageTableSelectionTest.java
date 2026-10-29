@@ -12,7 +12,9 @@ import de.haukerehfeld.quakeinjector.model.Requirement;
 import de.haukerehfeld.quakeinjector.model.RequirementList;
 import org.junit.jupiter.api.Test;
 
+import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
+import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -98,6 +100,111 @@ public class PackageTableSelectionTest {
 		onEdt(() -> {
 			assertNull(interaction.getSelectedPackage());
 			assertNull(selectedRowId());
+		});
+	}
+
+	// the package selected in the last session
+
+	private PackageListViewModel listVm;
+	private JScrollPane scrollPane;
+
+	/** Like the app: an empty table in a scroll pane, the remembered package set before any list arrives */
+	private void createEmptyTableRestoring(String id) {
+		requirements = new RequirementList();
+		interaction = new PackageInteractionViewModel(null, null);
+		listVm = new PackageListViewModel(interaction);
+		listVm.setMapList(new PackageList(requirements));
+		table = new PackageTable(new PackageTableModel(listVm, interaction));
+		scrollPane = new JScrollPane(table);
+		scrollPane.setSize(300, 100);
+		layOut();
+		listVm.restoreSelection(id);
+	}
+
+	/** What showing the window does: lay out the scroll pane and its viewport (headless, no window) */
+	private void layOut() {
+		scrollPane.doLayout();
+		scrollPane.getViewport().doLayout();
+	}
+
+	private void arrive(Requirement... packages) {
+		requirements.setRequirements(list(packages));
+		requirements.notifyChangeListeners();
+	}
+
+	private static Package[] manyPackages(int count) {
+		Package[] packages = new Package[count];
+		for (int i = 0; i < count; i++) {
+			packages[i] = pkg(String.format("p%02d", i));
+		}
+		return packages;
+	}
+
+	@Test
+	public void rememberedPackageIsSelectedAndScrolledTo() throws Exception {
+		onEdt(() -> {
+			createEmptyTableRestoring("p40");
+			arrive(manyPackages(50));
+		});
+
+		onEdt(() -> {
+			assertEquals("p40", interaction.getSelectedPackage().getId());
+			assertEquals("p40", selectedRowId());
+			layOut();
+			Rectangle visible = scrollPane.getViewport().getViewRect();
+			Rectangle row = table.getCellRect(table.getSelectedRow(), 0, true);
+			assertTrue(visible.intersects(row), "the selected row is scrolled into view: " + visible + " / " + row);
+		});
+	}
+
+	@Test
+	public void laterListDoesNotOverrideTheUsersChoice() throws Exception {
+		onEdt(() -> {
+			createEmptyTableRestoring("b");
+			arrive(pkg("a"), pkg("b"), pkg("c"));
+			select("c");
+			arrive(pkg("a"), pkg("b"), pkg("c"));
+		});
+
+		onEdt(() -> assertEquals("c", interaction.getSelectedPackage().getId()));
+	}
+
+	@Test
+	public void onlyTheFirstListIsTried() throws Exception {
+		onEdt(() -> {
+			createEmptyTableRestoring("new");
+			arrive(pkg("a"), pkg("b"));
+			arrive(pkg("a"), pkg("b"), pkg("new"));
+		});
+
+		onEdt(() -> {
+			assertNull(interaction.getSelectedPackage());
+			assertNull(selectedRowId());
+		});
+	}
+
+	@Test
+	public void anEmptyListDoesNotUseUpTheTry() throws Exception {
+		onEdt(() -> {
+			createEmptyTableRestoring("b");
+			arrive();
+			arrive(pkg("a"), pkg("b"));
+		});
+
+		onEdt(() -> assertEquals("b", interaction.getSelectedPackage().getId()));
+	}
+
+	@Test
+	public void unknownPackageSelectsNothing() throws Exception {
+		onEdt(() -> {
+			createEmptyTableRestoring("gone");
+			arrive(pkg("a"), pkg("b"));
+		});
+
+		onEdt(() -> {
+			assertNull(interaction.getSelectedPackage());
+			assertNull(selectedRowId());
+			assertFalse(listVm.takeScrollRequest());
 		});
 	}
 }
