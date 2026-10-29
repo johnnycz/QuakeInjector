@@ -28,7 +28,7 @@ On Windows you can use a self-contained executable. On Linux and MacOS you need 
 
 *Keep in mind this software is still in heavy development. The alpha tag hints at it not being feature complete, and possibly buggy.* See the included licence (`COPYING`) for more details on warranties, etc. (there are none).
 
-The icons are from [Material Symbols](https://github.com/google/material-design-icons) by Google, licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0). See `THIRD_PARTY_NOTICES.txt`.
+The icons are from [Material Symbols](https://github.com/google/material-design-icons) by Google, licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0). The icons, the libraries and the bundled Java runtime are listed with their licenses in `THIRD_PARTY_NOTICES.txt`.
 
 ## Basic Manual
 ### Filtering, Sorting and the Package Table

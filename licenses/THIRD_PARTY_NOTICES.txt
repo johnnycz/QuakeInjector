@@ -4,7 +4,22 @@ Third-party material in QuakeInjector
 QuakeInjector itself is licensed under the GNU General Public License,
 version 3 or later (see COPYING).
 
-It contains the following material from others, under its own license.
+It contains the following material from others, each under its own license.
+The libraries are the jar files in the lib folder of the release zips; most of
+them also carry their license inside the jar (META-INF).
+
+  Material                          License                     Text
+  --------------------------------  --------------------------  -----------------------------
+  Material Symbols (icons)          Apache 2.0                  LICENSE-APACHE-2.0.txt
+  Jackson                           Apache 2.0                  LICENSE-APACHE-2.0.txt
+  Apache Commons Compress, Codec,   Apache 2.0                  LICENSE-APACHE-2.0.txt
+    IO, Lang
+  JetBrains Java Annotations        Apache 2.0                  LICENSE-APACHE-2.0.txt
+  Darklaf, swing-extensions         MIT                         below
+  SVG Salamander                    BSD                         below
+  BrowserLauncher2                  LGPL 2.1 or later           LICENSE-LGPL-2.1.txt
+  Launch4j (QuakeInjector.exe)      MIT                         below
+  Eclipse Temurin (runtime folder)  GPL 2 with Classpath Exc.   runtime/NOTICE, runtime/legal
 
 
 Material Symbols
@@ -22,3 +37,187 @@ These icons are from Material Symbols:
            or https://www.apache.org/licenses/LICENSE-2.0)
 
 The files are unchanged. The program draws them in the current theme's text color.
+
+
+Jackson (jackson-core, jackson-databind, jackson-annotations 2.13.3)
+-------------------------------------------------------------------
+
+  Source:  https://github.com/FasterXML/jackson
+  License: Apache License, Version 2.0 (see LICENSE-APACHE-2.0.txt)
+
+NOTICE of jackson-core and jackson-databind:
+
+  # Jackson JSON processor
+
+  Jackson is a high-performance, Free/Open Source JSON processing library.
+  It was originally written by Tatu Saloranta (tatu.saloranta@iki.fi), and has
+  been in development since 2007.
+  It is currently developed by a community of developers.
+
+  ## Licensing
+
+  Jackson 2.x core and extension components are licensed under Apache License 2.0
+  To find the details that apply to this artifact see the accompanying LICENSE file.
+
+  ## Credits
+
+  A list of contributors may be found from CREDITS(-2.x) file, which is included
+  in some artifacts (usually source distributions); but is always available
+  from the source code management (SCM) system project uses.
+
+
+Apache Commons (commons-compress 1.27.1, commons-codec 1.17.1,
+commons-io 2.16.1, commons-lang3 3.16.0)
+--------------------------------------------------------------
+
+  Source:  https://commons.apache.org/
+  License: Apache License, Version 2.0 (see LICENSE-APACHE-2.0.txt)
+
+NOTICE files:
+
+  Apache Commons Compress
+  Copyright 2002-2024 The Apache Software Foundation
+
+  Apache Commons Codec
+  Copyright 2002-2024 The Apache Software Foundation
+
+  Apache Commons IO
+  Copyright 2002-2024 The Apache Software Foundation
+
+  Apache Commons Lang
+  Copyright 2001-2024 The Apache Software Foundation
+
+  This product includes software developed at
+  The Apache Software Foundation (https://www.apache.org/).
+
+
+JetBrains Java Annotations (annotations 16.0.2)
+-----------------------------------------------
+
+  Copyright JetBrains s.r.o.
+  Source:  https://github.com/JetBrains/java-annotations
+  License: Apache License, Version 2.0 (see LICENSE-APACHE-2.0.txt)
+
+
+Darklaf and swing-extensions (darklaf-* 2.7.3, swing-extensions-* 0.1.3)
+------------------------------------------------------------------------
+
+  Source:  https://github.com/weisJ/darklaf
+           https://github.com/weisJ/swing-extensions
+
+MIT License
+
+Copyright (c) 2021 Jannis Weis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+SVG Salamander (svgSalamander 1.1.2.4)
+--------------------------------------
+
+  Source:  https://github.com/JFormDesigner/svgSalamander
+           (a fork of https://github.com/blackears/svgSalamander)
+
+SVG Salamander
+Copyright (c) 2004, Mark McKay
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or
+without modification, are permitted provided that the following
+conditions are met:
+
+  - Redistributions of source code must retain the above
+    copyright notice, this list of conditions and the following
+    disclaimer.
+  - Redistributions in binary form must reproduce the above
+    copyright notice, this list of conditions and the following
+    disclaimer in the documentation and/or other materials
+    provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+BrowserLauncher2 (BrowserLauncher2 1.3)
+---------------------------------------
+
+  Copyright 2004, 2005, 2006, 2007 Markus Gebhard, Jeff Chapman
+  Source:  https://sourceforge.net/projects/browserlaunch2/
+  License: GNU Lesser General Public License, version 2.1 or later
+           (see LICENSE-LGPL-2.1.txt)
+
+The library is used unchanged, as its own jar file (lib/BrowserLauncher2-1.3.jar),
+so it can be replaced with another version. Its source code is available from
+the address above and from Maven Central (BrowserLauncher2-1.3-sources.jar).
+
+
+Launch4j (the starter code in QuakeInjector.exe, Windows release only)
+-----------------------------------------------------------------------
+
+  Source:  https://launch4j.sourceforge.net/
+
+Launch4j (http://launch4j.sourceforge.net/)
+Cross-platform Java application wrapper for creating Windows native executables.
+
+Copyright (c) 2004, 2015 Grzegorz Kowal
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+Except as contained in this notice, the name(s) of the above copyright holders
+shall not be used in advertising or otherwise to promote the sale, use or other
+dealings in this Software without prior written authorization.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+
+Eclipse Temurin 17.0.10+7 (the runtime folder, Windows release only)
+--------------------------------------------------------------------
+
+The Java runtime bundled with the Windows release.
+
+  Source:  https://adoptium.net/
+  License: GNU General Public License, version 2, with the Classpath Exception
+           (SPDX: GPL-2.0 WITH Classpath-exception-2.0)
+
+Its full notices and licenses, including those of the third-party code it
+contains, are in runtime/NOTICE and the runtime/legal folder.

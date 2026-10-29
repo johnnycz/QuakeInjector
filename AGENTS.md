@@ -183,7 +183,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - **Windows EXE** — Includes bundled OpenJDK 17 (32-bit via Launch4j); distributed as a zip archive
 - Build process downloads the JRE during `winDist` task (one-time cost, cached in `build/jre`)
 - See `setupWinDist` task in build.gradle for distribution assembly details
-- Licenses: `COPYING` and everything in `licenses/` (`THIRD_PARTY_NOTICES.txt`, `LICENSE-APACHE-2.0.txt`) go into the JAR (`META-INF/`), the `distZip` zip and the Windows zip. When adding third-party material (icons, images), add it to `THIRD_PARTY_NOTICES.txt`, plus its license text if it is a new one
+- Licenses: `COPYING` and everything in `licenses/` (`THIRD_PARTY_NOTICES.txt`, `LICENSE-APACHE-2.0.txt`, `LICENSE-LGPL-2.1.txt`) go into the JAR (`META-INF/`), the `distZip` zip and the Windows zip. When adding third-party material (icons, images, libraries, also new transitive ones) or changing a library version, update `THIRD_PARTY_NOTICES.txt` (it names the versions and copies the NOTICE files of Apache libraries), plus the license text if it is a new one
 
 ## Known Issues and TODOs
 
