@@ -39,9 +39,7 @@ public class Download {
 
 	public static URL urlEncode(String urlString) {
 		try {
-			URL url= new URL(urlString);
-
-			URI uri = new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
+			URI uri = Urls.escape(urlString);
 
 			// URI does not encode '+' because that character is a "Reserved Character" with special purpose, so it assumes it needs to stay as is.
 			// But in our case we want to pass the actual '+' as a regular character into the API, so we need to encode it ourselves explicitly.

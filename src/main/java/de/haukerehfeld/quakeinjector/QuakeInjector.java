@@ -37,10 +37,8 @@ import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.*;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -62,6 +60,7 @@ public class QuakeInjector {
 	private final PackageListViewModel packageListViewModel;
 	private final Configuration config;
 	private final RecentPackages recentPackages;
+	private final PackageUrls packageUrls;
 
 	private final QuakeInjectorView view;
 
@@ -84,6 +83,7 @@ public class QuakeInjector {
 			System.err.println("Interrupted: " + e);
 		}
 		this.config = cfg;
+		packageUrls = new PackageUrls(getConfig());
 
 		// kept in the settings, which are written when the app closes
 		recentPackages = RecentPackages.fromSetting(getConfig().RecentPackages.get());
@@ -158,26 +158,24 @@ public class QuakeInjector {
 		@Override
 		public void openPackageWebpage(Package pkg) {
 			try {
-				// URLs with spaces in the path need escaping to %20, not +. We can't use built in URLEncoder
-				URL url = new URL(config.mapWebpageBaseUrl.get() + pkg.getSha256());
-				URI uri = new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
-				BrowserLauncher.openURL(uri.toASCIIString());
+				URI uri = packageUrls.webpage(pkg);
+				if (uri != null) {
+					BrowserLauncher.openURL(uri.toASCIIString());
+				}
 			}
-			catch (MalformedURLException | URISyntaxException e) {
-				// TODO: Emit an error message or something
+			catch (URISyntaxException e) {
+				dialogProvider.showError("The address of the package's web page isn't valid: " + e.getMessage(),
+					"Invalid web page address");
 			}
 		}
 
 		@Override
 		public URI getScreenshotUri(Package pkg) {
 			try {
-				// URLs with spaces in the path need escaping to %20, not +. We can't use built in URLEncoder
-				URL url = new URL(config.ScreenshotRepositoryPath.get()
-						+ pkg.getSha256().substring(0, 2) + "/" + pkg.getSha256() + "/" + pkg.getId() + ".jpg");
-				URI uri = new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
-				return uri;
+				return packageUrls.screenshot(pkg);
 			}
-			catch (MalformedURLException | URISyntaxException e) {
+			catch (URISyntaxException e) {
+				System.err.println("Invalid screenshot address: " + e.getMessage());
 				return null;
 			}
 		}
