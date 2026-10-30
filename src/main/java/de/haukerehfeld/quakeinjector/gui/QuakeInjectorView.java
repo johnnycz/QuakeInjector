@@ -1,5 +1,6 @@
 package de.haukerehfeld.quakeinjector.gui;
 
+import de.haukerehfeld.quakeinjector.guimodel.PackageHistoryViewModel;
 import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
 import de.haukerehfeld.quakeinjector.guimodel.RecentPackagesViewModel;
 import de.haukerehfeld.quakeinjector.utils.Utils;
@@ -9,6 +10,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.awt.event.AWTEventListener;
 import java.awt.event.ActionListener;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -38,9 +40,13 @@ public class QuakeInjectorView extends JFrame {
 	private PackageTable packageTable;
 	private JTextField filter;
 	private final List<ActionListener> showEngineConfigListeners = new ArrayList<>();
+	private final JButton refreshButton = iconButton("/refresh.svg", "Reload database");
+	private final HistoryNavigation history;
+	private final AWTEventListener historyMouseListener;
 
 	public QuakeInjectorView(PackageTableModel maplist, PackageInteractionViewModel packageVm, Component packageInteractionPanelView,
-	                         Component installQueuePanel, RecentPackagesViewModel recentVm) {
+	                         Component installQueuePanel, RecentPackagesViewModel recentVm,
+	                         PackageHistoryViewModel historyVm) {
 		super(applicationName);
 
 		this.maplist = maplist;
@@ -63,7 +69,9 @@ public class QuakeInjectorView extends JFrame {
 		setMinimumSize(new Dimension(minWidth, minHeight));
 
 		//config needed here
+		history = new HistoryNavigation(historyVm, this::showPackage);
 		addMainPane(getContentPane());
+		historyMouseListener = history.install(this);
 
 	}
 
@@ -105,6 +113,10 @@ public class QuakeInjectorView extends JFrame {
 		{
 			JPanel filterPanel = new JPanel();
 			filterPanel.setLayout(new BoxLayout(filterPanel, BoxLayout.LINE_AXIS));
+			filterPanel.add(history.backButton());
+			filterPanel.add(history.forwardButton());
+			filterPanel.add(refreshButton);
+			filterPanel.add(Box.createHorizontalStrut(8));
 			JLabel filterText = new JLabel("Filter: ", SwingConstants.TRAILING);
 			filterPanel.add(filterText);
 			filterPanel.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 4));
@@ -224,6 +236,12 @@ public class QuakeInjectorView extends JFrame {
 		});
 	}
 
+	@Override
+	public void dispose() {
+		Toolkit.getDefaultToolkit().removeAWTEventListener(historyMouseListener);
+		super.dispose();
+	}
+
 	public void display() {
 		//pack();
 		setVisible(true);
@@ -304,5 +322,24 @@ public class QuakeInjectorView extends JFrame {
 
 	public void addShowEngineConfigListener(ActionListener listener) {
 		showEngineConfigListeners.add(listener);
+	}
+
+	/**
+	 * Called when the user clicks the Refresh button next to the filter.
+	 */
+	public void addRefreshListener(ActionListener listener) {
+		refreshButton.addActionListener(listener);
+	}
+
+	/**
+	 * A button showing only an icon, with the name as tool tip and for screen readers.
+	 */
+	static JButton iconButton(String svg, String name) {
+		JButton button = new JButton();
+		button.setIcon(new SvgIcon(svg, Math.round(button.getFont().getSize() * 1.3f)));
+		button.setMargin(new Insets(2, 2, 2, 2));
+		button.setToolTipText(name);
+		button.getAccessibleContext().setAccessibleName(name);
+		return button;
 	}
 }

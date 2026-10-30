@@ -27,7 +27,6 @@ import java.awt.event.KeyEvent;
 import javax.swing.*;
 
 public class Menu extends JMenuBar {
-	private final JMenuItem reparseDatabase;
 	private final JMenuItem checkInstalled;
 	private final JMenuItem engine;
 	private final JMenuItem quit;
@@ -41,9 +40,6 @@ public class Menu extends JMenuBar {
 		add(fileMenu);
 		add(recentMenu);
 
-		reparseDatabase = new JMenuItem("Reload database", KeyEvent.VK_R);
-		fileMenu.add(reparseDatabase);
-
 		checkInstalled = new JMenuItem("Check for installed maps", KeyEvent.VK_C);
 		fileMenu.add(checkInstalled);
 
@@ -52,10 +48,6 @@ public class Menu extends JMenuBar {
 
 		quit = new JMenuItem("Quit", KeyEvent.VK_Q);
 		fileMenu.add(quit);
-	}
-
-	public void addReparseDatabaseActionListener(ActionListener actionListener) {
-		reparseDatabase.addActionListener(actionListener);
 	}
 
 	public void addCheckInstalledActionListener(ActionListener actionListener) {

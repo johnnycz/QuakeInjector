@@ -27,9 +27,12 @@ Material Symbols
 
 These icons are from Material Symbols:
 
+  src/main/resources/arrow_back.svg      the "arrow_back" icon (Back button)
+  src/main/resources/arrow_forward.svg   the "arrow_forward" icon (Forward button)
   src/main/resources/delete_icon.svg     the "delete" icon (Uninstall button)
   src/main/resources/download_icon.svg   the "download" icon (Install button)
   src/main/resources/play_icon.svg       the "play_arrow" icon (Play button)
+  src/main/resources/refresh.svg         the "refresh" icon (Refresh button)
 
   Copyright Google LLC
   Source:  https://github.com/google/material-design-icons

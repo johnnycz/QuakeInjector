@@ -121,7 +121,8 @@ public class QuakeInjector {
 			this::loadInstalledStatus, javax.swing.SwingUtilities::invokeLater);
 
 		view = new QuakeInjectorView(maplist, packageInteractionViewModel, new PackageInteractionPanelView(packageInteractionViewModel), new InstallQueuePanel(jobTrackerProvider),
-			new RecentPackagesViewModel(recentPackages, packages));
+			new RecentPackagesViewModel(recentPackages, packages),
+			new PackageHistoryViewModel(packageInteractionViewModel, packages));
 		packageInteractionViewModel.setDescriptionLinkHandler(new DescriptionLinkHandler(dialogVm,
 			packageListViewModel::packageIdOfSha256, view::showPackage, BrowserLauncher::openURL));
 
@@ -226,12 +227,13 @@ public class QuakeInjector {
 		addMenuActionListeners();
 
 		view.addShowEngineConfigListener((e) -> showEngineConfig());
+
+		// downloads the package database again
+		view.addRefreshListener((e) -> packageDatabaseService.download());
 	}
 
 	private void addMenuActionListeners() {
 		Menu menu = view.getMenu();
-		menu.addReparseDatabaseActionListener((e) -> packageDatabaseService.download());
-
 		menu.addCheckInstalledActionListener((e) -> installUninstallService.checkForInstalledMaps());
 
 		menu.addQuitActionListener((e) -> {
