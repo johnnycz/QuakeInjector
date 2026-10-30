@@ -320,29 +320,47 @@ public class Configuration {
 	}
 	
 
+	/**
+	 * Write the settings to the config file.
+	 * @throws java.io.IOException if its directory isn't writable or writing fails
+	 */
 	public void write() throws java.io.IOException {
-		if (!Utils.canWriteToDirectory(configFile.getParentFile())) {
+		if (!Utils.canWriteToDirectory(configFile.getAbsoluteFile().getParentFile())) {
 			System.out.println("Cannot write to config directory!");
 			throw new java.io.FileNotFoundException("Cannot write to config directory");
 		}
 		System.out.print("Writing configuration...");
 
-		try {
-			Properties properties = new Properties(defaults());
-			get(properties);
-			FileOutputStream out = new FileOutputStream(configFile);
+		Properties properties = new Properties(defaults());
+		get(properties);
+		try (FileOutputStream out = new FileOutputStream(configFile)) {
 			properties.store(out, CONFIGHEADER);
-			out.close();
 		}
-		catch (java.io.FileNotFoundException e) {
-			System.err.println("Can't write config file: " + e.getMessage());
-			e.printStackTrace();
+		System.out.println("done.");
+	}
+
+	/**
+	 * {@link #write}, and if that fails, try to make the config directory writable and write again
+	 * (Windows Vista/7 can make the program directory read-only).
+	 * @throws java.io.IOException if the second try fails as well
+	 */
+	public void writeOrMakeWritable() throws java.io.IOException {
+		try {
+			write();
+			return;
 		}
 		catch (java.io.IOException e) {
 			System.err.println("Can't write config file: " + e.getMessage());
-			e.printStackTrace();
 		}
-		System.out.println("done.");
+		File dir = configFile.getAbsoluteFile().getParentFile();
+		System.out.println("Trying to set directory (" + dir + ") writable..");
+		try {
+			dir.setWritable(true);
+		}
+		catch (SecurityException securityError) {
+			System.out.println("Couldn't set writable: " + securityError);
+		}
+		write();
 	}
 
 	/**

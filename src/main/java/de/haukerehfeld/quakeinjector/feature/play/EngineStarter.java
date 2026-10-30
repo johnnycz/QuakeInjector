@@ -75,6 +75,26 @@ public class EngineStarter {
 		this.quakeCmdline = quakeCmdline.get();
 	}
 
+	/** An engine starter set up from the engine settings, see {@link #applyConfig}. */
+	public static EngineStarter fromConfig(Configuration config) {
+		EngineStarter starter = new EngineStarter(null, null, config.EngineCommandLine);
+		starter.applyConfig(config);
+		return starter;
+	}
+
+	/**
+	 * Take over the engine settings: the executable (stored relative to the Quake directory, or absolute,
+	 * e.g. on another drive), the working directory (the Quake directory, or the executable's directory if
+	 * so set) and the command line.
+	 */
+	public void applyConfig(Configuration config) {
+		File quakeDir = config.EnginePath.get();
+		File executable = config.EngineExecutable.resolveAgainst(quakeDir);
+		setQuakeApplication(executable);
+		setWorkingDirectory(config.WorkingDirAtExecutable.get() ? executable.getParentFile() : quakeDir);
+		setQuakeCommandline(config.EngineCommandLine);
+	}
+
 	public Process start(String mapCmdline, String startmap) throws java.io.IOException {
 		ArrayList<String> cmd = new ArrayList<String>(5);
 
@@ -109,6 +129,21 @@ public class EngineStarter {
 
 	public void setQuakeCommandline(Configuration.EngineCommandLine cmdline) {
 		this.quakeCmdline = cmdline.get();
+	}
+
+	/** The directory the engine is started in. */
+	public File getWorkingDirectory() {
+		return workingDir;
+	}
+
+	/** The engine executable (inside the bundle for a Mac OS X app). */
+	public File getQuakeExecutable() {
+		return quakeExe;
+	}
+
+	/** The engine's own arguments from the settings, or null. */
+	public String getQuakeCommandline() {
+		return quakeCmdline;
 	}
 
 	public boolean checkPaths() {

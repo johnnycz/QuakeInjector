@@ -41,14 +41,12 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 public class QuakeInjector {
 
-	private final static String installedMapsFileName = "installedMaps.xml";
-	private final static File installedMapsFile = new File(installedMapsFileName);
+	private final static File installedMapsFile = new File("installedMaps.xml");
 	
 	final static File configFile = new File("config.properties");
 	private final PackageInstallUninstallService installUninstallService;
@@ -56,13 +54,12 @@ public class QuakeInjector {
 	private final CommandRouter router;
 	private final DialogProvider dialogProvider;
 	private final PackageDatabaseService packageDatabaseService;
-	private EngineStarter starter;
+	private EngineStarter engineStarter;
 	private final RequirementList maps;
 	private final PackageTableModel maplist;
 	private Installer installer;
 	private final PackageInteractionViewModel packageInteractionViewModel;
 	private final PackageListViewModel packageListViewModel;
-	private final InstalledPackages installedMaps = new InstalledPackages();
 	private final Configuration config;
 	private final RecentPackages recentPackages;
 
@@ -118,7 +115,7 @@ public class QuakeInjector {
 		this.installUninstallService = new PackageInstallUninstallService(jobTrackerProvider, dialogVm, recentPackages);
 		// the installed maps file is read once the first package list is there; installer exists by then
 		this.packageDatabaseService = new PackageDatabaseService(getConfig(), maps, jobTrackerProvider, dialogVm,
-			this::loadInstalledStatus, javax.swing.SwingUtilities::invokeLater);
+			installUninstallService::loadInstalledStatus, javax.swing.SwingUtilities::invokeLater);
 
 		view = new QuakeInjectorView(maplist, packageInteractionViewModel, new PackageInteractionPanelView(packageInteractionViewModel), new InstallQueuePanel(jobTrackerProvider),
 			new RecentPackagesViewModel(recentPackages, packages),
@@ -265,74 +262,14 @@ public class QuakeInjector {
 		}
 		packageDatabaseService.loadCachedThenDownload();
 
-		Configuration.EnginePath enginePath = getConfig().EnginePath;
-		boolean workingDirAtExecutable = false;
-		File engineExe = new File("");
-		Configuration.EngineExecutable engineExecutable = getConfig().EngineExecutable;
-		if (engineExecutable.existsOrDefault()) {
-			if (engineExecutable.get().isAbsolute()) {
-				dialogProvider.showWarning("The Quake Engine path should be set relative to the Quake Directory, not as an absolute path.","Quake Engine invalid");
-				engineExe = engineExecutable.get();
-			} else {
-				engineExe = new File(enginePath.get()
-						+ File.separator
-						+ engineExecutable);
-			}
-			workingDirAtExecutable = getConfig().WorkingDirAtExecutable.get();
-		}
-		File workingDir;
-		if (workingDirAtExecutable) {
-			workingDir = engineExe.getParentFile();
-		}
-		else {
-			workingDir = enginePath.get();
-		}
-
-		starter = new EngineStarter(workingDir,
-		                            engineExe,
-		                            getConfig().EngineCommandLine);
-
-		packageLauncher = new PackageLauncher(this.dialogProvider, starter, recentPackages);
+		engineStarter = EngineStarter.fromConfig(getConfig());
+		packageLauncher = new PackageLauncher(this.dialogProvider, engineStarter, recentPackages);
 
 		if (!installer.checkInstallDirectory()) {
 			// Engine path not set - show config dialog
 			// Database will load asynchronously in the background
 			view.enginePathNotSetDialogue();
 		}
-	}
-
-	/** Runs on the EDT: mark the packages from the installed packages file as installed. */
-	private void applyInstalledStatus(List<PackageFileList> installed, Throwable error) {
-		if (error == null) {
-			maps.setInstalled(installed);
-			return;
-		}
-
-		maps.notifyChangeListeners();
-		Throwable cause = error instanceof java.util.concurrent.CompletionException && error.getCause() != null
-			? error.getCause()
-			: error;
-		if (cause instanceof InstalledPackages.NoInstalledPackagesFileException) {
-			// nothing installed yet
-			System.err.println(cause.getMessage());
-			return;
-		}
-		String ERROR_MESSAGE = "Reading installed maps failed!";
-		JOptionPane.showMessageDialog(view,
-			ERROR_MESSAGE + " " + cause.getMessage(),
-			ERROR_MESSAGE,
-			JOptionPane.ERROR_MESSAGE);
-	}
-
-	/**
-	 * Runs on the EDT the first time the package list was filled. Later replacements keep the installed
-	 * state in memory (RequirementList.setRequirements), so the file is only read once.
-	 */
-	private void loadInstalledStatus() {
-		// On the disk thread: it also writes this file, so the read never sees a half-written one
-		installedMaps.parse(installedMapsFile, installer.diskExecutor());
-		// Don't block the EDT waiting for it: the read may queue behind an install
-		installedMaps.loaded().whenCompleteAsync(this::applyInstalledStatus, javax.swing.SwingUtilities::invokeLater);
 	}
 
 	private void showEngineConfig() {
@@ -346,53 +283,17 @@ public class QuakeInjector {
 	}
 
 	private void applyAndPersistConfig() {
-		Configuration c = getConfig();
-		var workingDirAtExecutable = c.WorkingDirAtExecutable.get();
-		// stored relative to the Quake directory; the engine starter needs the full path
-		var engineExecutable = c.EngineExecutable.resolveAgainst(c.EnginePath.get());
-
-		File workingDir;
-		if (workingDirAtExecutable) {
-			workingDir = engineExecutable.getParentFile();
-		}
-		else {
-			workingDir = c.EnginePath.get();
-		}
-
-		setEngineConfig(workingDir, engineExecutable, getConfig().EngineCommandLine);
-
-
-		try {
-			c.write();
-		}
-		catch (IOException e) {
-			File dir = configFile.getAbsoluteFile().getParentFile();
-			System.out.println("Trying to set directory (" + dir + ") writable..");
-			try {
-				dir.setWritable(true);
-			}
-			catch (SecurityException securityError) {
-				System.out.println("Couldn't set writable: " + securityError);
-			}
-
-			try {
-				c.write();
-			} catch (IOException writeException) {
-				savingFailedDialogue(writeException);
-			}
-		}
+		engineStarter.applyConfig(getConfig());
+		saveConfig();
 	}
 
-
-	/**
-	 * @todo 2010-02-09 12:19 hrehfeld    Let this use configuration values to their full extent
-	 */
-	private void setEngineConfig(File workingDir,
-								 File engineExecutable,
-	                             Configuration.EngineCommandLine commandline) {
-		starter.setWorkingDirectory(workingDir);
-		starter.setQuakeApplication(engineExecutable);
-		starter.setQuakeCommandline(commandline);
+	private void saveConfig() {
+		try {
+			getConfig().writeOrMakeWritable();
+		}
+		catch (IOException e) {
+			savingFailedDialogue(e);
+		}
 	}
 
 
@@ -484,12 +385,7 @@ public class QuakeInjector {
 				config.SelectedPackage.set(selectedId);
 			}
 
-			try {
-				config.write();
-			}
-			catch (IOException err) {
-				savingFailedDialogue(err);
-			}
+			saveConfig();
 			//System.out.println("Closing Window: " + (int) bounds.getWidth() + (int) bounds.getHeight());
 
 

@@ -56,7 +56,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
     - `PackageDatabaseCache` — reads the cache file (`database.json`); missing or broken reads as empty
     - `PackageDatabaseDownloadTask` — downloads and parses the database, and keeps the download as the new cache file
   - **`feature.install/`** — Download, unzip, dependency resolution, and finding out what is installed
-    - `PackageInstallUninstallService` — main entry point (install, uninstall, "Check for installed maps")
+    - `PackageInstallUninstallService` — main entry point (install, uninstall, "Check for installed maps", reading the installed packages file at startup: `loadInstalledStatus`)
     - `InstallPipeline` — the install process as a `CompletableFuture` chain: download (network thread) → inspect (disk thread) → ask about overwrites (UI thread) → extract (disk thread) → report to `InstallListener` (UI thread)
     - `Installer` — owns the network/disk threads and the install queue; the UI executor (`SwingUtilities::invokeLater`) is injected
     - `DownloadTask` / `InspectZipTask` / `ExtractTask` — the install stages; "extract" is the last stage, "install" always means the whole process
@@ -69,7 +69,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
     - `ReadmeReader` — UTF-8 if valid, otherwise code page 437 (DOS readmes); normalizes line ends, drops a BOM, reads at most 1 MB
   - **`feature.play/`** — Quake engine launching
     - `PackageLauncher` — main entry point; prepares game state and launches engine
-    - `EngineStarter` — invokes the Quake engine process with configured arguments
+    - `EngineStarter` — invokes the Quake engine process with configured arguments; set up from the settings with `fromConfig`, updated with `applyConfig` when they change
 
 - **`utils/`** — Shared utilities
   - `Download`, `ProgressListener*` — HTTP fetching with progress reporting
@@ -139,7 +139,9 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - Readme: `ReadmeFilesTest` (which files, order), `ReadmeReaderTest` (encodings, line ends, size limit), `ReadmeServiceTest` (end to end: a zip whose extract mapping renames the readme), `ReadmeViewModelTest` (switching files, late or failed reads), `PackageInteractionPanelViewTest` (the Readme button)
 - Quake engine search: `QuakeEngineSearchTest` (search depth, order, cancel)
 - HTML from the database: `HtmlSanitizerTest` (kept formatting, dropped tags and links), `DatabaseHtmlTest` (a malicious entry in the real description pane and table), `gui.PlainTextTest` (no HTML rendering, also under Darklaf), `gui.BrowserLauncherTest` (only http and https), `DescriptionLinkTest` (the three kinds of description links, the handler, a click in the real description pane, prerequisite links)
-- Settings dialog: `ConfigViewModelTest` (Apply only when something differs from the saved settings and the paths are valid; reading the fields back as shown is no change)
+- Settings dialog: `ConfigViewModelTest` (Apply only when something differs from the saved settings and the paths are valid; reading the fields back as shown is no change); `ConfigurationWriteTest` (saving the settings file, failures reported)
+- Engine setup: `EngineStarterConfigTest` (executable relative to the Quake directory or absolute, working directory, command line)
+- Installed packages file at startup: `LoadInstalledStatusTest` (marked installed, missing file, broken file)
 - Reloading the list: `RequirementListTest` (installed state carries over), `PackageTableSelectionTest` (selection survives, selection of the last session restored), `InstallerTest` (queue by package id)
 - Official expansions: `OfficialExpansionTest` (the list, finding the files), `OfficialExpansionRequirementTest` (installed state, messages), plus cases in `PackageDatabaseSolrJsonParserTest` and `PackageInstallUninstallServiceTest`
 - Back / Forward history: `PackageHistoryViewModelTest` (browser-like moves, settling, Forward dropped, missing packages, size limit)

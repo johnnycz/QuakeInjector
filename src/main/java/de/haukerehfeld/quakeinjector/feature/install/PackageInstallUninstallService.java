@@ -319,6 +319,40 @@ public class PackageInstallUninstallService {
 	}
 
 	/**
+	 * Read the installed packages file and mark those packages as installed. Call on the UI thread, once
+	 * the first package list is there; later lists keep the installed state in memory
+	 * (RequirementList.setRequirements), so the file is only read once. Returns right away: the file is read
+	 * on the disk thread, which also writes it, so the read never sees a half-written one and may wait
+	 * behind an install. The returned future completes on the UI thread once the list was updated.
+	 */
+	public CompletableFuture<Void> loadInstalledStatus() {
+		InstalledPackages file = new InstalledPackages();
+		file.parse(installedMaps.getFile(), installer.diskExecutor());
+		return file.loaded().handleAsync((installed, error) -> {
+			applyInstalledStatus(installed, error);
+			return null;
+		}, installer.uiExecutor());
+	}
+
+	/** On the UI thread: mark the packages from the installed packages file as installed. */
+	private void applyInstalledStatus(List<PackageFileList> installed, Throwable error) {
+		if (error == null) {
+			requirements.setInstalled(installed);
+			return;
+		}
+
+		requirements.notifyChangeListeners();
+		Throwable cause = Futures.unwrap(error);
+		if (cause instanceof InstalledPackages.NoInstalledPackagesFileException) {
+			// nothing installed yet
+			System.err.println(cause.getMessage());
+			return;
+		}
+		String title = "Reading installed maps failed!";
+		dialogProvider.showError(title + " " + cause.getMessage(), title);
+	}
+
+	/**
 	 * Save which packages are installed. The list is copied here, on the UI thread, and written on
 	 * the disk thread. Writes happen in order, so the file always ends up with the latest state.
 	 */

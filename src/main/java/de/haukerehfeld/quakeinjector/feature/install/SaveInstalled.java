@@ -44,6 +44,11 @@ public class SaveInstalled {
 		this.file = file;
 	}
 
+	/** The installed packages file. */
+	public File getFile() {
+		return file;
+	}
+
 	private OutputStream getOutputStream() throws java.io.IOException {
 		if (!file.exists()) {
 			file.createNewFile();
