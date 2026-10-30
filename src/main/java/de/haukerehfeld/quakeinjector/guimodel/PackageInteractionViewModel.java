@@ -9,6 +9,7 @@ import de.haukerehfeld.quakeinjector.model.Package;
 
 import de.haukerehfeld.quakeinjector.utils.ChangeEvent;
 import de.haukerehfeld.quakeinjector.utils.ChangeListener;
+import de.haukerehfeld.quakeinjector.utils.HtmlSanitizer;
 import java.net.URI;
 import java.util.Collections;
 import java.util.Date;
@@ -20,6 +21,7 @@ public class PackageInteractionViewModel implements ChangeListener {
 	private final ChangeListenerList listeners = new ChangeListenerList();
 	private final CommandHandler commandHandler;
 	private final ReadmeSource readmeSource;
+	private DescriptionLinkHandler descriptionLinkHandler;
 
 	/** @param readmeSource null: no readmes */
 	public PackageInteractionViewModel(CommandHandler commandHandler, ReadmeSource readmeSource) {
@@ -132,15 +134,24 @@ public class PackageInteractionViewModel implements ChangeListener {
 		return selectedPackage != null ? selectedPackage.getSize() : 0;
 	}
 
+	/**
+	 * The description as HTML that is safe to show: only simple formatting and http, https or
+	 * relative links (see {@link HtmlSanitizer}). It comes from the package database.
+	 */
 	public String getDescription() {
-		return selectedPackage != null ? selectedPackage.getDescription() : "";
+		return selectedPackage != null ? HtmlSanitizer.sanitize(selectedPackage.getDescription()) : "";
 	}
 
 	/**
 	 * A prerequisite as the package description shows it.
-	 * @param hasWebpage whether it has a Quaddicted page to link to; official expansions don't
+	 * @param sha256 the package's SHA-256, which a link in the description selects it by; null if it
+	 *               isn't a package of the database (official expansions, unknown prerequisites)
 	 */
-	public record Prerequisite(String id, String name, boolean hasWebpage) {}
+	public record Prerequisite(String id, String name, String sha256) {
+		public boolean isLinked() {
+			return sha256 != null && DescriptionLink.of(sha256) instanceof DescriptionLink.ToPackage;
+		}
+	}
 
 	public List<Prerequisite> getRequirements() {
 		if (selectedPackage == null) {
@@ -151,8 +162,27 @@ public class PackageInteractionViewModel implements ChangeListener {
 
 	private static Prerequisite toPrerequisite(Requirement r) {
 		if (r instanceof OfficialExpansionRequirement expansion) {
-			return new Prerequisite(r.getId(), expansion.getName(), false);
+			return new Prerequisite(r.getId(), expansion.getName(), null);
 		}
-		return new Prerequisite(r.getId(), r.getId(), true);
+		if (r instanceof Package pkg) {
+			return new Prerequisite(r.getId(), r.getId(), pkg.getSha256());
+		}
+		return new Prerequisite(r.getId(), r.getId(), null);
+	}
+
+	/**
+	 * Follows a link the user clicked in the description; see {@link DescriptionLinkHandler}.
+	 * Without a handler (in tests), the link is only logged.
+	 */
+	public void openDescriptionLink(String href) {
+		if (descriptionLinkHandler == null) {
+			System.err.println("No handler for description links, not opening " + href);
+			return;
+		}
+		descriptionLinkHandler.open(href);
+	}
+
+	public void setDescriptionLinkHandler(DescriptionLinkHandler handler) {
+		this.descriptionLinkHandler = handler;
 	}
 }

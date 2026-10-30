@@ -141,7 +141,7 @@ public class InstallQueuePanel extends JPanel implements Scrollable, ChangeListe
 			cancelButton = new JButton("Cancel");
 			cancelButton.addActionListener((e) -> jobVm.cancel());
 
-			finishedLabel = new JLabel();
+			finishedLabel = PlainText.disableHtml(new JLabel());
 
 			InstallQueuePanel.this.add(progressBar, new ProgressBarConstraints() {{ gridy = jobVm.getId(); }});
 			InstallQueuePanel.this.add(cancelButton, new CancelButtonConstraints() {{ gridy = jobVm.getId(); }});

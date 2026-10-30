@@ -43,10 +43,10 @@ public class RecentMenu extends JMenu implements ChangeListener {
 		for (RecentPackagesViewModel.Item item : items) {
 			JMenuItem menuItem;
 			if (item.mnemonic() != null) {
-				menuItem = new JMenuItem(item.mnemonic() + "  " + item.label());
+				menuItem = PlainText.menuItem(item.mnemonic() + "  " + item.label());
 				menuItem.setMnemonic(item.mnemonic());
 			} else {
-				menuItem = new JMenuItem(item.label());
+				menuItem = PlainText.menuItem(item.label());
 			}
 			String id = item.id();
 			menuItem.addActionListener(e -> onSelect.accept(id));

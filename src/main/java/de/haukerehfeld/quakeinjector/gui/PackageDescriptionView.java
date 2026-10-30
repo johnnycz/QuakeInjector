@@ -1,6 +1,7 @@
 package de.haukerehfeld.quakeinjector.gui;
 
 import de.haukerehfeld.quakeinjector.guimodel.PackageInteractionViewModel;
+import de.haukerehfeld.quakeinjector.utils.HtmlSanitizer;
 import de.haukerehfeld.quakeinjector.utils.Utils;
 
 import javax.swing.*;
@@ -49,15 +50,8 @@ public class PackageDescriptionView extends JPanel implements ChangeListener {
 		description.addHyperlinkListener(new HyperlinkListener() {
 			@Override public void hyperlinkUpdate(HyperlinkEvent e) {
 				if (e.getEventType().equals(HyperlinkEvent.EventType.ACTIVATED)) {
-					java.net.URL url = e.getURL();
-					if (url != null) {
-						BrowserLauncher.openURL(url.toString());
-					}
-					else {
-						System.err.println("Weird hyperlink with null URL: " + e.getDescription());
-						String link = "https://www.quaddicted.com/reviews/" + e.getDescription();
-						BrowserLauncher.openURL(link);
-					}
+					// the href as written (getURL() is null for the relative package links)
+					vm.openDescriptionLink(e.getDescription());
 				}
 			}
 		});
@@ -170,8 +164,10 @@ public class PackageDescriptionView extends JPanel implements ChangeListener {
 		}
 		List<String> links = new ArrayList<String>(requirements.size());
 		for (PackageInteractionViewModel.Prerequisite r: requirements) {
-			// official expansions have no Quaddicted page: just their name
-			links.add(r.hasWebpage() ? "<a href=\"" + r.id() + ".html\">" + r.name() + "</a>" : r.name());
+			// names come from the database: escaped. A package links by its SHA-256, so clicking selects it;
+			// official expansions and unknown prerequisites aren't packages: just their name
+			String name = HtmlSanitizer.escape(r.name());
+			links.add(r.isLinked() ? "<a href=\"" + r.sha256() + "\">" + name + "</a>" : name);
 		}
 		return "<p>Requires: " + Utils.join(links, ", ") + ".</p>";
 	}

@@ -122,7 +122,7 @@ public class PackageOverwriteDialog extends JDialog {
 	}
 
 	private void addDescriptionLabel(final String text, final int line) {
-		JLabel description = new JLabel(text);
+		JLabel description = PlainText.label(text);
 		description.setLabelFor(this);
 		description.setOpaque(true);
 		description.setBorder(DESCRIPTIONMARGIN);
@@ -169,7 +169,7 @@ public class PackageOverwriteDialog extends JDialog {
 
 		java.util.Collections.sort(overwriteList);
 		for (String name: overwriteList) {
-			JCheckBox overwrite = new JCheckBox(name);
+			JCheckBox overwrite = PlainText.checkBox(name);
 			overwrite.setSelected(true);
 			overwrite.setOpaque(false);
 			overwrite.setBorder(LINEENTRYMARGIN);
@@ -193,7 +193,7 @@ public class PackageOverwriteDialog extends JDialog {
 			addAlwaysWriteDescription(lines++);
 
 			for (String name: alwaysWriteList) {
-				JLabel listEntry = new JLabel(name);
+				JLabel listEntry = PlainText.label(name);
 				listEntry.setOpaque(false);
 				listEntry.setBorder(NOCHECKBOXLINEENTRYMARGIN);
 				final int finalLines = lines;

@@ -97,6 +97,19 @@ public class PackageListViewModel implements ChangeListener {
 		return selected == null || data == null ? -1 : data.indexOf(selected);
 	}
 
+	/** @return the id of the package with this SHA-256 (any case), or null if it isn't in the list */
+	public String packageIdOfSha256(String sha256) {
+		if (data == null || sha256 == null) {
+			return null;
+		}
+		for (Package pkg : data) {
+			if (sha256.equalsIgnoreCase(pkg.getSha256())) {
+				return pkg.getId();
+			}
+		}
+		return null;
+	}
+
 	/** @return the row of the package with this id, or -1 if it isn't in the list */
 	public int rowIndexOf(String packageId) {
 		if (data == null || packageId == null) {

@@ -120,6 +120,11 @@ public class PackageTable extends JTable {
      * Shades alternate rows in different colors.
      */
 	public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
+		// titles, authors and ids come from the database: never as HTML. Set on every call, because
+		// the look and feel may replace the renderers; it has to be on before the cell's text is set.
+		if (renderer instanceof JComponent component) {
+			PlainText.disableHtml(component);
+		}
 		Component c = super.prepareRenderer(renderer, row, column);
 		if (!isRatingColumn(c)) {
 			prepareNonRatingColumnRenderer(row, column, c);

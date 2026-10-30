@@ -31,6 +31,9 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
 - **`gui/`** — Swing UI components (windows, dialogs, panels, tables)
   - No business logic; solely responsible for rendering and user input
   - Currently being refactored to reduce direct model references
+  - Text from the package database or a package (titles, ids, authors, start maps, file names, dialog messages) is never shown as HTML: Swing renders text starting with `<html>` in labels, buttons, menus, table cells and dialogs, and its HTML view loads images (a `file://server/share` image leaks the Windows password hash). Use `PlainText` (`label`, `menuItem`, `checkBox`, `message` for `JOptionPane`, `disableHtml` for renderers; the switch must be on before the text is set). The description pane gets HTML only through `PackageInteractionViewModel.getDescription`, cleaned by `utils.HtmlSanitizer`; HTML built in the views escapes database text with `HtmlSanitizer.escape`
+  - `BrowserLauncher.openURL` opens only http and https URLs (`isWebAddress`); the OS would run anything else (`file:`, `ms-msdt:`, ...) with its program
+  - Links in the description go to `PackageInteractionViewModel.openDescriptionLink` (the href as written) and from there to `guimodel.DescriptionLinkHandler`, set by `QuakeInjector`. `guimodel.DescriptionLink` sorts them: a package's SHA-256 (64 hex digits, the database's links to other packages; prerequisites link the same way) selects it (`PackageListViewModel.packageIdOfSha256`, `QuakeInjectorView.showPackage`); an absolute http or https address opens in the browser after the user agreed in a dialog; anything else (other schemes, other relative links) is logged as an error and not opened
   
 - **`guimodel/`** — ViewModel classes that bridge UI and business logic
   - `PackageListViewModel`, `PackageInteractionViewModel`, `ConfigViewModel`, etc.
@@ -71,6 +74,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - `Download`, `ProgressListener*` — HTTP fetching with progress reporting
   - `ChangeListener` / `ChangeListenerList` — custom observable pattern (predates Java Beans)
   - `Utils` — file operations, path handling
+  - `HtmlSanitizer` — cleans the database's description HTML: keeps simple formatting tags without attributes and links with http, https or relative `href` (entities decoded before the check); drops everything else (images, styles, objects, forms, scripts), and escapes all text
   - `SafePath` — turns a relative path from a package or the database (zip entry, extract mapping, file list, package id) into a file inside a base directory, throwing `UnsafePathException` for anything outside (`..`, absolute, drive or UNC paths). Use it wherever such a path meets the disk: extract and inspect (an unsafe entry fails the whole install as `InstallFailure.Kind.UNSAFE_PATH` before anything is written), the download file, "Check for installed maps" (counts as missing), uninstall (skipped) and readme (not listed, not read). Tested in `SafePathTest` plus cases in the install, uninstall, check and readme tests
 
 ### Architectural Constraints
@@ -133,6 +137,7 @@ When touching GUI-related code, prefer adding/expanding ViewModel classes over l
 - Database loading: `PackageDatabaseDownloadTaskTest` (download, cache file, cancel), `PackageDatabaseServiceTest` (cache first then download, failures, cancel, installed state kept, one load at a time)
 - Readme: `ReadmeFilesTest` (which files, order), `ReadmeReaderTest` (encodings, line ends, size limit), `ReadmeServiceTest` (end to end: a zip whose extract mapping renames the readme), `ReadmeViewModelTest` (switching files, late or failed reads), `PackageInteractionPanelViewTest` (the Readme button)
 - Quake engine search: `QuakeEngineSearchTest` (search depth, order, cancel)
+- HTML from the database: `HtmlSanitizerTest` (kept formatting, dropped tags and links), `DatabaseHtmlTest` (a malicious entry in the real description pane and table), `gui.PlainTextTest` (no HTML rendering, also under Darklaf), `gui.BrowserLauncherTest` (only http and https), `DescriptionLinkTest` (the three kinds of description links, the handler, a click in the real description pane, prerequisite links)
 - Settings dialog: `ConfigViewModelTest` (Apply only when something differs from the saved settings and the paths are valid; reading the fields back as shown is no change)
 - Reloading the list: `RequirementListTest` (installed state carries over), `PackageTableSelectionTest` (selection survives, selection of the last session restored), `InstallerTest` (queue by package id)
 - Official expansions: `OfficialExpansionTest` (the list, finding the files), `OfficialExpansionRequirementTest` (installed state, messages), plus cases in `PackageDatabaseSolrJsonParserTest` and `PackageInstallUninstallServiceTest`

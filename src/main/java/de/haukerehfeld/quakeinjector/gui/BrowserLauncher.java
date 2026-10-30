@@ -19,13 +19,29 @@ along with QuakeInjector.  If not, see <http://www.gnu.org/licenses/>.
 */
 package de.haukerehfeld.quakeinjector.gui;
 
+import de.haukerehfeld.quakeinjector.guimodel.DescriptionLink;
+
 import java.awt.Desktop;
 import java.net.URI;
 
-public class BrowserLauncher {	
+/**
+ * Opens web pages in the browser. Only http and https: links come from the package database, and
+ * the operating system would open anything else (file:, ms-msdt:, search-ms:, ...) with whatever
+ * program handles it, which can run code.
+ */
+public class BrowserLauncher {
 	private static edu.stanford.ejalbert.BrowserLauncher fallback = null;
 
+	/** Whether {@link #openURL} opens the URL: an absolute http or https URL with a host. */
+	public static boolean isWebAddress(String url) {
+		return DescriptionLink.isWebAddress(url);
+	}
+
 	public static void openURL(String url) {
+		if (!isWebAddress(url)) {
+			System.err.println("Not opening " + url + ": only http and https links are opened");
+			return;
+		}
 		try {
 			Desktop.getDesktop().browse(URI.create(url));
 		} catch (Exception e) {

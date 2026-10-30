@@ -54,6 +54,10 @@ public class PackageInteractionPanelView extends JPanel implements ChangeListene
 		playButton = coloredButton("Play", PLAY_COLOR);
 		setTextIcon(playButton, "/play_icon.svg");
 		startmaps = new JComboBox<>();
+		// start map names come from the database: never as HTML
+		if (startmaps.getRenderer() instanceof JComponent renderer) {
+			PlainText.disableHtml(renderer);
+		}
 		playButton.addActionListener((e) -> vm.play(startmaps.getItemAt(startmaps.getSelectedIndex())));
 
 		uninstallButton = coloredButton(null, UNINSTALL_COLOR);

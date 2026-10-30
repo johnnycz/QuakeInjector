@@ -122,6 +122,8 @@ public class QuakeInjector {
 
 		view = new QuakeInjectorView(maplist, packageInteractionViewModel, new PackageInteractionPanelView(packageInteractionViewModel), new InstallQueuePanel(jobTrackerProvider),
 			new RecentPackagesViewModel(recentPackages, packages));
+		packageInteractionViewModel.setDescriptionLinkHandler(new DescriptionLinkHandler(dialogVm,
+			packageListViewModel::packageIdOfSha256, view::showPackage, BrowserLauncher::openURL));
 
 		setWindowSize();
 		new DialogView(dialogVm, view);

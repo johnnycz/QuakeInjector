@@ -29,6 +29,8 @@ public class ReadmeWindow extends JDialog implements ChangeListener {
 
 	public ReadmeWindow(Window owner, ReadmeViewModel vm) {
 		super(owner, "Readme - " + vm.getTitle(), ModalityType.MODELESS);
+		// file names come from the package
+		PlainText.disableHtml(fileName);
 		this.vm = vm;
 		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 

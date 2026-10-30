@@ -300,6 +300,11 @@ public class EngineSelectionDialog extends JDialog {
 
 	/** An exe file as its path in the Quake directory */
 	private class ResultRenderer extends DefaultListCellRenderer {
+		ResultRenderer() {
+			// file names in the Quake directory can come from packages
+			PlainText.disableHtml(this);
+		}
+
 		@Override
 		public Component getListCellRendererComponent(JList<?> list, Object value, int index,
 		                                              boolean isSelected, boolean cellHasFocus) {

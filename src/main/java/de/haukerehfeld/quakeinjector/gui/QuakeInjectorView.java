@@ -75,7 +75,7 @@ public class QuakeInjectorView extends JFrame {
 	 * Select the package with this id in the table and scroll to it. Clears the filter if it hides the
 	 * package. Does nothing if the package isn't in the list.
 	 */
-	private void showPackage(String packageId) {
+	public void showPackage(String packageId) {
 		int modelRow = maplist.rowIndexOf(packageId);
 		if (modelRow < 0) {
 			return;

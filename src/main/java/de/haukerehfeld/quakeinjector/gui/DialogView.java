@@ -22,11 +22,14 @@ public class DialogView implements ChangeListener {
 	public void stateChanged(ChangeEvent e) {
 		Edt.check("DialogView");
 		if (vm.errorMessage != null) {
-			JOptionPane.showMessageDialog(parentComponent, vm.errorMessage, vm.title, JOptionPane.ERROR_MESSAGE);
+			// messages can contain package ids and file names, so never as HTML
+			JOptionPane.showMessageDialog(parentComponent, PlainText.message(vm.errorMessage), vm.title,
+				JOptionPane.ERROR_MESSAGE);
 			vm.errorMessage = null;
 			vm.title = null;
 		} else if (vm.warningMessage != null) {
-			JOptionPane.showMessageDialog(parentComponent, vm.warningMessage, vm.title, JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showMessageDialog(parentComponent, PlainText.message(vm.warningMessage), vm.title,
+				JOptionPane.WARNING_MESSAGE);
 			vm.warningMessage = null;
 			vm.title = null;
 		} else if (vm.engineOutput != null) {
@@ -37,7 +40,7 @@ public class DialogView implements ChangeListener {
 			vm.engineOutput = null;
 		} else if (vm.options != null) {
 			vm.selectedOption = JOptionPane.showOptionDialog(parentComponent,
-					vm.optionsMessage,
+					PlainText.message(vm.optionsMessage),
 					vm.title,
 					JOptionPane.DEFAULT_OPTION,
 					JOptionPane.QUESTION_MESSAGE,
