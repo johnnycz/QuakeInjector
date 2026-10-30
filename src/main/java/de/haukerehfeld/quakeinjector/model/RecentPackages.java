@@ -59,6 +59,19 @@ public class RecentPackages {
 		return fromSetting(setting, MAX_SIZE);
 	}
 
+	/**
+	 * The list saved in {@code setting}, which then follows every change (an empty list removes it).
+	 * Only the value changes; the settings are written to disk elsewhere, e.g. when the app closes.
+	 */
+	public static RecentPackages boundTo(Configuration.RecentPackagesSetting setting) {
+		RecentPackages recent = fromSetting(setting.get());
+		recent.addChangeListener(e -> {
+			String value = recent.toSetting();
+			setting.set(value.isEmpty() ? null : value);
+		});
+		return recent;
+	}
+
 	/** The ids, newest first, separated by commas; empty if the list is. */
 	public String toSetting() {
 		return String.join(SEPARATOR, ids);

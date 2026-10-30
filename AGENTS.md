@@ -24,13 +24,12 @@ This file provides guidance to coding agents (Claude Code, Codex, etc.) when wor
 
 ## Project Architecture
 
-QuakeInjector is a Swing-based desktop application that allows users to discover, download, and install Quake singleplayer maps from the Quaddicted archive. The codebase is undergoing a major refactoring from a monolithic architecture towards a cleaner MVC/ViewModel pattern.
+QuakeInjector is a Swing-based desktop application that allows users to discover, download, and install Quake singleplayer maps from the Quaddicted archive. It follows an MVC/ViewModel structure: views in `gui`, view models in `guimodel`, the domain in `model` and the workflows in `feature.*`.
 
 ### Core Package Structure
 
 - **`gui/`** — Swing UI components (windows, dialogs, panels, tables)
   - No business logic; solely responsible for rendering and user input
-  - Currently being refactored to reduce direct model references
   - Text from the package database or a package (titles, ids, authors, start maps, file names, dialog messages) is never shown as HTML: Swing renders text starting with `<html>` in labels, buttons, menus, table cells and dialogs, and its HTML view loads images (a `file://server/share` image leaks the Windows password hash). Use `PlainText` (`label`, `menuItem`, `checkBox`, `message` for `JOptionPane`, `disableHtml` for renderers; the switch must be on before the text is set). The description pane gets HTML only through `PackageInteractionViewModel.getDescription`, cleaned by `utils.HtmlSanitizer`; HTML built in the views escapes database text with `HtmlSanitizer.escape`
   - `BrowserLauncher.openURL` opens only http and https URLs (`isWebAddress`); the OS would run anything else (`file:`, `ms-msdt:`, ...) with its program
   - Links in the description go to `PackageInteractionViewModel.openDescriptionLink` (the href as written) and from there to `guimodel.DescriptionLinkHandler`, set by `QuakeInjector`. `guimodel.DescriptionLink` sorts them: a package's SHA-256 (64 hex digits, the database's links to other packages; prerequisites link the same way) selects it (`PackageListViewModel.packageIdOfSha256`, `QuakeInjectorView.showPackage`); an absolute http or https address opens in the browser after the user agreed in a dialog; anything else (other schemes, other relative links) is logged as an error and not opened
@@ -38,7 +37,6 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
 - **`guimodel/`** — ViewModel classes that bridge UI and business logic
   - `PackageListViewModel`, `PackageInteractionViewModel`, `ConfigViewModel`, etc.
   - Encapsulates state and logic needed by the GUI views
-  - Being expanded as part of current refactoring to improve GUI decoupling
 
 - **`model/`** — Core data models and business logic
   - `Package`, `Requirement`, `Configuration`, `InstalledPackages`
@@ -47,7 +45,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
   - `OfficialExpansion` — the hardcoded list of official expansions (hipnotic, rogue, mg1, mg3), which the package database can't install. A prerequisite on the list becomes an `OfficialExpansionRequirement` (made by the parsers), which is installed when `<Quake dir>/<id>/pak0.pak` exists (any case), checked on every `isInstalled()`; the installed packages list has no say. `MissingPrerequisites` names them in full in the Install/Play dialogs
   - `JobTracker` — one row in the install queue panel, which shows all background work (installs, uninstalls, loading the database, "Check for installed maps"); there are no progress popups: `setProgress` (0..100 or `UNKNOWN_PROGRESS`, shown as a busy bar), `finish`; call it on the EDT
   - `PackageUrls` — a package's web page and screenshot address on Quaddicted, by its SHA-256 under the addresses in the settings (null without a SHA-256); `QuakeInjector`'s `CommandRouter` opens the page and shows an error if the setting makes no valid address
-  - `RecentPackages` — the ids of the packages installed or played most recently, newest first, at most `MAX_SIZE` (10). A successful install of the package the user picked (not a prerequisite installed along with it) and a started engine (`PackageLauncher`) move it to the top; an uninstall takes it off. Saved in the settings (`recentPackages`, comma-separated) when the app closes. Shown in the Recent menu (`gui.RecentMenu`, next to File) through `guimodel.RecentPackagesViewModel`, which leaves out ids not in the loaded package list and numbers the items 1-9, 0; clicking one selects it in the table (`QuakeInjectorView.showPackage`, clearing the filter if it hides the package)
+  - `RecentPackages` — the ids of the packages installed or played most recently, newest first, at most `MAX_SIZE` (10). A successful install of the package the user picked (not a prerequisite installed along with it) and a started engine (`PackageLauncher`) move it to the top; an uninstall takes it off. Kept in the settings (`recentPackages`, comma-separated) through `RecentPackages.boundTo`, which are written when the app closes. Shown in the Recent menu (`gui.RecentMenu`, next to File) through `guimodel.RecentPackagesViewModel`, which leaves out ids not in the loaded package list and numbers the items 1-9, 0; clicking one selects it in the table (`QuakeInjectorView.showPackage`, clearing the filter if it hides the package)
   - Back / Forward history (in `guimodel.PackageHistoryViewModel`, this session only, at most `MAX_SIZE` (100) entries): works like a web browser. A selected package is recorded once it stayed selected for a second (`gui.HistoryNavigation`'s timer calls `settle`), so rows passed with the arrow keys are not; Back/Forward record a pending package first, and a new package drops the Forward entries. Ids not in the loaded list are skipped. The buttons left of the filter (Refresh next to them reloads the database), Alt+Left/Right and the mouse side buttons (4/5) go through `QuakeInjectorView.showPackage`; the buttons are disabled when there is nothing to go to
 
 - **`feature/`** — Feature-specific implementations organized by user-facing workflows
@@ -82,7 +80,7 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
 
 ### Architectural Constraints
 
-**Separation of Concerns (Current Goal)**
+**Separation of Concerns**
 - `gui/` must not import from `model/` directly; communication flows through `guimodel/`
 - `feature/*` packages should not depend on `gui/` or `guimodel/`
 - `feature/*`, `model/` and `utils/` must not use Swing or AWT; only `gui/` and the main class `QuakeInjector` may
@@ -110,16 +108,6 @@ QuakeInjector is a Swing-based desktop application that allows users to discover
 **Immutability**
 - `Package`, `Requirement`, and other model objects are immutable (or should be treated as such)
 - Listeners are used for change notification rather than in-place mutations
-
-## Recent Refactoring Context
-
-The branch `refactor_mvc_interaction_viewmodel` is actively working to:
-1. Decouple the GUI from model classes by introducing/expanding ViewModels
-2. Improve test isolation via architecture tests
-3. Reduce SwingWorker dependencies in favor of cleaner async patterns (done: only `QuakeInjector`'s config loading still uses it)
-4. Ensure all cross-layer communication flows through ViewModel objects
-
-When touching GUI-related code, prefer adding/expanding ViewModel classes over letting the GUI reference models directly.
 
 ## Testing Patterns
 

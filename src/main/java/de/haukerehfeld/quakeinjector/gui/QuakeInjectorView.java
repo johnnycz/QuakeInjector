@@ -39,7 +39,6 @@ public class QuakeInjectorView extends JFrame {
 	private final PackageInteractionViewModel packageVm;
 	private PackageTable packageTable;
 	private JTextField filter;
-	private final List<ActionListener> showEngineConfigListeners = new ArrayList<>();
 	private final JButton refreshButton = iconButton("/refresh.svg", "Reload database");
 	private final HistoryNavigation history;
 	private final AWTEventListener historyMouseListener;
@@ -270,58 +269,6 @@ public class QuakeInjectorView extends JFrame {
 		} else {
 			throw new java.io.IOException("Couldn't find file: " + path);
 		}
-	}
-
-	/*
-
-	make separate usecase for all this?
-	 - should get its own vm
-	 - should get the classic dialog provider
-	 - and reference to the config
-	 - is it its own feature?
-
-	this should be the vm of the engine config dialog:
-			                     getConfig().EnginePath,
-		                             getConfig().EngineExecutable,
-		                             getConfig().WorkingDirAtExecutable,
-		                             getConfig().DownloadPath,
-		                             getConfig().EngineCommandLine,
-				             getConfig().uiTheme
-	- this use case would then be also passed to other use cases so that they can execute it
-	*/
-	/**
-	 * @return false if the user didn't open the config dialog
-	 */
-	public boolean enginePathNotSetDialogue() {
-		String msg = "Quake directory is not set correctly.\n"
-				+ "It needs to be set before trying to install (or play).";
-
-		Object[] options = {"Open Settings",
-				"Cancel"};
-		int openEngineConfig =
-				JOptionPane.showOptionDialog(null,
-						msg,
-						"Quake directory incorrect",
-						JOptionPane.YES_NO_OPTION,
-						JOptionPane.ERROR_MESSAGE,
-						null,
-						options,
-						options[0]);
-		//button for engine config pressed
-		if (openEngineConfig == 0) {
-			//wait until maps are finished loading
-			for (ActionListener listener : showEngineConfigListeners) {
-				listener.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "showEngineConfig"));
-			}
-			return true;
-		}
-		else {
-			return false;
-		}
-	}
-
-	public void addShowEngineConfigListener(ActionListener listener) {
-		showEngineConfigListeners.add(listener);
 	}
 
 	/**

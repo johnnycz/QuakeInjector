@@ -1,8 +1,11 @@
 package de.haukerehfeld.quakeinjector;
 
+import de.haukerehfeld.quakeinjector.model.Configuration;
 import de.haukerehfeld.quakeinjector.model.RecentPackages;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -281,5 +284,42 @@ public class RecentPackagesTest {
 		read.add("c");
 
 		assertEquals(List.of("c", "a"), read.ids());
+	}
+
+	// --- bound to the settings ---
+
+	private Configuration config(Path tmp) {
+		return new Configuration(tmp.resolve("config.properties").toFile());
+	}
+
+	@Test
+	public void aBoundListStartsWithTheSetting(@TempDir Path tmp) {
+		Configuration config = config(tmp);
+		config.RecentPackages.set("a,b");
+
+		assertEquals(List.of("a", "b"), RecentPackages.boundTo(config.RecentPackages).ids());
+	}
+
+	@Test
+	public void aBoundListUpdatesTheSetting(@TempDir Path tmp) {
+		Configuration config = config(tmp);
+		RecentPackages recent = RecentPackages.boundTo(config.RecentPackages);
+
+		recent.add("a");
+		recent.add("b");
+
+		assertEquals("b,a", config.RecentPackages.get());
+	}
+
+	@Test
+	public void anEmptyBoundListRemovesTheSetting(@TempDir Path tmp) {
+		Configuration config = config(tmp);
+		config.RecentPackages.set("a");
+		RecentPackages recent = RecentPackages.boundTo(config.RecentPackages);
+
+		recent.remove("a");
+
+		assertNull(config.RecentPackages.get());
+		assertFalse(config.RecentPackages.exists());
 	}
 }

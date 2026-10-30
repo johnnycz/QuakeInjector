@@ -30,7 +30,6 @@ import de.haukerehfeld.quakeinjector.guimodel.*;
 import de.haukerehfeld.quakeinjector.model.*;
 import de.haukerehfeld.quakeinjector.model.Package;
 import de.haukerehfeld.quakeinjector.utils.BuildCommit;
-import de.haukerehfeld.quakeinjector.utils.RuntimeExecutionException;
 
 import javax.swing.*;
 import java.awt.*;
@@ -39,8 +38,6 @@ import java.awt.event.WindowEvent;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 public class QuakeInjector {
 
@@ -66,31 +63,10 @@ public class QuakeInjector {
 
 	public QuakeInjector() {
 
-		//load config
-		final Future<Configuration> config = new SwingWorker<Configuration,Void>() {
-			@Override public Configuration doInBackground() { return new Configuration(configFile); }
-		};
-		((SwingWorker<?,?>) config).execute();
-		Configuration cfg = null;
-		try {
-			cfg = config.get();
-		}
-		catch (ExecutionException e) {
-			System.err.println("Couldn't load config: " + e.getCause());
-			e.getCause().printStackTrace();
-		}
-		catch (InterruptedException e) {
-			System.err.println("Interrupted: " + e);
-		}
-		this.config = cfg;
-		packageUrls = new PackageUrls(getConfig());
-
-		// kept in the settings, which are written when the app closes
-		recentPackages = RecentPackages.fromSetting(getConfig().RecentPackages.get());
-		recentPackages.addChangeListener(e -> {
-			String setting = recentPackages.toSetting();
-			getConfig().RecentPackages.set(setting.isEmpty() ? null : setting);
-		});
+		// a missing or unreadable file gives the defaults
+		config = new Configuration(configFile);
+		packageUrls = new PackageUrls(config);
+		recentPackages = RecentPackages.boundTo(config.RecentPackages);
 
 
 		this.router = new CommandRouter();
@@ -102,19 +78,19 @@ public class QuakeInjector {
 		// TODO clean this up
 		// initialize model, then view model, then view
 
-		var readmeService = new ReadmeService(() -> getConfig().EnginePath.get(), javax.swing.SwingUtilities::invokeLater);
+		var readmeService = new ReadmeService(() -> config.EnginePath.get(), javax.swing.SwingUtilities::invokeLater);
 		packageInteractionViewModel = new PackageInteractionViewModel(router, readmeService);
 		packageListViewModel = new PackageListViewModel(packageInteractionViewModel);
 		packageListViewModel.setMapList(packages);
 		maplist = new PackageTableModel(packageListViewModel, packageInteractionViewModel);
 		var jobTrackerProvider = new InstallQueueViewModel();
-		var configViewModel = new ConfigViewModel(router, getConfig(),
+		var configViewModel = new ConfigViewModel(router, config,
 			code -> DarkLafUIThemeOption.getByCodeOrDefault(code).getCode());
 		var dialogVm = new DialogViewModel(configViewModel);
 		this.dialogProvider = dialogVm;
 		this.installUninstallService = new PackageInstallUninstallService(jobTrackerProvider, dialogVm, recentPackages);
 		// the installed maps file is read once the first package list is there; installer exists by then
-		this.packageDatabaseService = new PackageDatabaseService(getConfig(), maps, jobTrackerProvider, dialogVm,
+		this.packageDatabaseService = new PackageDatabaseService(config, maps, jobTrackerProvider, dialogVm,
 			installUninstallService::loadInstalledStatus, javax.swing.SwingUtilities::invokeLater);
 
 		view = new QuakeInjectorView(maplist, packageInteractionViewModel, new PackageInteractionPanelView(packageInteractionViewModel), new InstallQueuePanel(jobTrackerProvider),
@@ -182,14 +158,14 @@ public class QuakeInjector {
 	}
 
 	private void loadTheme() {
-		DarkLafUIThemeOption.getByCodeOrDefault(getConfig().uiTheme.get()).init();
+		DarkLafUIThemeOption.getByCodeOrDefault(config.uiTheme.get()).init();
 	}
 
 	/**
 	 * Try setting the saved window size and position
 	 */
 	private void setWindowSize() {
-		Configuration c = getConfig();
+		Configuration c = config;
 
 		if (c.MainWindowWidth.exists() && c.MainWindowHeight.exists()) {
 			int width = c.MainWindowWidth.get();
@@ -221,8 +197,6 @@ public class QuakeInjector {
 
 		addMenuActionListeners();
 
-		view.addShowEngineConfigListener((e) -> showEngineConfig());
-
 		// downloads the package database again
 		view.addRefreshListener((e) -> packageDatabaseService.download());
 	}
@@ -244,7 +218,7 @@ public class QuakeInjector {
 	 */
 	private void init() {
 		// first: once the database is loaded, the installed maps file is read on the installer's disk thread
-		installer = new Installer(getConfig().EnginePath, getConfig().DownloadPath,
+		installer = new Installer(config.EnginePath, config.DownloadPath,
 			javax.swing.SwingUtilities::invokeLater);
 		// refresh the Install button whenever an install starts or ends (also after a failure)
 		installer.addQueueListener(packageInteractionViewModel);
@@ -255,18 +229,18 @@ public class QuakeInjector {
 	    );
 
 		// select the package of the last session again once the list is there
-		if (getConfig().SelectedPackage.exists()) {
-			packageListViewModel.restoreSelection(getConfig().SelectedPackage.get());
+		if (config.SelectedPackage.exists()) {
+			packageListViewModel.restoreSelection(config.SelectedPackage.get());
 		}
 		packageDatabaseService.loadCachedThenDownload();
 
-		engineStarter = EngineStarter.fromConfig(getConfig());
+		engineStarter = EngineStarter.fromConfig(config);
 		packageLauncher = new PackageLauncher(this.dialogProvider, engineStarter, recentPackages);
 
 		if (!installer.checkInstallDirectory()) {
-			// Engine path not set - show config dialog
+			// Quake directory not set: offer the settings dialog
 			// Database will load asynchronously in the background
-			view.enginePathNotSetDialogue();
+			dialogProvider.askAndshowEngineConfigWindow();
 		}
 	}
 
@@ -281,26 +255,19 @@ public class QuakeInjector {
 	}
 
 	private void applyAndPersistConfig() {
-		engineStarter.applyConfig(getConfig());
+		engineStarter.applyConfig(config);
 		saveConfig();
 	}
 
 	private void saveConfig() {
 		try {
-			getConfig().writeOrMakeWritable();
+			config.writeOrMakeWritable();
 		}
 		catch (IOException e) {
 			savingFailedDialogue(e);
 		}
 	}
 
-
-	private Configuration getConfig() {
-		if (config == null) {
-			throw new RuntimeException("Config not initialised!");
-		}
-		return config;
-	}
 
 
 
@@ -331,8 +298,8 @@ public class QuakeInjector {
 
 	private void display() {
 		view.display();
-		if (getConfig().MainWindowState.exists()) {
-			int state = getConfig().MainWindowState.get();
+		if (config.MainWindowState.exists()) {
+			int state = config.MainWindowState.get();
 			view.setExtendedState(state);
 			System.out.println("Setting window state: " + state);
 		}
@@ -370,7 +337,6 @@ public class QuakeInjector {
 		@Override
 		public void windowClosed(WindowEvent e)
 		{
-			Configuration config = getConfig();
 			Rectangle bounds = view.getBounds();
 			config.MainWindowPositionX.set((int) bounds.getX());
 			config.MainWindowPositionY.set((int) bounds.getY());
